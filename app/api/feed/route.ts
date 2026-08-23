@@ -20,6 +20,10 @@ export async function GET() {
     (grouped[postId] ||= []).push(comment);
     return grouped;
   }, {});
-  const postsWithComments = posts.results.map((post) => ({ ...post, comments: commentsByPost[String(post.id)] || [] }));
+  const postsWithComments = posts.results.map((post) => {
+    const source = String(post.imageKey ?? post.imageUrl ?? "");
+    const mediaType = post.mediaType === "video" || /\.(mp4|webm|mov)(?:$|\?)/i.test(source) ? "video" : "image";
+    return { ...post, mediaType, comments: commentsByPost[String(post.id)] || [] };
+  });
   return NextResponse.json({ posts: postsWithComments, stories: stories.results, profile, activities: activities.results });
 }

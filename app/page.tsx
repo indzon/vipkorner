@@ -20,7 +20,6 @@ import {
   SlidersHorizontal,
   Sparkles,
   Trash2,
-  Upload,
   UserRound,
   Video,
   X,
@@ -86,6 +85,10 @@ function profileImage(profile: Profile) {
 
 function imageSource(item: { imageKey: string | null; imageUrl: string | null }) {
   return item.imageKey ? `/api/media?key=${encodeURIComponent(item.imageKey)}` : item.imageUrl || "";
+}
+
+function isVideoFile(file: File) {
+  return file.type.startsWith("video/") || /\.(mp4|webm|mov)$/i.test(file.name);
 }
 
 function timeAgo(timestamp: number) {
@@ -202,16 +205,6 @@ export default function HomePage() {
     setPosts((current) => current.map((post) => post.id === postId ? { ...post, caption: data.caption || caption } : post));
   }
 
-  async function replaceMedia(postId: string, file: File) {
-    const body = new FormData();
-    body.set("id", postId);
-    body.set("image", file);
-    const response = await fetch("/api/posts", { method: "PUT", body });
-    const data = await response.json() as Partial<Post> & { error?: string };
-    if (!response.ok) throw new Error(data.error || "Could not replace media.");
-    setPosts((current) => current.map((post) => post.id === postId ? { ...post, ...data } : post));
-  }
-
   async function deletePost(postId: string) {
     const response = await fetch(`/api/posts?id=${encodeURIComponent(postId)}`, { method: "DELETE" });
     const data = await response.json() as { error?: string };
@@ -294,7 +287,7 @@ export default function HomePage() {
       {profilePanel === "edit" && <EditProfileModal profile={profile} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Profile updated."); }} />}
       {profilePanel === "settings" && <SettingsModal profile={profile} installPrompt={installPrompt} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Settings saved."); }} />}
       {profilePanel === "activity" && <ActivityModal activities={activities} posts={posts} onClose={() => setProfilePanel(null)} />}
-      {activePost && <MediaViewer post={activePost} profile={profile} onClose={() => setActivePostId(null)} onCaptionUpdate={updateCaption} onReplaceMedia={replaceMedia} onDelete={deletePost} />}
+      {activePost && <MediaViewer post={activePost} profile={profile} onClose={() => setActivePostId(null)} onCaptionUpdate={updateCaption} onDelete={deletePost} />}
       {toast && <div className="toast" role="status"><Check size={17} /> {toast}</div>}
     </main>
   );
@@ -382,8 +375,8 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
 
   function selectFile(nextFile: File | null) {
     if (!nextFile) return;
-    const validImage = nextFile.type.startsWith("image/");
-    const validVideo = nextFile.type.startsWith("video/");
+    const validVideo = isVideoFile(nextFile);
+    const validImage = !validVideo && (nextFile.type.startsWith("image/") || /\.(jpe?g|png|webp|gif)$/i.test(nextFile.name));
     if (!validImage && !validVideo) { setError("Drop a photo or video file."); return; }
     if (validImage && nextFile.size > 10 * 1024 * 1024) { setError("Photos must be under 10 MB."); return; }
     if (validVideo && nextFile.size > 50 * 1024 * 1024) { setError("Videos must be under 50 MB."); return; }
@@ -420,7 +413,7 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
         <header><button type="button" className="icon-button composer-close" onClick={onClose} aria-label="Close"><X /></button><div><span>CREATE</span><h2>New {type}</h2></div><button className="share-button" disabled={!file || busy}>{busy ? "Sharing…" : "Share"}</button></header>
         <input ref={inputRef} className="file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" onChange={(event) => selectFile(event.target.files?.[0] || null)} />
         {preview ? (
-          <button type="button" className={`preview-frame ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop} onClick={() => inputRef.current?.click()}>{file?.type.startsWith("video/") ? <video src={preview} muted playsInline aria-label="Selected video preview" /> : <img src={preview} alt="Selected preview" />}<span>Change {file?.type.startsWith("video/") ? "video" : "photo"}</span></button>
+          <button type="button" className={`preview-frame ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop} onClick={() => inputRef.current?.click()}>{file && isVideoFile(file) ? <video src={preview} muted playsInline aria-label="Selected video preview" /> : <img src={preview} alt="Selected preview" />}<span>Change {file && isVideoFile(file) ? "video" : "photo"}</span></button>
         ) : (
           <button type="button" className={`upload-drop ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop} onClick={() => inputRef.current?.click()}><span><Video /></span><h3>{dragActive ? "Drop it here" : "Choose or drop a photo or video"}</h3><p>Photos up to 10 MB · MP4, WebM or MOV up to 50 MB</p><b>Select from device</b></button>
         )}
@@ -499,13 +492,12 @@ function ProfileView({ posts, profile, onCreate, onEdit, onSettings, onActivity,
   );
 }
 
-function MediaViewer({ post, profile, onClose, onCaptionUpdate, onReplaceMedia, onDelete }: { post: Post; profile: Profile; onClose: () => void; onCaptionUpdate: (postId: string, caption: string) => Promise<void>; onReplaceMedia: (postId: string, file: File) => Promise<void>; onDelete: (postId: string) => Promise<void> }) {
+function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete }: { post: Post; profile: Profile; onClose: () => void; onCaptionUpdate: (postId: string, caption: string) => Promise<void>; onDelete: (postId: string) => Promise<void> }) {
   const [caption, setCaption] = useState(post.caption);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -520,14 +512,6 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onReplaceMedia, 
     finally { setBusy(false); }
   }
 
-  async function replace(file: File | null) {
-    if (!file) return;
-    setBusy(true); setError("");
-    try { await onReplaceMedia(post.id, file); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not replace media."); }
-    finally { setBusy(false); }
-  }
-
   async function remove() {
     setBusy(true); setError("");
     try { await onDelete(post.id); }
@@ -538,12 +522,12 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onReplaceMedia, 
     <div className="media-viewer" role="dialog" aria-modal="true" aria-label="Post media viewer" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <button className="media-viewer-close" onClick={onClose} aria-label="Close full-screen media"><X /></button>
       <section className="media-viewer-card">
-        <div className="media-viewer-stage">{post.mediaType === "video" ? <video ref={videoRef} src={imageSource(post)} autoPlay muted controls playsInline preload="auto" /> : <img src={imageSource(post)} alt={post.caption} />}</div>
+        <div className="media-viewer-stage">{post.mediaType === "video" ? <video ref={videoRef} key={`${post.id}-${post.imageKey || post.imageUrl}`} src={imageSource(post)} autoPlay muted controls playsInline preload="auto" onCanPlay={(event) => event.currentTarget.play().catch(() => undefined)} /> : <img src={imageSource(post)} alt={post.caption} />}</div>
         <aside className="media-viewer-details">
           <header><img src={profileImage(profile)} alt="" /><div><strong>{profile.username}</strong><span>{profile.location}</span></div></header>
           {editing ? <form className="viewer-caption-form" onSubmit={saveCaption}><label htmlFor="viewer-caption">Edit caption</label><textarea id="viewer-caption" autoFocus value={caption} onChange={(event) => setCaption(event.target.value.slice(0, 500))} rows={6} /><small>{caption.length}/500</small><div><button type="button" onClick={() => { setCaption(post.caption); setEditing(false); }}>Cancel</button><button disabled={busy || !caption.trim()}>{busy ? "Saving…" : "Save caption"}</button></div></form> : <div className="viewer-caption"><p><b>{profile.username}</b> {post.caption}</p><time>{relativeTime(post.createdAt)}</time></div>}
           <div className="viewer-stats"><span><Heart fill={post.liked ? "currentColor" : "none"} /> {post.likes.toLocaleString()} likes</span><span><MessageCircle /> {post.comments.length} comments</span></div>
-          <div className="viewer-actions"><button onClick={() => setEditing(true)}>Edit caption</button><input ref={fileInputRef} className="file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" onChange={(event) => replace(event.target.files?.[0] || null)} /><button onClick={() => fileInputRef.current?.click()} disabled={busy}><Upload /> Replace media</button>{confirmDelete ? <div className="delete-confirm"><p>Delete this post permanently?</p><button onClick={() => setConfirmDelete(false)}>Cancel</button><button onClick={remove} disabled={busy}>{busy ? "Deleting…" : "Yes, delete"}</button></div> : <button className="danger" onClick={() => setConfirmDelete(true)}><Trash2 /> Delete post</button>}</div>
+          <div className="viewer-actions"><button onClick={() => setEditing(true)}>Edit caption</button>{confirmDelete ? <div className="delete-confirm"><p>Delete this post permanently?</p><button onClick={() => setConfirmDelete(false)}>Cancel</button><button onClick={remove} disabled={busy}>{busy ? "Deleting…" : "Yes, delete"}</button></div> : <button className="danger" onClick={() => setConfirmDelete(true)}><Trash2 /> Delete post</button>}</div>
           {error && <p className="viewer-error">{error}</p>}
         </aside>
       </section>
