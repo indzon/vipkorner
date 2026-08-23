@@ -8,6 +8,13 @@
       "when": 1787518788941,
       "tag": "0000_skinny_slayback",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787519470841,
+      "tag": "0001_lying_silver_samurai",
+      "breakpoints": true
     }
   ]
 }

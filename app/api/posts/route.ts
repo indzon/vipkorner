@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { bindings, ensureSchema } from "@/db/storage";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 
 export async function POST(request: Request) {
   await ensureSchema();
@@ -9,11 +10,13 @@ export async function POST(request: Request) {
   const image = form.get("image");
   const caption = String(form.get("caption") ?? "").trim();
 
-  if (!(image instanceof File) || !image.type.startsWith("image/")) {
-    return NextResponse.json({ error: "Choose an image to share." }, { status: 400 });
+  const isImage = image instanceof File && image.type.startsWith("image/");
+  const isVideo = image instanceof File && image.type.startsWith("video/");
+  if (!(image instanceof File) || (!isImage && !isVideo)) {
+    return NextResponse.json({ error: "Choose a photo or video to share." }, { status: 400 });
   }
-  if (image.size > MAX_IMAGE_SIZE) {
-    return NextResponse.json({ error: "Images must be under 10 MB." }, { status: 400 });
+  if ((isImage && image.size > MAX_IMAGE_SIZE) || (isVideo && image.size > MAX_VIDEO_SIZE)) {
+    return NextResponse.json({ error: isVideo ? "Videos must be under 50 MB." : "Images must be under 10 MB." }, { status: 400 });
   }
 
   const { DB, MEDIA } = bindings();
@@ -21,11 +24,12 @@ export async function POST(request: Request) {
   const key = `${id}.${image.type.split("/")[1]?.replace("jpeg", "jpg") || "jpg"}`;
   const createdAt = Date.now();
   await MEDIA.put(key, image.stream(), { httpMetadata: { contentType: image.type } });
-  await DB.prepare("INSERT INTO posts (id, caption, image_key, likes, created_at) VALUES (?, ?, ?, 0, ?)")
-    .bind(id, caption || "A new moment.", key, createdAt)
+  const mediaType = isVideo ? "video" : "image";
+  await DB.prepare("INSERT INTO posts (id, caption, image_key, media_type, likes, created_at) VALUES (?, ?, ?, ?, 0, ?)")
+    .bind(id, caption || "A new moment.", key, mediaType, createdAt)
     .run();
 
-  return NextResponse.json({ id, caption: caption || "A new moment.", imageKey: key, imageUrl: null, likes: 0, liked: 0, saved: 0, createdAt }, { status: 201 });
+  return NextResponse.json({ id, caption: caption || "A new moment.", imageKey: key, imageUrl: null, mediaType, likes: 0, liked: 0, saved: 0, createdAt }, { status: 201 });
 }
 
 export async function PATCH(request: Request) {
