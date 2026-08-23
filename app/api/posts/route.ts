@@ -59,3 +59,50 @@ export async function PATCH(request: Request) {
   const post = await DB.prepare("SELECT caption, likes, liked, saved FROM posts WHERE id = ?").bind(id).first();
   return NextResponse.json(post);
 }
+
+export async function PUT(request: Request) {
+  await ensureSchema();
+  const form = await request.formData();
+  const id = String(form.get("id") ?? "");
+  const media = form.get("image");
+  const isImage = media instanceof File && media.type.startsWith("image/");
+  const isVideo = media instanceof File && media.type.startsWith("video/");
+
+  if (!id || !(media instanceof File) || (!isImage && !isVideo)) {
+    return NextResponse.json({ error: "Choose a photo or video to replace this media." }, { status: 400 });
+  }
+  if ((isImage && media.size > MAX_IMAGE_SIZE) || (isVideo && media.size > MAX_VIDEO_SIZE)) {
+    return NextResponse.json({ error: isVideo ? "Videos must be under 50 MB." : "Images must be under 10 MB." }, { status: 400 });
+  }
+
+  const { DB, MEDIA } = bindings();
+  const current = await DB.prepare("SELECT image_key AS imageKey FROM posts WHERE id = ?").bind(id).first<{ imageKey: string | null }>();
+  if (!current) return NextResponse.json({ error: "Post not found." }, { status: 404 });
+
+  const extension = media.type.split("/")[1]?.replace("jpeg", "jpg").replace("quicktime", "mov") || "bin";
+  const key = `${id}-${crypto.randomUUID()}.${extension}`;
+  const mediaType = isVideo ? "video" : "image";
+  await MEDIA.put(key, media.stream(), { httpMetadata: { contentType: media.type } });
+  await DB.prepare("UPDATE posts SET image_key = ?, image_url = NULL, media_type = ? WHERE id = ?").bind(key, mediaType, id).run();
+  if (current.imageKey && current.imageKey !== key) await MEDIA.delete(current.imageKey);
+
+  return NextResponse.json({ id, imageKey: key, imageUrl: null, mediaType });
+}
+
+export async function DELETE(request: Request) {
+  await ensureSchema();
+  const id = new URL(request.url).searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Post id is required." }, { status: 400 });
+
+  const { DB, MEDIA } = bindings();
+  const post = await DB.prepare("SELECT image_key AS imageKey FROM posts WHERE id = ?").bind(id).first<{ imageKey: string | null }>();
+  if (!post) return NextResponse.json({ error: "Post not found." }, { status: 404 });
+
+  await DB.batch([
+    DB.prepare("DELETE FROM comments WHERE post_id = ?").bind(id),
+    DB.prepare("DELETE FROM activities WHERE post_id = ?").bind(id),
+    DB.prepare("DELETE FROM posts WHERE id = ?").bind(id),
+  ]);
+  if (post.imageKey) await MEDIA.delete(post.imageKey);
+  return NextResponse.json({ deleted: true });
+}

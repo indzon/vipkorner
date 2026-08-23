@@ -58,6 +58,10 @@ export async function ensureSchema() {
       message TEXT NOT NULL,
       created_at INTEGER NOT NULL
     )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS comments_post_idx ON comments (post_id, created_at)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS activities_created_idx ON activities (created_at DESC)"),
   ]);
@@ -89,6 +93,10 @@ export async function ensureSchema() {
 export async function seedDemoContent() {
   const { DB } = bindings();
   const now = Date.now();
+  await DB.prepare("DELETE FROM stories WHERE expires_at <= ?").bind(now).run();
+  const seeded = await DB.prepare("SELECT value FROM app_meta WHERE key = 'content_seeded'").first();
+  if (seeded) return;
+
   const count = await DB.prepare("SELECT COUNT(*) AS total FROM posts").first<{ total: number }>();
 
   if (!count?.total) {
@@ -102,7 +110,6 @@ export async function seedDemoContent() {
     ]);
   }
 
-  await DB.prepare("DELETE FROM stories WHERE expires_at <= ?").bind(now).run();
   const activeStories = await DB.prepare("SELECT COUNT(*) AS total FROM stories").first<{ total: number }>();
   if (!activeStories?.total) {
     await DB.batch([
@@ -112,4 +119,5 @@ export async function seedDemoContent() {
         .bind(`city-${now}`, "https://images.unsplash.com/photo-1514924013411-cbf25faa35bb?auto=format&fit=crop&w=1000&q=88", now - 3 * 60 * 60 * 1000, now + 21 * 60 * 60 * 1000),
     ]);
   }
+  await DB.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('content_seeded', ?)").bind(String(now)).run();
 }

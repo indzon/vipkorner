@@ -27,6 +27,7 @@ interface R2ObjectBody {
 interface R2Bucket {
   put(key: string, value: ReadableStream | ArrayBuffer | Blob, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
   get(key: string): Promise<R2ObjectBody | null>;
+  delete(key: string): Promise<void>;
 }
 
 declare module "cloudflare:workers" {
