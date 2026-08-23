@@ -43,8 +43,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .story-item { flex: 0 0 67px; display: flex; flex-direction: column; align-items: center; gap: 7px; border: 0; padding: 0; background: transparent; font-size: 11px; cursor: pointer; }
 .story-ring { position: relative; width: 66px; height: 66px; padding: 3px; border-radius: 50%; background: white; box-shadow: 0 5px 20px rgba(62,45,31,.09); }
 .story-ring.active-story { background: conic-gradient(from -40deg, #ffb267, var(--accent), var(--plum), #ffb267); }
-.story-ring img { width: 100%; height: 100%; border: 2px solid white; border-radius: 50%; object-fit: cover; display: block; }
+.story-ring img, .story-ring video { width: 100%; height: 100%; border: 2px solid white; border-radius: 50%; object-fit: cover; display: block; }
 .story-ring i { position: absolute; right: -1px; bottom: 1px; width: 21px; height: 21px; display: grid; place-items: center; color: white; background: var(--accent); border: 2px solid var(--cream); border-radius: 50%; font-style: normal; }
+.story-ring .story-video-badge { top: 1px; right: -1px; bottom: auto; background: rgba(35,29,29,.78); }
+.story-video-badge svg { width: 10px; }
 .feed-title { display: flex; align-items: end; justify-content: space-between; margin: 21px 2px 18px; }
 .feed-title h1 { margin: 2px 0 0; font-family: Georgia, serif; font-weight: 500; font-size: clamp(25px, 3vw, 32px); letter-spacing: -.8px; }
 .eyebrow { color: var(--accent); font-size: 10px; font-weight: 750; letter-spacing: 1.8px; }
@@ -143,6 +145,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .caption-field img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
 .caption-field textarea { border: 0; background: transparent; resize: none; outline: none; font-size: 13px; padding: 8px 0; }
 .caption-field small { position: absolute; bottom: 12px; right: 25px; color: #aaa29c; font-size: 9px; }
+.story-caption-field { padding-bottom: 20px; border-top: 1px solid var(--line); padding-top: 11px; margin-top: -8px; }
+.story-caption-field small { bottom: 8px; }
 .expiry-note { display: flex; gap: 13px; align-items: center; margin: 0 25px 25px; border: 1px solid var(--line); border-radius: 13px; padding: 13px; }
 .expiry-note > span { width: 40px; height: 40px; display: grid; place-items: center; flex: 0 0 40px; border-radius: 50%; background: #fff0f1; color: var(--accent); font-size: 11px; font-weight: 800; }
 .expiry-note p { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: 11px; color: var(--muted); }
@@ -152,15 +156,34 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .story-viewer { position: fixed; z-index: 110; inset: 0; display: grid; place-items: center; background: #151313; padding: 12px; }
 .story-frame { position: relative; width: min(420px, 100%); height: min(92dvh, 760px); border-radius: 18px; overflow: hidden; background: #322d2a; box-shadow: 0 30px 120px #000; }
 .story-full-image { width: 100%; height: 100%; object-fit: cover; }
-.story-progress { position: absolute; z-index: 2; left: 12px; right: 12px; top: 11px; height: 3px; border-radius: 99px; background: rgba(255,255,255,.35); overflow: hidden; }
-.story-progress span { display: block; height: 100%; background: white; animation: storyProgress 6s linear forwards; }
+.story-progress { position: absolute; z-index: 3; left: 12px; right: 12px; top: 11px; height: 3px; display: flex; gap: 4px; }
+.story-progress i { position: relative; flex: 1; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.35); }
+.story-progress span { display: block; width: 0; height: 100%; background: white; }
+.story-progress i.done span { width: 100%; }
+.story-progress i.current span { animation: storyProgress 6s linear forwards; }
 @keyframes storyProgress { from { width: 0; } to { width: 100%; } }
 .story-frame > header { position: absolute; z-index: 2; top: 23px; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; color: white; padding: 8px 13px; background: linear-gradient(#0007, transparent); }
 .story-frame header > div { display: flex; align-items: center; gap: 8px; font-size: 11px; }
 .story-frame header img { width: 32px; height: 32px; object-fit: cover; border: 1px solid white; border-radius: 50%; }
 .story-frame header span { color: rgba(255,255,255,.7); }
 .story-frame header button { border: 0; background: transparent; color: white; cursor: pointer; }
-.story-frame footer { position: absolute; bottom: 0; left: 0; right: 0; padding: 40px 18px 17px; text-align: center; color: rgba(255,255,255,.76); font-size: 10px; background: linear-gradient(transparent, #0009); }
+.story-header-actions { display: flex; align-items: center; gap: 3px; }
+.story-header-actions button { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; }
+.story-header-actions button:hover { background: rgba(255,255,255,.14); }
+.story-header-actions svg { width: 19px; }
+.story-nav { position: absolute; z-index: 3; top: 50%; width: 40px; height: 56px; display: grid; place-items: center; transform: translateY(-50%); border: 0; color: white; background: rgba(0,0,0,.18); cursor: pointer; }
+.story-nav.previous { left: 0; border-radius: 0 12px 12px 0; }
+.story-nav.next { right: 0; border-radius: 12px 0 0 12px; }
+.story-nav svg { width: 23px; }
+.story-frame footer { position: absolute; bottom: 0; left: 0; right: 0; padding: 60px 22px 18px; text-align: center; color: rgba(255,255,255,.76); font-size: 10px; background: linear-gradient(transparent, rgba(0,0,0,.78)); }
+.story-frame footer p { max-width: 330px; margin: 0 auto 8px; color: white; font-family: Georgia, serif; font-size: 18px; line-height: 1.35; text-shadow: 0 2px 12px rgba(0,0,0,.55); }
+.story-delete-confirm { position: absolute; z-index: 5; left: 22px; right: 22px; top: 50%; transform: translateY(-50%); padding: 20px; border-radius: 16px; color: var(--ink); background: var(--paper); box-shadow: 0 24px 70px rgba(0,0,0,.45); text-align: center; }
+.story-delete-confirm strong { font-family: Georgia, serif; font-size: 19px; font-weight: 500; }
+.story-delete-confirm p { margin: 7px 0 13px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.story-delete-confirm > span { display: block; margin-bottom: 8px; color: #b53248; font-size: 10px; }
+.story-delete-confirm > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.story-delete-confirm button { border: 1px solid var(--line); border-radius: 9px; background: white; padding: 9px; font-size: 10px; font-weight: 700; cursor: pointer; }
+.story-delete-confirm button:last-child { border-color: #b53248; color: white; background: #b53248; }
 
 .profile-page { padding-top: 30px; }
 .profile-hero { display: grid; grid-template-columns: 150px 1fr; gap: 42px; align-items: center; padding: 25px 25px 48px; }

@@ -4,6 +4,8 @@ import {
   Bell,
   Bookmark,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Compass,
   Heart,
   Home,
@@ -56,8 +58,10 @@ type Profile = {
 
 type Story = {
   id: string;
+  caption: string;
   imageKey: string | null;
   imageUrl: string | null;
+  mediaType: "image" | "video";
   createdAt: number;
   expiresAt: number;
 };
@@ -104,7 +108,7 @@ export default function HomePage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [composer, setComposer] = useState<"post" | "story" | null>(null);
-  const [activeStory, setActiveStory] = useState<Story | null>(null);
+  const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
   const [view, setView] = useState<"home" | "profile">("home");
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -217,6 +221,14 @@ export default function HomePage() {
     setToast("Post deleted.");
   }
 
+  async function deleteStory(storyId: string) {
+    const response = await fetch(`/api/stories?id=${encodeURIComponent(storyId)}`, { method: "DELETE" });
+    const data = await response.json() as { error?: string };
+    if (!response.ok) throw new Error(data.error || "Could not delete story.");
+    setStories((current) => current.filter((story) => story.id !== storyId));
+    setToast("Story deleted.");
+  }
+
   const profileNav = () => { setView("profile"); setSearchOpen(false); };
   const homeNav = () => { setView("home"); setSearchOpen(false); };
 
@@ -254,7 +266,7 @@ export default function HomePage() {
 
         {view === "home" ? (
           <>
-            <StoriesTray stories={stories} profile={profile} onAdd={() => setComposer("story")} onOpen={setActiveStory} />
+            <StoriesTray stories={stories} profile={profile} onAdd={() => setComposer("story")} onOpen={(story) => setActiveStoryId(story.id)} />
             <div className="feed-title"><div><span className="eyebrow">YOUR FEED</span><h1>Good afternoon, {profile.displayName.split(" ")[0]}</h1></div><button onClick={() => setComposer("post")}><Plus size={17} /> New post</button></div>
             <section className="feed" aria-label="Posts">
               {loading ? <FeedSkeleton /> : filteredPosts.length ? filteredPosts.map((post) => <PostCard key={post.id} post={post} profile={profile} onToggle={togglePost} onComment={addComment} onCaptionUpdate={updateCaption} />) : <EmptyState searched={Boolean(query)} onCreate={() => setComposer("post")} />}
@@ -278,7 +290,7 @@ export default function HomePage() {
       </nav>
 
       {composer && <Composer type={composer} profile={profile} onClose={() => setComposer(null)} onCreated={(message) => { setComposer(null); setToast(message); loadFeed(); }} />}
-      {activeStory && <StoryViewer story={activeStory} profile={profile} onClose={() => setActiveStory(null)} />}
+      {activeStoryId && <StoryViewer key={activeStoryId} stories={stories} activeId={activeStoryId} profile={profile} onChange={setActiveStoryId} onClose={() => setActiveStoryId(null)} onDelete={deleteStory} />}
       {profilePanel === "edit" && <EditProfileModal profile={profile} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Profile updated."); }} />}
       {profilePanel === "settings" && <SettingsModal profile={profile} installPrompt={installPrompt} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Settings saved."); }} />}
       {profilePanel === "activity" && <ActivityModal activities={activities} posts={posts} onClose={() => setProfilePanel(null)} />}
@@ -302,7 +314,7 @@ function StoriesTray({ stories, profile, onAdd, onOpen }: { stories: Story[]; pr
         </button>
         {stories.map((story, index) => (
           <button className="story-item" key={story.id} onClick={() => onOpen(story)}>
-            <span className="story-ring active-story"><img src={imageSource(story)} alt="Your story" /></span><span>{index === 0 ? "Today" : `${timeAgo(story.createdAt)} ago`}</span>
+            <span className="story-ring active-story">{story.mediaType === "video" ? <><video src={imageSource(story)} muted playsInline preload="metadata" aria-label="Your video story" /><i className="story-video-badge"><Video /></i></> : <img src={imageSource(story)} alt="Your story" />}</span><span>{index === 0 ? "Today" : relativeTime(story.createdAt)}</span>
           </button>
         ))}
       </div>
@@ -371,8 +383,8 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
   function selectFile(nextFile: File | null) {
     if (!nextFile) return;
     const validImage = nextFile.type.startsWith("image/");
-    const validVideo = type === "post" && nextFile.type.startsWith("video/");
-    if (!validImage && !validVideo) { setError(type === "post" ? "Drop a photo or video file." : "Drop a photo file."); return; }
+    const validVideo = nextFile.type.startsWith("video/");
+    if (!validImage && !validVideo) { setError("Drop a photo or video file."); return; }
     if (validImage && nextFile.size > 10 * 1024 * 1024) { setError("Photos must be under 10 MB."); return; }
     if (validVideo && nextFile.size > 50 * 1024 * 1024) { setError("Videos must be under 50 MB."); return; }
     setFile(nextFile); setError(""); setDragActive(false);
@@ -386,11 +398,11 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!file) { setError(type === "post" ? "Choose a photo or video first." : "Choose a photo first."); return; }
+    if (!file) { setError("Choose a photo or video first."); return; }
     setBusy(true); setError("");
     const body = new FormData();
     body.set("image", file);
-    if (type === "post") body.set("caption", caption);
+    body.set("caption", caption);
     try {
       const response = await fetch(type === "post" ? "/api/posts" : "/api/stories", { method: "POST", body });
       const data = await response.json() as { error?: string };
@@ -406,13 +418,13 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Create ${type}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <form className="composer" onSubmit={submit}>
         <header><button type="button" className="icon-button composer-close" onClick={onClose} aria-label="Close"><X /></button><div><span>CREATE</span><h2>New {type}</h2></div><button className="share-button" disabled={!file || busy}>{busy ? "Sharing…" : "Share"}</button></header>
-        <input ref={inputRef} className="file-input" type="file" accept={type === "post" ? "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" : "image/jpeg,image/png,image/webp,image/gif"} onChange={(event) => selectFile(event.target.files?.[0] || null)} />
+        <input ref={inputRef} className="file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" onChange={(event) => selectFile(event.target.files?.[0] || null)} />
         {preview ? (
           <button type="button" className={`preview-frame ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop} onClick={() => inputRef.current?.click()}>{file?.type.startsWith("video/") ? <video src={preview} muted playsInline aria-label="Selected video preview" /> : <img src={preview} alt="Selected preview" />}<span>Change {file?.type.startsWith("video/") ? "video" : "photo"}</span></button>
         ) : (
-          <button type="button" className={`upload-drop ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop} onClick={() => inputRef.current?.click()}><span>{type === "post" ? <Video /> : <ImagePlus />}</span><h3>{dragActive ? "Drop it here" : `Choose or drop a ${type === "post" ? "photo or video" : "photo"}`}</h3><p>{type === "story" ? "Portrait photos look best in stories." : "Photos up to 10 MB · MP4, WebM or MOV up to 50 MB"}</p><b>Select from device</b></button>
+          <button type="button" className={`upload-drop ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop} onClick={() => inputRef.current?.click()}><span><Video /></span><h3>{dragActive ? "Drop it here" : "Choose or drop a photo or video"}</h3><p>Photos up to 10 MB · MP4, WebM or MOV up to 50 MB</p><b>Select from device</b></button>
         )}
-        {type === "post" && <div className="caption-field"><img src={profileImage(profile)} alt={profile.displayName} /><textarea value={caption} onChange={(event) => setCaption(event.target.value.slice(0, 500))} placeholder="Write a caption…" rows={3} /><small>{caption.length}/500</small></div>}
+        <div className={`caption-field ${type === "story" ? "story-caption-field" : ""}`}><img src={profileImage(profile)} alt={profile.displayName} /><textarea value={caption} onChange={(event) => setCaption(event.target.value.slice(0, type === "story" ? 280 : 500))} placeholder={type === "story" ? "Add a story caption…" : "Write a caption…"} rows={type === "story" ? 2 : 3} /><small>{caption.length}/{type === "story" ? 280 : 500}</small></div>
         {type === "story" && <div className="expiry-note"><span>24h</span><p><strong>Made for the moment.</strong>Your story will disappear automatically after 24 hours.</p></div>}
         {error && <p className="form-error">{error}</p>}
       </form>
@@ -420,11 +432,56 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
   );
 }
 
-function StoryViewer({ story, profile, onClose }: { story: Story; profile: Profile; onClose: () => void }) {
-  useEffect(() => { const id = window.setTimeout(onClose, 6000); return () => window.clearTimeout(id); }, [onClose]);
+function StoryViewer({ stories, activeId, profile, onChange, onClose, onDelete }: { stories: Story[]; activeId: string; profile: Profile; onChange: (id: string) => void; onClose: () => void; onDelete: (id: string) => Promise<void> }) {
+  const story = stories.find((item) => item.id === activeId);
+  const currentIndex = stories.findIndex((item) => item.id === activeId);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [error, setError] = useState("");
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const goNext = useCallback(() => {
+    if (currentIndex >= 0 && currentIndex < stories.length - 1) onChange(stories[currentIndex + 1].id);
+    else onClose();
+  }, [currentIndex, onChange, onClose, stories]);
+
+  useEffect(() => {
+    if (!story || story.mediaType === "video" || confirmDelete) return;
+    const id = window.setTimeout(goNext, 6000);
+    return () => window.clearTimeout(id);
+  }, [confirmDelete, goNext, story]);
+
+  useEffect(() => {
+    if (story?.mediaType !== "video") return;
+    if (confirmDelete) videoRef.current?.pause();
+    else videoRef.current?.play().catch(() => undefined);
+  }, [confirmDelete, story]);
+
+  if (!story) return null;
+
+  async function removeStory() {
+    const fallback = stories[currentIndex + 1] || stories[currentIndex - 1];
+    setDeleteBusy(true); setError("");
+    try {
+      await onDelete(story!.id);
+      if (fallback) onChange(fallback.id); else onClose();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not delete story.");
+      setDeleteBusy(false);
+    }
+  }
+
   return (
     <div className="story-viewer" role="dialog" aria-modal="true" aria-label="Story">
-      <div className="story-frame"><div className="story-progress"><span /></div><header><div><img src={profileImage(profile)} alt="" /><strong>{profile.username}</strong><span>{timeAgo(story.createdAt)}</span></div><button onClick={onClose} aria-label="Close story"><X /></button></header><img className="story-full-image" src={imageSource(story)} alt="Your story" /><footer><span>Story expires automatically within 24 hours</span></footer></div>
+      <div className="story-frame">
+        <div className="story-progress" aria-hidden="true">{stories.map((item, index) => <i key={item.id} className={index < currentIndex ? "done" : index === currentIndex ? "current" : ""}><span style={index === currentIndex && story.mediaType === "video" ? { animationDuration: "30s" } : undefined} /></i>)}</div>
+        <header><div><img src={profileImage(profile)} alt="" /><strong>{profile.username}</strong><span>{timeAgo(story.createdAt)}</span></div><div className="story-header-actions"><button onClick={() => setConfirmDelete(true)} aria-label="Delete story"><Trash2 /></button><button onClick={onClose} aria-label="Close story"><X /></button></div></header>
+        {story.mediaType === "video" ? <video ref={videoRef} key={story.id} className="story-full-image" src={imageSource(story)} autoPlay muted playsInline onEnded={goNext} aria-label={story.caption || "Your video story"} /> : <img className="story-full-image" src={imageSource(story)} alt={story.caption || "Your story"} />}
+        {currentIndex > 0 && <button className="story-nav previous" onClick={() => onChange(stories[currentIndex - 1].id)} aria-label="Previous story"><ChevronLeft /></button>}
+        {currentIndex < stories.length - 1 && <button className="story-nav next" onClick={goNext} aria-label="Next story"><ChevronRight /></button>}
+        <footer>{story.caption && <p>{story.caption}</p>}<span>Story expires automatically within 24 hours</span></footer>
+        {confirmDelete && <div className="story-delete-confirm"><strong>Delete this story?</strong><p>This removes it immediately instead of waiting for it to expire.</p>{error && <span>{error}</span>}<div><button onClick={() => setConfirmDelete(false)}>Cancel</button><button onClick={removeStory} disabled={deleteBusy}>{deleteBusy ? "Deleting…" : "Delete"}</button></div></div>}
+      </div>
     </div>
   );
 }

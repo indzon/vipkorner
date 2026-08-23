@@ -48,8 +48,10 @@ export const activities = sqliteTable("activities", {
 
 export const stories = sqliteTable("stories", {
   id: text("id").primaryKey(),
+  caption: text("caption").notNull().default(""),
   imageKey: text("image_key"),
   imageUrl: text("image_url"),
+  mediaType: text("media_type").notNull().default("image"),
   createdAt: integer("created_at").notNull(),
   expiresAt: integer("expires_at").notNull(),
 });

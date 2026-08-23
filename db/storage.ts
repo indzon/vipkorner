@@ -25,8 +25,10 @@ export async function ensureSchema() {
     )`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS stories (
       id TEXT PRIMARY KEY,
+      caption TEXT NOT NULL DEFAULT '',
       image_key TEXT,
       image_url TEXT,
+      media_type TEXT NOT NULL DEFAULT 'image',
       created_at INTEGER NOT NULL,
       expires_at INTEGER NOT NULL
     )`),
@@ -69,6 +71,14 @@ export async function ensureSchema() {
   const postColumns = await DB.prepare("PRAGMA table_info(posts)").all<{ name: string }>();
   if (!postColumns.results.some((column) => column.name === "media_type")) {
     await DB.prepare("ALTER TABLE posts ADD COLUMN media_type TEXT NOT NULL DEFAULT 'image'").run();
+  }
+
+  const storyColumns = await DB.prepare("PRAGMA table_info(stories)").all<{ name: string }>();
+  if (!storyColumns.results.some((column) => column.name === "caption")) {
+    await DB.prepare("ALTER TABLE stories ADD COLUMN caption TEXT NOT NULL DEFAULT ''").run();
+  }
+  if (!storyColumns.results.some((column) => column.name === "media_type")) {
+    await DB.prepare("ALTER TABLE stories ADD COLUMN media_type TEXT NOT NULL DEFAULT 'image'").run();
   }
 
   const profileColumns = await DB.prepare("PRAGMA table_info(profile)").all<{ name: string }>();
