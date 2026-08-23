@@ -39,10 +39,27 @@ export async function ensureSchema() {
       bio TEXT NOT NULL,
       website TEXT NOT NULL,
       location TEXT NOT NULL,
+      image_key TEXT,
+      image_url TEXT,
       private_account INTEGER NOT NULL DEFAULT 1,
       story_replies INTEGER NOT NULL DEFAULT 1,
       high_quality_uploads INTEGER NOT NULL DEFAULT 1
     )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS comments (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS activities (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      post_id TEXT,
+      message TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`),
+    DB.prepare("CREATE INDEX IF NOT EXISTS comments_post_idx ON comments (post_id, created_at)"),
+    DB.prepare("CREATE INDEX IF NOT EXISTS activities_created_idx ON activities (created_at DESC)"),
   ]);
 
   const postColumns = await DB.prepare("PRAGMA table_info(posts)").all<{ name: string }>();
@@ -50,9 +67,23 @@ export async function ensureSchema() {
     await DB.prepare("ALTER TABLE posts ADD COLUMN media_type TEXT NOT NULL DEFAULT 'image'").run();
   }
 
+  const profileColumns = await DB.prepare("PRAGMA table_info(profile)").all<{ name: string }>();
+  if (!profileColumns.results.some((column) => column.name === "image_key")) {
+    await DB.prepare("ALTER TABLE profile ADD COLUMN image_key TEXT").run();
+  }
+  if (!profileColumns.results.some((column) => column.name === "image_url")) {
+    await DB.prepare("ALTER TABLE profile ADD COLUMN image_url TEXT").run();
+  }
+
   await DB.prepare(`INSERT OR IGNORE INTO profile (
     id, username, display_name, bio, website, location, private_account, story_replies, high_quality_uploads
   ) VALUES ('me', 'emma.wright', 'Emma Wright', 'Little moments, city light, and everything in between. ✨', 'emmawrites.co', 'New York, NY', 1, 1, 1)`).run();
+  await DB.prepare(`INSERT OR IGNORE INTO activities (id, type, post_id, message, created_at)
+    SELECT 'like-' || id, 'like', id, 'You liked “' || substr(caption, 1, 72) || '”', CAST(strftime('%s', 'now') AS INTEGER) * 1000
+    FROM posts
+    WHERE liked = 1 AND NOT EXISTS (
+      SELECT 1 FROM activities existing WHERE existing.type = 'like' AND existing.post_id = posts.id
+    )`).run();
 }
 
 export async function seedDemoContent() {

@@ -19,9 +19,26 @@ export const profile = sqliteTable("profile", {
   bio: text("bio").notNull(),
   website: text("website").notNull(),
   location: text("location").notNull(),
+  imageKey: text("image_key"),
+  imageUrl: text("image_url"),
   privateAccount: integer("private_account", { mode: "boolean" }).notNull().default(true),
   storyReplies: integer("story_replies", { mode: "boolean" }).notNull().default(true),
   highQualityUploads: integer("high_quality_uploads", { mode: "boolean" }).notNull().default(true),
+});
+
+export const comments = sqliteTable("comments", {
+  id: text("id").primaryKey(),
+  postId: text("post_id").notNull(),
+  body: text("body").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const activities = sqliteTable("activities", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  postId: text("post_id"),
+  message: text("message").notNull(),
+  createdAt: integer("created_at").notNull(),
 });
 
 export const stories = sqliteTable("stories", {

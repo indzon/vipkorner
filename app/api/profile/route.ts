@@ -28,5 +28,24 @@ export async function PATCH(request: Request) {
     .bind(username, displayName, bio, website, location, privateAccount, storyReplies, highQualityUploads)
     .run();
 
-  return NextResponse.json({ username, displayName, bio, website, location, privateAccount, storyReplies, highQualityUploads });
+  return NextResponse.json({ username, displayName, bio, website, location, imageKey: current.image_key ?? null, imageUrl: current.image_url ?? null, privateAccount, storyReplies, highQualityUploads });
+}
+
+export async function POST(request: Request) {
+  await ensureSchema();
+  const form = await request.formData();
+  const image = form.get("image");
+  if (!(image instanceof File) || !image.type.startsWith("image/")) {
+    return NextResponse.json({ error: "Choose a profile photo." }, { status: 400 });
+  }
+  if (image.size > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: "Profile photos must be under 10 MB." }, { status: 400 });
+  }
+
+  const { DB, MEDIA } = bindings();
+  const key = `profile-${crypto.randomUUID()}.${image.type.split("/")[1]?.replace("jpeg", "jpg") || "jpg"}`;
+  await MEDIA.put(key, image.stream(), { httpMetadata: { contentType: image.type } });
+  await DB.prepare("UPDATE profile SET image_key = ?, image_url = NULL WHERE id = 'me'").bind(key).run();
+  const profile = await DB.prepare("SELECT username, display_name AS displayName, bio, website, location, image_key AS imageKey, image_url AS imageUrl, private_account AS privateAccount, story_replies AS storyReplies, high_quality_uploads AS highQualityUploads FROM profile WHERE id = 'me'").first();
+  return NextResponse.json(profile);
 }

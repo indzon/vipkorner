@@ -34,17 +34,28 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   await ensureSchema();
-  const { id, action } = await request.json() as { id?: string; action?: "like" | "save" };
-  if (!id || !["like", "save"].includes(action ?? "")) {
+  const { id, action, caption } = await request.json() as { id?: string; action?: "like" | "save" | "caption"; caption?: string };
+  if (!id || !["like", "save", "caption"].includes(action ?? "")) {
     return NextResponse.json({ error: "Invalid action." }, { status: 400 });
   }
 
   const { DB } = bindings();
   if (action === "like") {
     await DB.prepare("UPDATE posts SET likes = MAX(0, likes + CASE WHEN liked = 1 THEN -1 ELSE 1 END), liked = CASE liked WHEN 1 THEN 0 ELSE 1 END WHERE id = ?").bind(id).run();
+    const likedPost = await DB.prepare("SELECT liked, caption FROM posts WHERE id = ?").bind(id).first<{ liked: number; caption: string }>();
+    if (likedPost?.liked) {
+      await DB.prepare("INSERT INTO activities (id, type, post_id, message, created_at) VALUES (?, 'like', ?, ?, ?)")
+        .bind(crypto.randomUUID(), id, `You liked “${likedPost.caption.slice(0, 72)}”`, Date.now()).run();
+    }
   } else {
-    await DB.prepare("UPDATE posts SET saved = CASE saved WHEN 1 THEN 0 ELSE 1 END WHERE id = ?").bind(id).run();
+    if (action === "save") {
+      await DB.prepare("UPDATE posts SET saved = CASE saved WHEN 1 THEN 0 ELSE 1 END WHERE id = ?").bind(id).run();
+    } else {
+      const nextCaption = String(caption ?? "").trim().slice(0, 500);
+      if (!nextCaption) return NextResponse.json({ error: "Caption cannot be empty." }, { status: 400 });
+      await DB.prepare("UPDATE posts SET caption = ? WHERE id = ?").bind(nextCaption, id).run();
+    }
   }
-  const post = await DB.prepare("SELECT likes, liked, saved FROM posts WHERE id = ?").bind(id).first();
+  const post = await DB.prepare("SELECT caption, likes, liked, saved FROM posts WHERE id = ?").bind(id).first();
   return NextResponse.json(post);
 }

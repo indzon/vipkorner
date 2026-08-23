@@ -34,7 +34,11 @@ type Post = {
   liked: number | boolean;
   saved: number | boolean;
   createdAt: number;
+  comments: Comment[];
 };
+
+type Comment = { id: string; postId: string; body: string; createdAt: number };
+type Activity = { id: string; type: "like" | "comment"; postId: string | null; message: string; createdAt: number };
 
 type Profile = {
   username: string;
@@ -42,6 +46,8 @@ type Profile = {
   bio: string;
   website: string;
   location: string;
+  imageKey: string | null;
+  imageUrl: string | null;
   privateAccount: number | boolean;
   storyReplies: number | boolean;
   highQualityUploads: number | boolean;
@@ -62,10 +68,16 @@ const DEFAULT_PROFILE: Profile = {
   bio: "Little moments, city light, and everything in between. ✨",
   website: "emmawrites.co",
   location: "New York, NY",
+  imageKey: null,
+  imageUrl: null,
   privateAccount: true,
   storyReplies: true,
   highQualityUploads: true,
 };
+
+function profileImage(profile: Profile) {
+  return profile.imageKey || profile.imageUrl ? imageSource(profile) : PROFILE_IMAGE;
+}
 
 function imageSource(item: { imageKey: string | null; imageUrl: string | null }) {
   return item.imageKey ? `/api/media?key=${encodeURIComponent(item.imageKey)}` : item.imageUrl || "";
@@ -83,6 +95,7 @@ export default function HomePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
   const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [composer, setComposer] = useState<"post" | "story" | null>(null);
   const [activeStory, setActiveStory] = useState<Story | null>(null);
@@ -97,10 +110,11 @@ export default function HomePage() {
     try {
       const response = await fetch("/api/feed");
       if (!response.ok) throw new Error("Could not load feed");
-      const data = await response.json() as { posts: Post[]; stories: Story[]; profile: Profile | null };
+      const data = await response.json() as { posts: Post[]; stories: Story[]; profile: Profile | null; activities: Activity[] };
       setPosts(data.posts);
       setStories(data.stories);
       if (data.profile) setProfile(data.profile);
+      setActivities(data.activities || []);
     } catch {
       setToast("We couldn't refresh the feed. Try again in a moment.");
     } finally {
@@ -141,9 +155,25 @@ export default function HomePage() {
     }));
     try {
       await fetch("/api/posts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action }) });
+      if (action === "like") await loadFeed();
     } catch {
       loadFeed();
     }
+  }
+
+  async function addComment(postId: string, body: string) {
+    const response = await fetch("/api/comments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ postId, body }) });
+    const data = await response.json() as Comment & { error?: string };
+    if (!response.ok) throw new Error(data.error || "Could not post comment.");
+    setPosts((current) => current.map((post) => post.id === postId ? { ...post, comments: [...(post.comments || []), data] } : post));
+    await loadFeed();
+  }
+
+  async function updateCaption(postId: string, caption: string) {
+    const response = await fetch("/api/posts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: postId, action: "caption", caption }) });
+    const data = await response.json() as { caption?: string; error?: string };
+    if (!response.ok) throw new Error(data.error || "Could not update caption.");
+    setPosts((current) => current.map((post) => post.id === postId ? { ...post, caption: data.caption || caption } : post));
   }
 
   const profileNav = () => { setView("profile"); setSearchOpen(false); };
@@ -181,10 +211,10 @@ export default function HomePage() {
 
         {view === "home" ? (
           <>
-            <StoriesTray stories={stories} onAdd={() => setComposer("story")} onOpen={setActiveStory} />
+            <StoriesTray stories={stories} profile={profile} onAdd={() => setComposer("story")} onOpen={setActiveStory} />
             <div className="feed-title"><div><span className="eyebrow">YOUR FEED</span><h1>Good afternoon, {profile.displayName.split(" ")[0]}</h1></div><button onClick={() => setComposer("post")}><Plus size={17} /> New post</button></div>
             <section className="feed" aria-label="Posts">
-              {loading ? <FeedSkeleton /> : filteredPosts.length ? filteredPosts.map((post) => <PostCard key={post.id} post={post} profile={profile} onToggle={togglePost} />) : <EmptyState searched={Boolean(query)} onCreate={() => setComposer("post")} />}
+              {loading ? <FeedSkeleton /> : filteredPosts.length ? filteredPosts.map((post) => <PostCard key={post.id} post={post} profile={profile} onToggle={togglePost} onComment={addComment} onCaptionUpdate={updateCaption} />) : <EmptyState searched={Boolean(query)} onCreate={() => setComposer("post")} />}
             </section>
           </>
         ) : (
@@ -193,7 +223,7 @@ export default function HomePage() {
       </section>
 
       <aside className="desktop-profile">
-        <div className="mini-profile"><img src={PROFILE_IMAGE} alt={profile.displayName} /><div><strong>{profile.username}</strong><span>{profile.displayName}</span></div><button onClick={profileNav}>View</button></div>
+        <div className="mini-profile"><img src={profileImage(profile)} alt={profile.displayName} /><div><strong>{profile.username}</strong><span>{profile.displayName}</span></div><button onClick={view === "profile" ? homeNav : profileNav}>{view === "profile" ? "Home" : "View"}</button></div>
         <div className="daily-note"><span className="note-icon"><Sparkles /></span><p>Keep the moments that feel like you.</p><small>Your private creative corner</small></div>
         <footer><button>About</button><span>·</span><button>Privacy</button><span>·</span><button>Help</button><p>© 2026 ESTAGRAM</p></footer>
       </aside>
@@ -201,14 +231,14 @@ export default function HomePage() {
       <nav className="mobile-nav" aria-label="Mobile navigation">
         <button className={view === "home" ? "active" : ""} onClick={homeNav} aria-label="Home"><Home /></button>
         <button onClick={() => { setSearchOpen(true); setView("home"); }} aria-label="Search"><Search /></button>
-        <button className={view === "profile" ? "active" : ""} onClick={profileNav} aria-label="Profile"><img src={PROFILE_IMAGE} alt="" /></button>
+        <button className={view === "profile" ? "active" : ""} onClick={profileNav} aria-label="Profile"><img src={profileImage(profile)} alt="" /></button>
       </nav>
 
       {composer && <Composer type={composer} profile={profile} onClose={() => setComposer(null)} onCreated={(message) => { setComposer(null); setToast(message); loadFeed(); }} />}
       {activeStory && <StoryViewer story={activeStory} profile={profile} onClose={() => setActiveStory(null)} />}
       {profilePanel === "edit" && <EditProfileModal profile={profile} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Profile updated."); }} />}
       {profilePanel === "settings" && <SettingsModal profile={profile} installPrompt={installPrompt} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Settings saved."); }} />}
-      {profilePanel === "activity" && <ActivityModal onClose={() => setProfilePanel(null)} />}
+      {profilePanel === "activity" && <ActivityModal activities={activities} posts={posts} onClose={() => setProfilePanel(null)} />}
       {toast && <div className="toast" role="status"><Check size={17} /> {toast}</div>}
     </main>
   );
@@ -218,13 +248,13 @@ function NavButton({ icon, label, active, onClick }: { icon: React.ReactNode; la
   return <button className={`nav-button ${active ? "active" : ""}`} onClick={onClick}>{icon}<span>{label}</span></button>;
 }
 
-function StoriesTray({ stories, onAdd, onOpen }: { stories: Story[]; onAdd: () => void; onOpen: (story: Story) => void }) {
+function StoriesTray({ stories, profile, onAdd, onOpen }: { stories: Story[]; profile: Profile; onAdd: () => void; onOpen: (story: Story) => void }) {
   return (
     <section className="stories-section" aria-label="Stories">
       <div className="stories-heading"><span>Stories</span><small>24h moments</small></div>
       <div className="stories-scroll">
         <button className="story-item add-story" onClick={onAdd}>
-          <span className="story-ring"><img src={PROFILE_IMAGE} alt="" /><i><Plus size={14} /></i></span><span>Add story</span>
+          <span className="story-ring"><img src={profileImage(profile)} alt="" /><i><Plus size={14} /></i></span><span>Add story</span>
         </button>
         {stories.map((story, index) => (
           <button className="story-item" key={story.id} onClick={() => onOpen(story)}>
@@ -236,17 +266,49 @@ function StoriesTray({ stories, onAdd, onOpen }: { stories: Story[]; onAdd: () =
   );
 }
 
-function PostCard({ post, profile, onToggle }: { post: Post; profile: Profile; onToggle: (id: string, action: "like" | "save") => void }) {
+function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate }: { post: Post; profile: Profile; onToggle: (id: string, action: "like" | "save") => void; onComment: (postId: string, body: string) => Promise<void>; onCaptionUpdate: (postId: string, caption: string) => Promise<void> }) {
   const [commentOpen, setCommentOpen] = useState(false);
+  const [comment, setComment] = useState("");
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [editingCaption, setEditingCaption] = useState(false);
+  const [captionDraft, setCaptionDraft] = useState(post.caption);
+  const [actionError, setActionError] = useState("");
+
+  async function submitComment(event: FormEvent) {
+    event.preventDefault();
+    if (!comment.trim()) return;
+    setCommentBusy(true); setActionError("");
+    try {
+      await onComment(post.id, comment);
+      setComment(""); setCommentOpen(false);
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : "Could not post comment.");
+    } finally {
+      setCommentBusy(false);
+    }
+  }
+
+  async function saveCaption(event: FormEvent) {
+    event.preventDefault();
+    setActionError("");
+    try {
+      await onCaptionUpdate(post.id, captionDraft);
+      setEditingCaption(false); setOptionsOpen(false);
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : "Could not update caption.");
+    }
+  }
+
   return (
     <article className="post-card">
-      <header className="post-header"><div className="post-author"><img src={PROFILE_IMAGE} alt="" /><div><strong>{profile.username}</strong><span>{profile.location}</span></div></div><button className="icon-button" aria-label="Post options"><MoreHorizontal /></button></header>
+      <header className="post-header"><div className="post-author"><img src={profileImage(profile)} alt="" /><div><strong>{profile.username}</strong><span>{profile.location}</span></div></div><div className="post-menu-wrap"><button className="icon-button" aria-label="Post options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><MoreHorizontal /></button>{optionsOpen && <div className="post-menu"><button onClick={() => { setCaptionDraft(post.caption); setEditingCaption(true); setOptionsOpen(false); }}>Edit caption</button><button onClick={async () => { await navigator.clipboard?.writeText(location.href); setOptionsOpen(false); }}>Copy post link</button><button onClick={() => setOptionsOpen(false)}>Cancel</button></div>}</div></header>
       <div className="post-image-wrap" onDoubleClick={() => !post.liked && onToggle(post.id, "like")}>
         {post.mediaType === "video" ? <video className="post-image post-video" src={imageSource(post)} controls playsInline preload="metadata" aria-label={post.caption} /> : <img className="post-image" src={imageSource(post)} alt={post.caption} />}
       </div>
       <div className="post-actions"><div><button className={`icon-button ${post.liked ? "liked" : ""}`} onClick={() => onToggle(post.id, "like")} aria-label={post.liked ? "Unlike" : "Like"}><Heart fill={post.liked ? "currentColor" : "none"} /></button><button className="icon-button" onClick={() => setCommentOpen((open) => !open)} aria-label="Comment"><MessageCircle /></button><button className="icon-button" onClick={() => navigator.share?.({ title: "Estagram", text: post.caption, url: location.href })} aria-label="Share"><Send /></button></div><button className={`icon-button ${post.saved ? "saved" : ""}`} onClick={() => onToggle(post.id, "save")} aria-label={post.saved ? "Unsave" : "Save"}><Bookmark fill={post.saved ? "currentColor" : "none"} /></button></div>
-      <div className="post-copy"><strong>{post.likes.toLocaleString()} likes</strong><p><b>{profile.username}</b> {post.caption}</p><time>{timeAgo(post.createdAt)} ago</time></div>
-      {commentOpen && <form className="comment-row" onSubmit={(event) => { event.preventDefault(); setCommentOpen(false); }}><input autoFocus placeholder="Add a comment…" aria-label="Comment" /><button>Post</button></form>}
+      <div className="post-copy"><strong>{post.likes.toLocaleString()} likes</strong>{editingCaption ? <form className="caption-editor" onSubmit={saveCaption}><textarea autoFocus value={captionDraft} onChange={(event) => setCaptionDraft(event.target.value.slice(0, 500))} rows={2} /><div><button type="button" onClick={() => setEditingCaption(false)}>Cancel</button><button>Save</button></div></form> : <p><b>{profile.username}</b> {post.caption}</p>}{post.comments?.length > 0 && <div className="post-comments">{post.comments.slice(-2).map((item) => <p key={item.id}><b>{profile.username}</b> {item.body}</p>)}{post.comments.length > 2 && <small>View all {post.comments.length} comments</small>}</div>}<time>{timeAgo(post.createdAt)} ago</time>{actionError && <span className="inline-error">{actionError}</span>}</div>
+      {commentOpen && <form className="comment-row" onSubmit={submitComment}><input autoFocus value={comment} onChange={(event) => setComment(event.target.value.slice(0, 280))} placeholder="Add a comment…" aria-label="Comment" /><button disabled={!comment.trim() || commentBusy}>{commentBusy ? "Posting…" : "Post"}</button></form>}
     </article>
   );
 }
@@ -256,14 +318,31 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
   const [caption, setCaption] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const preview = useMemo(() => file ? URL.createObjectURL(file) : "", [file]);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
+  function selectFile(nextFile: File | null) {
+    if (!nextFile) return;
+    const validImage = nextFile.type.startsWith("image/");
+    const validVideo = type === "post" && nextFile.type.startsWith("video/");
+    if (!validImage && !validVideo) { setError(type === "post" ? "Drop a photo or video file." : "Drop a photo file."); return; }
+    if (validImage && nextFile.size > 10 * 1024 * 1024) { setError("Photos must be under 10 MB."); return; }
+    if (validVideo && nextFile.size > 50 * 1024 * 1024) { setError("Videos must be under 50 MB."); return; }
+    setFile(nextFile); setError(""); setDragActive(false);
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    selectFile(event.dataTransfer.files?.[0] || null);
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!file) { setError("Choose a photo first."); return; }
+    if (!file) { setError(type === "post" ? "Choose a photo or video first." : "Choose a photo first."); return; }
     setBusy(true); setError("");
     const body = new FormData();
     body.set("image", file);
@@ -283,13 +362,13 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Create ${type}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <form className="composer" onSubmit={submit}>
         <header><button type="button" className="icon-button composer-close" onClick={onClose} aria-label="Close"><X /></button><div><span>CREATE</span><h2>New {type}</h2></div><button className="share-button" disabled={!file || busy}>{busy ? "Sharing…" : "Share"}</button></header>
-        <input ref={inputRef} className="file-input" type="file" accept={type === "post" ? "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" : "image/jpeg,image/png,image/webp,image/gif"} onChange={(event) => setFile(event.target.files?.[0] || null)} />
+        <input ref={inputRef} className="file-input" type="file" accept={type === "post" ? "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" : "image/jpeg,image/png,image/webp,image/gif"} onChange={(event) => selectFile(event.target.files?.[0] || null)} />
         {preview ? (
-          <button type="button" className={`preview-frame ${type}`} onClick={() => inputRef.current?.click()}>{file?.type.startsWith("video/") ? <video src={preview} muted playsInline aria-label="Selected video preview" /> : <img src={preview} alt="Selected preview" />}<span>Change {file?.type.startsWith("video/") ? "video" : "photo"}</span></button>
+          <button type="button" className={`preview-frame ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop} onClick={() => inputRef.current?.click()}>{file?.type.startsWith("video/") ? <video src={preview} muted playsInline aria-label="Selected video preview" /> : <img src={preview} alt="Selected preview" />}<span>Change {file?.type.startsWith("video/") ? "video" : "photo"}</span></button>
         ) : (
-          <button type="button" className={`upload-drop ${type}`} onClick={() => inputRef.current?.click()}><span>{type === "post" ? <Video /> : <ImagePlus />}</span><h3>Choose a {type === "post" ? "photo or video" : "photo"}</h3><p>{type === "story" ? "Portrait photos look best in stories." : "Photos up to 10 MB · MP4, WebM or MOV up to 50 MB"}</p><b>Select from device</b></button>
+          <button type="button" className={`upload-drop ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop} onClick={() => inputRef.current?.click()}><span>{type === "post" ? <Video /> : <ImagePlus />}</span><h3>{dragActive ? "Drop it here" : `Choose or drop a ${type === "post" ? "photo or video" : "photo"}`}</h3><p>{type === "story" ? "Portrait photos look best in stories." : "Photos up to 10 MB · MP4, WebM or MOV up to 50 MB"}</p><b>Select from device</b></button>
         )}
-        {type === "post" && <div className="caption-field"><img src={PROFILE_IMAGE} alt={profile.displayName} /><textarea value={caption} onChange={(event) => setCaption(event.target.value.slice(0, 500))} placeholder="Write a caption…" rows={3} /><small>{caption.length}/500</small></div>}
+        {type === "post" && <div className="caption-field"><img src={profileImage(profile)} alt={profile.displayName} /><textarea value={caption} onChange={(event) => setCaption(event.target.value.slice(0, 500))} placeholder="Write a caption…" rows={3} /><small>{caption.length}/500</small></div>}
         {type === "story" && <div className="expiry-note"><span>24h</span><p><strong>Made for the moment.</strong>Your story will disappear automatically after 24 hours.</p></div>}
         {error && <p className="form-error">{error}</p>}
       </form>
@@ -301,7 +380,7 @@ function StoryViewer({ story, profile, onClose }: { story: Story; profile: Profi
   useEffect(() => { const id = window.setTimeout(onClose, 6000); return () => window.clearTimeout(id); }, [onClose]);
   return (
     <div className="story-viewer" role="dialog" aria-modal="true" aria-label="Story">
-      <div className="story-frame"><div className="story-progress"><span /></div><header><div><img src={PROFILE_IMAGE} alt="" /><strong>{profile.username}</strong><span>{timeAgo(story.createdAt)}</span></div><button onClick={onClose} aria-label="Close story"><X /></button></header><img className="story-full-image" src={imageSource(story)} alt="Your story" /><footer><span>Story expires in {Math.max(1, Math.ceil((story.expiresAt - Date.now()) / 3600000))}h</span></footer></div>
+      <div className="story-frame"><div className="story-progress"><span /></div><header><div><img src={profileImage(profile)} alt="" /><strong>{profile.username}</strong><span>{timeAgo(story.createdAt)}</span></div><button onClick={onClose} aria-label="Close story"><X /></button></header><img className="story-full-image" src={imageSource(story)} alt="Your story" /><footer><span>Story expires in {Math.max(1, Math.ceil((story.expiresAt - Date.now()) / 3600000))}h</span></footer></div>
     </div>
   );
 }
@@ -309,7 +388,7 @@ function StoryViewer({ story, profile, onClose }: { story: Story; profile: Profi
 function ProfileView({ posts, profile, onCreate, onEdit, onSettings, onActivity }: { posts: Post[]; profile: Profile; onCreate: () => void; onEdit: () => void; onSettings: () => void; onActivity: () => void }) {
   return (
     <section className="profile-page">
-      <header className="profile-hero"><img src={PROFILE_IMAGE} alt={profile.displayName} /><div className="profile-info"><div><h1>{profile.username}</h1><button onClick={onEdit}>Edit profile</button><button className="icon-button profile-settings" onClick={onSettings} aria-label="Profile settings"><Settings /></button></div><dl><div><dt>{posts.length}</dt><dd>posts</dd></div><div><dt>{posts.reduce((total, post) => total + post.likes, 0).toLocaleString()}</dt><dd>likes</dd></div><div><dt>1</dt><dd>creative space</dd></div></dl><p><strong>{profile.displayName}</strong><br />{profile.bio}<br /><a href={`https://${profile.website.replace(/^https?:\/\//, "")}`}>{profile.website}</a></p></div></header>
+      <header className="profile-hero"><button className="profile-photo-button" onClick={onEdit} aria-label="Update profile photo"><img src={profileImage(profile)} alt={profile.displayName} /><span><ImagePlus /></span></button><div className="profile-info"><div><h1>{profile.username}</h1><button onClick={onEdit}>Edit profile</button><button className="icon-button profile-settings" onClick={onSettings} aria-label="Profile settings"><Settings /></button></div><dl><div><dt>{posts.length}</dt><dd>posts</dd></div><div><dt>{posts.reduce((total, post) => total + post.likes, 0).toLocaleString()}</dt><dd>likes</dd></div><div><dt>1</dt><dd>creative space</dd></div></dl><p><strong>{profile.displayName}</strong><br />{profile.bio}<br /><a href={`https://${profile.website.replace(/^https?:\/\//, "")}`}>{profile.website}</a></p></div></header>
       <div className="profile-actions" aria-label="Profile actions"><button onClick={onActivity}><Bell /><span><strong>Activity</strong><small>See your latest updates</small></span></button><button onClick={onCreate}><Plus /><span><strong>Create</strong><small>Share a new post</small></span></button></div>
       <div className="profile-tabs"><span className="active"><ImagePlus size={15} /> POSTS</span><span><Bookmark size={15} /> SAVED</span></div>
       <div className="profile-grid">{posts.map((post) => <button key={post.id}>{post.mediaType === "video" ? <><video src={imageSource(post)} muted playsInline preload="metadata" aria-label={post.caption} /><i className="video-badge"><Video /></i></> : <img src={imageSource(post)} alt={post.caption} />}<span><Heart fill="currentColor" size={17} /> {post.likes}</span></button>)}<button className="grid-add" onClick={onCreate}><Plus /><span>Add a post</span></button></div>
@@ -321,6 +400,11 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
   const [draft, setDraft] = useState(profile);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const photoPreview = useMemo(() => photoFile ? URL.createObjectURL(photoFile) : profileImage(profile), [photoFile, profile]);
+
+  useEffect(() => () => { if (photoFile && photoPreview) URL.revokeObjectURL(photoPreview); }, [photoFile, photoPreview]);
 
   const update = (key: keyof Profile, value: string) => setDraft((current) => ({ ...current, [key]: value }));
 
@@ -329,8 +413,15 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
     setBusy(true); setError("");
     try {
       const response = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) });
-      const data = await response.json() as Profile & { error?: string };
+      let data = await response.json() as Profile & { error?: string };
       if (!response.ok) throw new Error(data.error || "Could not update profile.");
+      if (photoFile) {
+        const photoBody = new FormData();
+        photoBody.set("image", photoFile);
+        const photoResponse = await fetch("/api/profile", { method: "POST", body: photoBody });
+        data = await photoResponse.json() as Profile & { error?: string };
+        if (!photoResponse.ok) throw new Error(data.error || "Could not update profile photo.");
+      }
       onSaved(data);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not update profile.");
@@ -342,7 +433,7 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit profile" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <form className="profile-modal" onSubmit={save}>
         <ModalHeader eyebrow="PROFILE" title="Edit profile" onClose={onClose} action={busy ? "Saving…" : "Save"} disabled={busy} />
-        <div className="profile-photo-row"><img src={PROFILE_IMAGE} alt={draft.displayName} /><div><strong>{draft.username}</strong><span>Your profile photo</span></div></div>
+        <div className="profile-photo-row"><input ref={photoInputRef} className="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setPhotoFile(event.target.files?.[0] || null)} /><img src={photoPreview} alt={draft.displayName} /><div><strong>{draft.username}</strong><span>JPG, PNG or WebP · up to 10 MB</span></div><button type="button" onClick={() => photoInputRef.current?.click()}>Change photo</button></div>
         <div className="form-fields">
           <label><span>Name</span><input value={draft.displayName} onChange={(event) => update("displayName", event.target.value)} maxLength={50} required /></label>
           <label><span>Username</span><div className="input-prefix"><i>@</i><input value={draft.username} onChange={(event) => update("username", event.target.value.replace(/\s/g, ""))} maxLength={30} required /></div></label>
@@ -392,12 +483,12 @@ function SettingsModal({ profile, installPrompt, onClose, onSaved }: { profile: 
   );
 }
 
-function ActivityModal({ onClose }: { onClose: () => void }) {
+function ActivityModal({ activities, posts, onClose }: { activities: Activity[]; posts: Post[]; onClose: () => void }) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Activity" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="profile-modal activity-modal">
         <ModalHeader eyebrow="PROFILE" title="Activity" onClose={onClose} />
-        <div className="activity-empty"><span><Bell /></span><h3>You're all caught up</h3><p>New likes, saves, and story activity will appear here.</p></div>
+        {activities.length ? <div className="activity-list">{activities.map((activity) => { const post = posts.find((item) => item.id === activity.postId); return <div className="activity-item" key={activity.id}><span className={`activity-icon ${activity.type}`}>{activity.type === "like" ? <Heart fill="currentColor" /> : <MessageCircle />}</span><div><p>{activity.message}</p><time>{timeAgo(activity.createdAt)} ago</time></div>{post && (post.mediaType === "video" ? <span className="activity-video"><Video /></span> : <img src={imageSource(post)} alt="" />)}</div>; })}</div> : <div className="activity-empty"><span><Bell /></span><h3>No activity yet</h3><p>Your likes and comments will appear here.</p></div>}
       </section>
     </div>
   );
