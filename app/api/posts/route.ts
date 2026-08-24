@@ -1,29 +1,9 @@
 import { NextResponse } from "next/server";
 import { bindings, ensureSchema } from "@/db/storage";
+import { inspectMediaUpload } from "@/lib/media-upload";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
-
-function uploadKind(file: File) {
-  const videoName = /\.(mp4|webm|mov)$/i.test(file.name);
-  const imageName = /\.(jpe?g|png|webp|gif)$/i.test(file.name);
-  if (file.type.startsWith("video/") || videoName) return "video" as const;
-  if (file.type.startsWith("image/") || imageName) return "image" as const;
-  return null;
-}
-
-function uploadExtension(file: File) {
-  const nameExtension = file.name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
-  if (nameExtension && ["jpg", "jpeg", "png", "webp", "gif", "mp4", "webm", "mov"].includes(nameExtension)) return nameExtension.replace("jpeg", "jpg");
-  return (file.type.split("/")[1] || "bin").replace("jpeg", "jpg").replace("quicktime", "mov");
-}
-
-function uploadContentType(file: File, kind: "image" | "video") {
-  if (kind === "image") return file.type.startsWith("image/") ? file.type : "image/jpeg";
-  if (file.type.startsWith("video/")) return file.type;
-  const extension = uploadExtension(file);
-  return extension === "webm" ? "video/webm" : extension === "mov" ? "video/quicktime" : "video/mp4";
-}
 
 export async function POST(request: Request) {
   await ensureSchema();
@@ -31,10 +11,10 @@ export async function POST(request: Request) {
   const image = form.get("image");
   const caption = String(form.get("caption") ?? "").trim();
 
-  const kind = image instanceof File ? uploadKind(image) : null;
-  const isImage = kind === "image";
-  const isVideo = kind === "video";
-  if (!(image instanceof File) || !kind) {
+  const upload = image instanceof File ? await inspectMediaUpload(image) : null;
+  const isImage = upload?.kind === "image";
+  const isVideo = upload?.kind === "video";
+  if (!(image instanceof File) || !upload) {
     return NextResponse.json({ error: "Choose a photo or video to share." }, { status: 400 });
   }
   if ((isImage && image.size > MAX_IMAGE_SIZE) || (isVideo && image.size > MAX_VIDEO_SIZE)) {
@@ -43,9 +23,9 @@ export async function POST(request: Request) {
 
   const { DB, MEDIA } = bindings();
   const id = crypto.randomUUID();
-  const key = `${id}.${uploadExtension(image)}`;
+  const key = `${id}.${upload.extension}`;
   const createdAt = Date.now();
-  await MEDIA.put(key, image.stream(), { httpMetadata: { contentType: uploadContentType(image, kind) } });
+  await MEDIA.put(key, image.stream(), { httpMetadata: { contentType: upload.contentType } });
   const mediaType = isVideo ? "video" : "image";
   await DB.prepare("INSERT INTO posts (id, caption, image_key, media_type, likes, created_at) VALUES (?, ?, ?, ?, 0, ?)")
     .bind(id, caption || "A new moment.", key, mediaType, createdAt)
@@ -87,11 +67,11 @@ export async function PUT(request: Request) {
   const form = await request.formData();
   const id = String(form.get("id") ?? "");
   const media = form.get("image");
-  const kind = media instanceof File ? uploadKind(media) : null;
-  const isImage = kind === "image";
-  const isVideo = kind === "video";
+  const upload = media instanceof File ? await inspectMediaUpload(media) : null;
+  const isImage = upload?.kind === "image";
+  const isVideo = upload?.kind === "video";
 
-  if (!id || !(media instanceof File) || !kind) {
+  if (!id || !(media instanceof File) || !upload) {
     return NextResponse.json({ error: "Choose a photo or video to replace this media." }, { status: 400 });
   }
   if ((isImage && media.size > MAX_IMAGE_SIZE) || (isVideo && media.size > MAX_VIDEO_SIZE)) {
@@ -102,10 +82,9 @@ export async function PUT(request: Request) {
   const current = await DB.prepare("SELECT image_key AS imageKey FROM posts WHERE id = ?").bind(id).first<{ imageKey: string | null }>();
   if (!current) return NextResponse.json({ error: "Post not found." }, { status: 404 });
 
-  const extension = uploadExtension(media);
-  const key = `${id}-${crypto.randomUUID()}.${extension}`;
+  const key = `${id}-${crypto.randomUUID()}.${upload.extension}`;
   const mediaType = isVideo ? "video" : "image";
-  await MEDIA.put(key, media.stream(), { httpMetadata: { contentType: uploadContentType(media, kind) } });
+  await MEDIA.put(key, media.stream(), { httpMetadata: { contentType: upload.contentType } });
   await DB.prepare("UPDATE posts SET image_key = ?, image_url = NULL, media_type = ? WHERE id = ?").bind(key, mediaType, id).run();
   if (current.imageKey && current.imageKey !== key) await MEDIA.delete(current.imageKey);
 

@@ -143,7 +143,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .upload-drop svg { width: 26px; }
 .upload-drop h3 { font-family: Georgia, serif; font-size: 21px; font-weight: 500; margin: 17px 0 4px; }
 .upload-drop p { color: var(--muted); font-size: 11px; margin: 0 0 18px; }
-.upload-drop b { color: white; background: var(--ink); border-radius: 999px; padding: 9px 15px; font-size: 11px; }
+.upload-choices { display: flex; gap: 8px; }
+.upload-choices button { border: 1px solid var(--ink); border-radius: 999px; padding: 9px 15px; color: var(--ink); background: white; font-size: 11px; font-weight: 750; cursor: pointer; }
+.upload-choices button:last-child { color: white; background: var(--ink); }
+.upload-choices button:hover { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(30,25,22,.14); }
 .preview-frame { position: relative; display: block; width: calc(100% - 50px); height: 390px; border: 0; padding: 0; margin: 25px; border-radius: 15px; overflow: hidden; background: #eee; cursor: pointer; }
 .preview-frame.story { width: min(300px, calc(100% - 50px)); height: auto; aspect-ratio: 9/14; margin: 25px auto; }
 .preview-frame img, .preview-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }

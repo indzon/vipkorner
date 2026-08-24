@@ -91,7 +91,7 @@ function imageSource(item: { imageKey: string | null; imageUrl: string | null })
 }
 
 function isVideoFile(file: File) {
-  return file.type.startsWith("video/") || /\.(mp4|webm|mov)$/i.test(file.name);
+  return file.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(file.name);
 }
 
 function timeAgo(timestamp: number) {
@@ -390,6 +390,7 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
   const [error, setError] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const preview = useMemo(() => file ? URL.createObjectURL(file) : "", [file]);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
@@ -404,7 +405,7 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
     setFile(nextFile); setError(""); setDragActive(false);
   }
 
-  function handleDrop(event: React.DragEvent<HTMLButtonElement>) {
+  function handleDrop(event: React.DragEvent<HTMLElement>) {
     event.preventDefault();
     setDragActive(false);
     selectFile(event.dataTransfer.files?.[0] || null);
@@ -432,11 +433,12 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Create ${type}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <form className="composer" onSubmit={submit}>
         <header><button type="button" className="icon-button composer-close" onClick={onClose} aria-label="Close"><X /></button><div><span>CREATE</span><h2>New {type}</h2></div><button className="share-button" disabled={!file || busy}>{busy ? "Sharing…" : "Share"}</button></header>
-        <input ref={inputRef} className="file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" onChange={(event) => selectFile(event.target.files?.[0] || null)} />
+        <input ref={inputRef} className="file-input" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.gif" onChange={(event) => selectFile(event.target.files?.[0] || null)} />
+        <input ref={videoInputRef} className="file-input" type="file" accept="video/*,.mp4,.webm,.mov,.m4v" onChange={(event) => selectFile(event.target.files?.[0] || null)} />
         {preview ? (
-          <button type="button" className={`preview-frame ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop} onClick={() => inputRef.current?.click()}>{file && isVideoFile(file) ? <video src={preview} muted playsInline aria-label="Selected video preview" /> : <img src={preview} alt="Selected preview" />}<span>Change {file && isVideoFile(file) ? "video" : "photo"}</span></button>
+          <button type="button" className={`preview-frame ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop} onClick={() => file && isVideoFile(file) ? videoInputRef.current?.click() : inputRef.current?.click()}>{file && isVideoFile(file) ? <video src={preview} autoPlay loop muted playsInline aria-label="Selected video preview" /> : <img src={preview} alt="Selected preview" />}<span>Change {file && isVideoFile(file) ? "video" : "photo"}</span></button>
         ) : (
-          <button type="button" className={`upload-drop ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop} onClick={() => inputRef.current?.click()}><span><Video /></span><h3>{dragActive ? "Drop it here" : "Choose or drop a photo or video"}</h3><p>Photos up to 10 MB · MP4, WebM or MOV up to 50 MB</p><b>Select from device</b></button>
+          <div className={`upload-drop ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop}><span><Video /></span><h3>{dragActive ? "Drop it here" : "Choose or drop a photo or video"}</h3><p>Photos up to 10 MB · MP4, WebM, MOV or M4V up to 50 MB</p><div className="upload-choices"><button type="button" onClick={() => inputRef.current?.click()}>Choose photo</button><button type="button" onClick={() => videoInputRef.current?.click()}>Choose video</button></div></div>
         )}
         <div className={`caption-field ${type === "story" ? "story-caption-field" : ""}`}><img src={profileImage(profile)} alt={profile.displayName} /><textarea value={caption} onChange={(event) => setCaption(event.target.value.slice(0, type === "story" ? 280 : 500))} placeholder={type === "story" ? "Add a story caption…" : "Write a caption…"} rows={type === "story" ? 2 : 3} /><small>{caption.length}/{type === "story" ? 280 : 500}</small></div>
         {type === "story" && <div className="expiry-note"><span>24h</span><p><strong>Made for the moment.</strong>Your story will disappear automatically after 24 hours.</p></div>}
