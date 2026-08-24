@@ -95,6 +95,44 @@ function isVideoFile(file: File) {
   return file.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(file.name);
 }
 
+type UploadContentKind = "post" | "story" | "profile";
+
+async function readApiResponse<T>(response: Response, fallback: string): Promise<T> {
+  const text = await response.text();
+  let data: { error?: string } = {};
+  try { data = text ? JSON.parse(text) as { error?: string } : {}; } catch { data = {}; }
+  if (!response.ok) throw new Error(data.error || (response.status === 413 ? "This upload is too large for one request. Please try again." : text || fallback));
+  return data as T;
+}
+
+async function uploadMediaInParts(file: File, contentKind: UploadContentKind, caption: string, onProgress: (value: number) => void) {
+  const inspected = await inspectMediaUpload(file);
+  if (!inspected) throw new Error("This file is not a supported photo or video.");
+  if (contentKind === "profile" && (inspected.kind !== "image" || inspected.extension === "gif")) throw new Error("Choose a JPG, PNG or WebP profile photo.");
+  const signature = Array.from(new Uint8Array(await file.slice(0, 32).arrayBuffer()));
+  const startResponse = await fetch("/api/uploads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", fileName: file.name, fileType: file.type, fileSize: file.size, signature, contentKind }) });
+  const started = await readApiResponse<{ key: string; uploadId: string }>(startResponse, "Could not start upload.");
+  try {
+    const chunkSize = 5 * 1024 * 1024;
+    const totalParts = Math.ceil(file.size / chunkSize);
+    const parts: { partNumber: number; etag: string }[] = [];
+    for (let index = 0; index < totalParts; index += 1) {
+      const partNumber = index + 1;
+      const partUrl = `/api/uploads?key=${encodeURIComponent(started.key)}&uploadId=${encodeURIComponent(started.uploadId)}&partNumber=${partNumber}`;
+      const partResponse = await fetch(partUrl, { method: "PUT", body: file.slice(index * chunkSize, Math.min(file.size, (index + 1) * chunkSize)) });
+      parts.push(await readApiResponse<{ partNumber: number; etag: string }>(partResponse, `Could not upload part ${partNumber}.`));
+      onProgress(Math.round((partNumber / totalParts) * 90));
+    }
+    const completeResponse = await fetch("/api/uploads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", key: started.key, uploadId: started.uploadId, parts, contentKind, caption }) });
+    const result = await readApiResponse(completeResponse, "Could not finish upload.");
+    onProgress(100);
+    return result;
+  } catch (error) {
+    fetch(`/api/uploads?key=${encodeURIComponent(started.key)}&uploadId=${encodeURIComponent(started.uploadId)}`, { method: "DELETE" }).catch(() => undefined);
+    throw error;
+  }
+}
+
 function timeAgo(timestamp: number) {
   const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
   if (seconds < 60) return "just now";
@@ -417,37 +455,10 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
     event.preventDefault();
     if (!file) { setError("Choose a photo or video first."); return; }
     setBusy(true); setError("");
-    let uploadSession: { key: string; uploadId: string } | null = null;
     try {
-      const inspected = await inspectMediaUpload(file);
-      if (!inspected) throw new Error("This file is not a supported photo or video.");
-      const signature = Array.from(new Uint8Array(await file.slice(0, 32).arrayBuffer()));
-      const readResponse = async <T,>(response: Response, fallback: string) => {
-        const text = await response.text();
-        let data: { error?: string } = {};
-        try { data = text ? JSON.parse(text) as { error?: string } : {}; } catch { data = {}; }
-        if (!response.ok) throw new Error(data.error || (response.status === 413 ? "This upload is too large for one request. Please try again." : text || fallback));
-        return data as T;
-      };
-      const startResponse = await fetch("/api/uploads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", fileName: file.name, fileType: file.type, fileSize: file.size, signature }) });
-      const started = await readResponse<{ key: string; uploadId: string }>(startResponse, "Could not start upload.");
-      uploadSession = started;
-      const chunkSize = 5 * 1024 * 1024;
-      const totalParts = Math.ceil(file.size / chunkSize);
-      const parts: { partNumber: number; etag: string }[] = [];
-      for (let index = 0; index < totalParts; index += 1) {
-        const partNumber = index + 1;
-        const partUrl = `/api/uploads?key=${encodeURIComponent(started.key)}&uploadId=${encodeURIComponent(started.uploadId)}&partNumber=${partNumber}`;
-        const partResponse = await fetch(partUrl, { method: "PUT", body: file.slice(index * chunkSize, Math.min(file.size, (index + 1) * chunkSize)) });
-        parts.push(await readResponse<{ partNumber: number; etag: string }>(partResponse, `Could not upload part ${partNumber}.`));
-        setUploadProgress(Math.round((partNumber / totalParts) * 90));
-      }
-      const completeResponse = await fetch("/api/uploads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", key: started.key, uploadId: started.uploadId, parts, contentKind: type, caption }) });
-      await readResponse(completeResponse, "Could not finish upload.");
-      setUploadProgress(100);
+      await uploadMediaInParts(file, type, caption, setUploadProgress);
       onCreated(type === "post" ? "Your post is live." : "Story shared for 24 hours.");
     } catch (reason) {
-      if (uploadSession) fetch(`/api/uploads?key=${encodeURIComponent(uploadSession.key)}&uploadId=${encodeURIComponent(uploadSession.uploadId)}`, { method: "DELETE" }).catch(() => undefined);
       setError(reason instanceof Error ? reason.message : "Something went wrong.");
       setBusy(false);
       setUploadProgress(0);
@@ -578,7 +589,7 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete }: { po
   return (
     <div className="media-viewer" role="dialog" aria-modal="true" aria-label="Post media viewer" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <button className="media-viewer-close" onClick={onClose} aria-label="Close full-screen media"><X /></button>
-      <section className="media-viewer-card">
+      <section className={`media-viewer-card ${post.mediaType === "video" ? "video-viewer-card" : ""}`}>
         <div className="media-viewer-stage">{post.mediaType === "video" ? <><video ref={videoRef} key={`${post.id}-${post.imageKey || post.imageUrl}`} src={imageSource(post)} autoPlay muted={videoMuted} controls playsInline preload="auto" onCanPlay={(event) => event.currentTarget.play().catch(() => undefined)} /><button type="button" className="media-audio-toggle" onClick={toggleViewerSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <img src={imageSource(post)} alt={post.caption} />}</div>
         <aside className="media-viewer-details">
           <header><img src={profileImage(profile)} alt="" /><div><strong>{profile.username}</strong><span>{profile.location}</span></div></header>
@@ -595,6 +606,7 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete }: { po
 function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onClose: () => void; onSaved: (profile: Profile) => void }) {
   const [draft, setDraft] = useState(profile);
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -608,27 +620,21 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
     event.preventDefault();
     setBusy(true); setError("");
     try {
+      if (photoFile) await uploadMediaInParts(photoFile, "profile", "", setUploadProgress);
       const response = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) });
-      let data = await response.json() as Profile & { error?: string };
-      if (!response.ok) throw new Error(data.error || "Could not update profile.");
-      if (photoFile) {
-        const photoBody = new FormData();
-        photoBody.set("image", photoFile);
-        const photoResponse = await fetch("/api/profile", { method: "POST", body: photoBody });
-        data = await photoResponse.json() as Profile & { error?: string };
-        if (!photoResponse.ok) throw new Error(data.error || "Could not update profile photo.");
-      }
+      const data = await readApiResponse<Profile>(response, "Could not update profile.");
       onSaved(data);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not update profile.");
       setBusy(false);
+      setUploadProgress(0);
     }
   }
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit profile" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <form className="profile-modal" onSubmit={save}>
-        <ModalHeader eyebrow="PROFILE" title="Edit profile" onClose={onClose} action={busy ? "Saving…" : "Save"} disabled={busy} />
+        <ModalHeader eyebrow="PROFILE" title="Edit profile" onClose={onClose} action={busy && uploadProgress ? `Uploading ${uploadProgress}%` : busy ? "Saving…" : "Save"} disabled={busy} />
         <div className="profile-photo-row"><input ref={photoInputRef} className="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setPhotoFile(event.target.files?.[0] || null)} /><img src={photoPreview} alt={draft.displayName} /><div><strong>{draft.username}</strong><span>JPG, PNG or WebP · up to 10 MB</span></div><button type="button" onClick={() => photoInputRef.current?.click()}>Change photo</button></div>
         <div className="form-fields">
           <label><span>Name</span><input value={draft.displayName} onChange={(event) => update("displayName", event.target.value)} maxLength={50} required /></label>

@@ -302,10 +302,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .media-viewer-close { position: fixed; z-index: 2; top: 18px; right: 22px; width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.18); border-radius: 50%; color: white; background: rgba(255,255,255,.08); cursor: pointer; }
 .media-viewer-close svg { width: 23px; }
 .media-viewer-card { width: min(1180px, 100%); height: min(82dvh, 760px); display: grid; grid-template-columns: minmax(0, 1fr) 340px; overflow: hidden; border-radius: 20px; background: var(--paper); box-shadow: 0 30px 100px rgba(0,0,0,.55); }
+.media-viewer-card.video-viewer-card { width: min(calc(min(46.125dvh, 427.5px) + 340px), 100%); grid-template-columns: minmax(0, min(46.125dvh, 427.5px)) 340px; }
 .media-viewer-stage { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; display: grid; place-items: center; overflow: hidden; background: #0e0d0d; }
 .media-audio-toggle { right: 18px; bottom: 18px; }
 .media-viewer-stage img { width: 100%; height: 100%; display: block; object-fit: contain; }
 .media-viewer-stage video { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; aspect-ratio: auto; object-fit: contain; object-position: center; background: #000; }
+.video-viewer-card .media-viewer-stage video { width: 100%; height: 100%; max-width: none; max-height: none; aspect-ratio: 9 / 16; object-fit: cover; }
 .media-viewer-details { display: flex; flex-direction: column; min-width: 0; background: var(--paper); }
 .media-viewer-details > header { display: flex; align-items: center; gap: 10px; min-height: 72px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
 .media-viewer-details > header img { width: 41px; height: 41px; border-radius: 50%; object-fit: cover; }
@@ -460,6 +462,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .media-viewer { padding: 0; align-items: stretch; }
   .media-viewer-close { top: 12px; right: 12px; }
   .media-viewer-card { width: 100%; height: 100dvh; grid-template-columns: 1fr; grid-template-rows: minmax(48dvh, 1fr) auto; border-radius: 0; overflow-y: auto; }
+  .media-viewer-card.video-viewer-card { width: 100%; grid-template-columns: 1fr; grid-template-rows: 72dvh auto; }
+  .video-viewer-card .media-viewer-stage { width: min(40.5dvh, 100vw); height: 72dvh; min-height: 0; justify-self: center; }
   .media-viewer-stage { min-height: 48dvh; }
   .media-viewer-details { min-height: 330px; }
   .login-page { display: block; min-height: 100dvh; background: radial-gradient(circle at 50% 0, #fff 0, #fff8f3 65%, #f7eee7 100%); }
