@@ -625,7 +625,7 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete, onTogg
   return (
     <div className="media-viewer" role="dialog" aria-modal="true" aria-label="Post media viewer" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <button className="media-viewer-close" onClick={onClose} aria-label="Close full-screen media"><X /></button>
-      <section className={`media-viewer-card ${post.mediaType === "video" ? "video-viewer-card" : ""}`}>
+      <section className={`media-viewer-card ${post.mediaType === "video" ? "video-viewer-card" : "image-viewer-card"}`}>
         <div className="media-viewer-stage">{post.mediaType === "video" ? <><video ref={videoRef} key={`${post.id}-${post.imageKey || post.imageUrl}`} src={imageSource(post)} autoPlay muted={videoMuted} controls playsInline preload="auto" onCanPlay={(event) => event.currentTarget.play().catch(() => undefined)} /><button type="button" className="media-audio-toggle" onClick={toggleViewerSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <img src={imageSource(post)} alt={post.caption} />}</div>
         <aside className="media-viewer-details">
           <header><img src={profileImage(profile)} alt="" /><div><strong>{profile.username}</strong><span>{profile.location}</span></div></header>
