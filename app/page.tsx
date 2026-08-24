@@ -13,6 +13,7 @@ import {
   Menu,
   MessageCircle,
   MoreHorizontal,
+  Play,
   Plus,
   Search,
   Send,
@@ -22,6 +23,8 @@ import {
   Trash2,
   UserRound,
   Video,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -323,6 +326,24 @@ function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate }: { pos
   const [editingCaption, setEditingCaption] = useState(false);
   const [captionDraft, setCaptionDraft] = useState(post.caption);
   const [actionError, setActionError] = useState("");
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(true);
+  const inlineVideoRef = useRef<HTMLVideoElement>(null);
+
+  function toggleVideoPlayback() {
+    if (post.mediaType !== "video" || !inlineVideoRef.current) return;
+    if (inlineVideoRef.current.paused) inlineVideoRef.current.play().catch(() => setActionError("Tap play again to start this video."));
+    else inlineVideoRef.current.pause();
+  }
+
+  function toggleVideoSound(event: React.MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    const nextMuted = !videoMuted;
+    setVideoMuted(nextMuted);
+    if (!inlineVideoRef.current) return;
+    inlineVideoRef.current.muted = nextMuted;
+    if (inlineVideoRef.current.paused) inlineVideoRef.current.play().catch(() => undefined);
+  }
 
   async function submitComment(event: FormEvent) {
     event.preventDefault();
@@ -352,8 +373,8 @@ function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate }: { pos
   return (
     <article className="post-card">
       <header className="post-header"><div className="post-author"><img src={profileImage(profile)} alt="" /><div><strong>{profile.username}</strong><span>{profile.location}</span></div></div><div className="post-menu-wrap"><button className="icon-button" aria-label="Post options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><MoreHorizontal /></button>{optionsOpen && <div className="post-menu"><button onClick={() => { setCaptionDraft(post.caption); setEditingCaption(true); setOptionsOpen(false); }}>Edit caption</button><button onClick={async () => { await navigator.clipboard?.writeText(location.href); setOptionsOpen(false); }}>Copy post link</button><button onClick={() => setOptionsOpen(false)}>Cancel</button></div>}</div></header>
-      <div className="post-image-wrap" onDoubleClick={() => !post.liked && onToggle(post.id, "like")}>
-        {post.mediaType === "video" ? <video className="post-image post-video" src={imageSource(post)} controls playsInline preload="metadata" aria-label={post.caption} /> : <img className="post-image" src={imageSource(post)} alt={post.caption} />}
+      <div className={`post-image-wrap ${post.mediaType === "video" ? "has-video" : ""}`} onClick={toggleVideoPlayback} onDoubleClick={() => post.mediaType === "image" && !post.liked && onToggle(post.id, "like")} onKeyDown={(event) => { if (post.mediaType === "video" && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); toggleVideoPlayback(); } }} tabIndex={post.mediaType === "video" ? 0 : undefined} role={post.mediaType === "video" ? "button" : undefined} aria-label={post.mediaType === "video" ? `${videoPlaying ? "Pause" : "Play"} video: ${post.caption}` : undefined}>
+        {post.mediaType === "video" ? <><video ref={inlineVideoRef} className="post-image post-video" src={imageSource(post)} muted={videoMuted} playsInline preload="metadata" aria-label={post.caption} onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />{!videoPlaying && <span className="post-play-indicator" aria-hidden="true"><Play fill="currentColor" /></span>}<button type="button" className="post-audio-toggle" onClick={toggleVideoSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <img className="post-image" src={imageSource(post)} alt={post.caption} />}
       </div>
       <div className="post-actions"><div><button className={`icon-button ${post.liked ? "liked" : ""}`} onClick={() => onToggle(post.id, "like")} aria-label={post.liked ? "Unlike" : "Like"}><Heart fill={post.liked ? "currentColor" : "none"} /></button><button className="icon-button" onClick={() => setCommentOpen((open) => !open)} aria-label="Comment"><MessageCircle /></button><button className="icon-button" onClick={() => navigator.share?.({ title: "Estagram", text: post.caption, url: location.href })} aria-label="Share"><Send /></button></div><button className={`icon-button ${post.saved ? "saved" : ""}`} onClick={() => onToggle(post.id, "save")} aria-label={post.saved ? "Unsave" : "Save"}><Bookmark fill={post.saved ? "currentColor" : "none"} /></button></div>
       <div className="post-copy"><strong>{post.likes.toLocaleString()} likes</strong>{editingCaption ? <form className="caption-editor" onSubmit={saveCaption}><textarea autoFocus value={captionDraft} onChange={(event) => setCaptionDraft(event.target.value.slice(0, 500))} rows={2} /><div><button type="button" onClick={() => setEditingCaption(false)}>Cancel</button><button>Save</button></div></form> : <p><b>{profile.username}</b> {post.caption}</p>}{post.comments?.length > 0 && <div className="post-comments">{post.comments.slice(-2).map((item) => <div className="comment-item" key={item.id}><img src={profileImage(profile)} alt="" /><p><b>{profile.username}</b> {item.body}</p></div>)}{post.comments.length > 2 && <small>View all {post.comments.length} comments</small>}</div>}<time>{relativeTime(post.createdAt)}</time>{actionError && <span className="inline-error">{actionError}</span>}</div>
@@ -498,6 +519,7 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete }: { po
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
+  const [videoMuted, setVideoMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -518,11 +540,19 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete }: { po
     catch (reason) { setError(reason instanceof Error ? reason.message : "Could not delete post."); setBusy(false); }
   }
 
+  function toggleViewerSound() {
+    const nextMuted = !videoMuted;
+    setVideoMuted(nextMuted);
+    if (!videoRef.current) return;
+    videoRef.current.muted = nextMuted;
+    if (videoRef.current.paused) videoRef.current.play().catch(() => undefined);
+  }
+
   return (
     <div className="media-viewer" role="dialog" aria-modal="true" aria-label="Post media viewer" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <button className="media-viewer-close" onClick={onClose} aria-label="Close full-screen media"><X /></button>
       <section className="media-viewer-card">
-        <div className="media-viewer-stage">{post.mediaType === "video" ? <video ref={videoRef} key={`${post.id}-${post.imageKey || post.imageUrl}`} src={imageSource(post)} autoPlay muted controls playsInline preload="auto" onCanPlay={(event) => event.currentTarget.play().catch(() => undefined)} /> : <img src={imageSource(post)} alt={post.caption} />}</div>
+        <div className="media-viewer-stage">{post.mediaType === "video" ? <><video ref={videoRef} key={`${post.id}-${post.imageKey || post.imageUrl}`} src={imageSource(post)} autoPlay muted={videoMuted} controls playsInline preload="auto" onCanPlay={(event) => event.currentTarget.play().catch(() => undefined)} /><button type="button" className="media-audio-toggle" onClick={toggleViewerSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <img src={imageSource(post)} alt={post.caption} />}</div>
         <aside className="media-viewer-details">
           <header><img src={profileImage(profile)} alt="" /><div><strong>{profile.username}</strong><span>{profile.location}</span></div></header>
           {editing ? <form className="viewer-caption-form" onSubmit={saveCaption}><label htmlFor="viewer-caption">Edit caption</label><textarea id="viewer-caption" autoFocus value={caption} onChange={(event) => setCaption(event.target.value.slice(0, 500))} rows={6} /><small>{caption.length}/500</small><div><button type="button" onClick={() => { setCaption(post.caption); setEditing(false); }}>Cancel</button><button disabled={busy || !caption.trim()}>{busy ? "Saving…" : "Save caption"}</button></div></form> : <div className="viewer-caption"><p><b>{profile.username}</b> {post.caption}</p><time>{relativeTime(post.createdAt)}</time></div>}
