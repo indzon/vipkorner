@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { inspectMediaUpload } from "@/lib/media-upload";
 
 type Post = {
   id: string;
@@ -265,7 +266,7 @@ export default function HomePage() {
             <StoriesTray stories={stories} profile={profile} onAdd={() => setComposer("story")} onOpen={(story) => setActiveStoryId(story.id)} />
             <div className="feed-title"><div><span className="eyebrow">YOUR FEED</span><h1>Good afternoon, {profile.displayName.split(" ")[0]}</h1></div><button onClick={() => setComposer("post")}><Plus size={17} /> New post</button></div>
             <section className="feed" aria-label="Posts">
-              {loading ? <FeedSkeleton /> : filteredPosts.length ? filteredPosts.map((post) => <PostCard key={post.id} post={post} profile={profile} onToggle={togglePost} onComment={addComment} onCaptionUpdate={updateCaption} />) : <EmptyState searched={Boolean(query)} onCreate={() => setComposer("post")} />}
+              {loading ? <FeedSkeleton /> : filteredPosts.length ? filteredPosts.map((post) => <PostCard key={post.id} post={post} profile={profile} onToggle={togglePost} onComment={addComment} onCaptionUpdate={updateCaption} onDelete={deletePost} />) : <EmptyState searched={Boolean(query)} onCreate={() => setComposer("post")} />}
             </section>
           </>
         ) : (
@@ -318,7 +319,7 @@ function StoriesTray({ stories, profile, onAdd, onOpen }: { stories: Story[]; pr
   );
 }
 
-function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate }: { post: Post; profile: Profile; onToggle: (id: string, action: "like" | "save") => void; onComment: (postId: string, body: string) => Promise<void>; onCaptionUpdate: (postId: string, caption: string) => Promise<void> }) {
+function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate, onDelete }: { post: Post; profile: Profile; onToggle: (id: string, action: "like" | "save") => void; onComment: (postId: string, body: string) => Promise<void>; onCaptionUpdate: (postId: string, caption: string) => Promise<void>; onDelete: (postId: string) => Promise<void> }) {
   const [commentOpen, setCommentOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
@@ -372,7 +373,7 @@ function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate }: { pos
 
   return (
     <article className="post-card">
-      <header className="post-header"><div className="post-author"><img src={profileImage(profile)} alt="" /><div><strong>{profile.username}</strong><span>{profile.location}</span></div></div><div className="post-menu-wrap"><button className="icon-button" aria-label="Post options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><MoreHorizontal /></button>{optionsOpen && <div className="post-menu"><button onClick={() => { setCaptionDraft(post.caption); setEditingCaption(true); setOptionsOpen(false); }}>Edit caption</button><button onClick={async () => { await navigator.clipboard?.writeText(location.href); setOptionsOpen(false); }}>Copy post link</button><button onClick={() => setOptionsOpen(false)}>Cancel</button></div>}</div></header>
+      <header className="post-header"><div className="post-author"><img src={profileImage(profile)} alt="" /><div><strong>{profile.username}</strong><span>{profile.location}</span></div></div><div className="post-menu-wrap"><button className="icon-button" aria-label="Post options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><MoreHorizontal /></button>{optionsOpen && <div className="post-menu"><button onClick={() => { setCaptionDraft(post.caption); setEditingCaption(true); setOptionsOpen(false); }}>Edit caption</button><button onClick={async () => { await navigator.clipboard?.writeText(location.href); setOptionsOpen(false); }}>Copy post link</button><button className="post-menu-danger" onClick={async () => { if (!window.confirm("Delete this post permanently?")) return; setOptionsOpen(false); try { await onDelete(post.id); } catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not delete post."); } }}>Delete post</button><button onClick={() => setOptionsOpen(false)}>Cancel</button></div>}</div></header>
       <div className={`post-image-wrap ${post.mediaType === "video" ? "has-video" : ""}`} onClick={toggleVideoPlayback} onDoubleClick={() => post.mediaType === "image" && !post.liked && onToggle(post.id, "like")} onKeyDown={(event) => { if (post.mediaType === "video" && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); toggleVideoPlayback(); } }} tabIndex={post.mediaType === "video" ? 0 : undefined} role={post.mediaType === "video" ? "button" : undefined} aria-label={post.mediaType === "video" ? `${videoPlaying ? "Pause" : "Play"} video: ${post.caption}` : undefined}>
         {post.mediaType === "video" ? <><video ref={inlineVideoRef} className="post-image post-video" src={imageSource(post)} muted={videoMuted} playsInline preload="metadata" aria-label={post.caption} onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />{!videoPlaying && <span className="post-play-indicator" aria-hidden="true"><Play fill="currentColor" /></span>}<button type="button" className="post-audio-toggle" onClick={toggleVideoSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <img className="post-image" src={imageSource(post)} alt={post.caption} />}
       </div>
@@ -387,6 +388,7 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
   const [file, setFile] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -415,24 +417,47 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
     event.preventDefault();
     if (!file) { setError("Choose a photo or video first."); return; }
     setBusy(true); setError("");
-    const body = new FormData();
-    body.set("image", file);
-    body.set("caption", caption);
+    let uploadSession: { key: string; uploadId: string } | null = null;
     try {
-      const response = await fetch(type === "post" ? "/api/posts" : "/api/stories", { method: "POST", body });
-      const data = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(data.error || "Upload failed.");
+      const inspected = await inspectMediaUpload(file);
+      if (!inspected) throw new Error("This file is not a supported photo or video.");
+      const signature = Array.from(new Uint8Array(await file.slice(0, 32).arrayBuffer()));
+      const readResponse = async <T,>(response: Response, fallback: string) => {
+        const text = await response.text();
+        let data: { error?: string } = {};
+        try { data = text ? JSON.parse(text) as { error?: string } : {}; } catch { data = {}; }
+        if (!response.ok) throw new Error(data.error || (response.status === 413 ? "This upload is too large for one request. Please try again." : text || fallback));
+        return data as T;
+      };
+      const startResponse = await fetch("/api/uploads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", fileName: file.name, fileType: file.type, fileSize: file.size, signature }) });
+      const started = await readResponse<{ key: string; uploadId: string }>(startResponse, "Could not start upload.");
+      uploadSession = started;
+      const chunkSize = 5 * 1024 * 1024;
+      const totalParts = Math.ceil(file.size / chunkSize);
+      const parts: { partNumber: number; etag: string }[] = [];
+      for (let index = 0; index < totalParts; index += 1) {
+        const partNumber = index + 1;
+        const partUrl = `/api/uploads?key=${encodeURIComponent(started.key)}&uploadId=${encodeURIComponent(started.uploadId)}&partNumber=${partNumber}`;
+        const partResponse = await fetch(partUrl, { method: "PUT", body: file.slice(index * chunkSize, Math.min(file.size, (index + 1) * chunkSize)) });
+        parts.push(await readResponse<{ partNumber: number; etag: string }>(partResponse, `Could not upload part ${partNumber}.`));
+        setUploadProgress(Math.round((partNumber / totalParts) * 90));
+      }
+      const completeResponse = await fetch("/api/uploads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", key: started.key, uploadId: started.uploadId, parts, contentKind: type, caption }) });
+      await readResponse(completeResponse, "Could not finish upload.");
+      setUploadProgress(100);
       onCreated(type === "post" ? "Your post is live." : "Story shared for 24 hours.");
     } catch (reason) {
+      if (uploadSession) fetch(`/api/uploads?key=${encodeURIComponent(uploadSession.key)}&uploadId=${encodeURIComponent(uploadSession.uploadId)}`, { method: "DELETE" }).catch(() => undefined);
       setError(reason instanceof Error ? reason.message : "Something went wrong.");
       setBusy(false);
+      setUploadProgress(0);
     }
   }
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Create ${type}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <form className="composer" onSubmit={submit}>
-        <header><button type="button" className="icon-button composer-close" onClick={onClose} aria-label="Close"><X /></button><div><span>CREATE</span><h2>New {type}</h2></div><button className="share-button" disabled={!file || busy}>{busy ? "Sharing…" : "Share"}</button></header>
+        <header><button type="button" className="icon-button composer-close" onClick={onClose} aria-label="Close"><X /></button><div><span>CREATE</span><h2>New {type}</h2></div><button className="share-button" disabled={!file || busy}>{busy ? `Uploading ${uploadProgress}%` : "Share"}</button></header>
         <input ref={inputRef} className="file-input" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.gif" onChange={(event) => selectFile(event.target.files?.[0] || null)} />
         <input ref={videoInputRef} className="file-input" type="file" accept="video/*,.mp4,.webm,.mov,.m4v" onChange={(event) => selectFile(event.target.files?.[0] || null)} />
         {preview ? (

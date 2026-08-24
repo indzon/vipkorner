@@ -1,0 +1,91 @@
+import { NextResponse } from "next/server";
+import { bindings, ensureSchema } from "@/db/storage";
+import { inspectMediaMetadata } from "@/lib/media-upload";
+
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
+const KEY_PATTERN = /^([0-9a-f-]{36})\.(jpg|png|webp|gif|mp4|webm|mov)$/;
+
+type UploadPart = { partNumber: number; etag: string };
+
+export async function POST(request: Request) {
+  await ensureSchema();
+  const payload = await request.json() as {
+    action?: "start" | "complete";
+    fileName?: string;
+    fileType?: string;
+    fileSize?: number;
+    signature?: number[];
+    uploadId?: string;
+    key?: string;
+    parts?: UploadPart[];
+    contentKind?: "post" | "story";
+    caption?: string;
+  };
+  const { DB, MEDIA } = bindings();
+
+  if (payload.action === "start") {
+    const media = inspectMediaMetadata(String(payload.fileName || ""), String(payload.fileType || ""), Uint8Array.from(payload.signature || []));
+    const fileSize = Number(payload.fileSize || 0);
+    if (!media || !fileSize) return NextResponse.json({ error: "This file is not a supported photo or video." }, { status: 400 });
+    const limit = media.kind === "video" ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
+    if (fileSize > limit) return NextResponse.json({ error: media.kind === "video" ? "Videos must be under 50 MB." : "Photos must be under 10 MB." }, { status: 400 });
+
+    const id = crypto.randomUUID();
+    const key = `${id}.${media.extension}`;
+    const upload = await MEDIA.createMultipartUpload(key, { httpMetadata: { contentType: media.contentType } });
+    return NextResponse.json({ id, key, uploadId: upload.uploadId, mediaType: media.kind });
+  }
+
+  if (payload.action === "complete") {
+    const match = String(payload.key || "").match(KEY_PATTERN);
+    const parts = Array.isArray(payload.parts) ? payload.parts : [];
+    if (!match || !payload.uploadId || !parts.length || !["post", "story"].includes(payload.contentKind || "")) {
+      return NextResponse.json({ error: "Upload could not be completed." }, { status: 400 });
+    }
+    const [, id, extension] = match;
+    const mediaType = ["mp4", "webm", "mov"].includes(extension) ? "video" : "image";
+    await MEDIA.resumeMultipartUpload(payload.key!, payload.uploadId).complete(parts);
+    const createdAt = Date.now();
+    const caption = String(payload.caption || "").trim();
+    try {
+      if (payload.contentKind === "story") {
+        const storyCaption = caption.slice(0, 280);
+        const expiresAt = createdAt + 24 * 60 * 60 * 1000;
+        await DB.prepare("INSERT INTO stories (id, caption, image_key, media_type, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)")
+          .bind(id, storyCaption, payload.key, mediaType, createdAt, expiresAt).run();
+        return NextResponse.json({ id, caption: storyCaption, imageKey: payload.key, imageUrl: null, mediaType, createdAt, expiresAt }, { status: 201 });
+      }
+      const postCaption = caption.slice(0, 500) || "A new moment.";
+      await DB.prepare("INSERT INTO posts (id, caption, image_key, media_type, likes, created_at) VALUES (?, ?, ?, ?, 0, ?)")
+        .bind(id, postCaption, payload.key, mediaType, createdAt).run();
+      return NextResponse.json({ id, caption: postCaption, imageKey: payload.key, imageUrl: null, mediaType, likes: 0, liked: 0, saved: 0, createdAt }, { status: 201 });
+    } catch (error) {
+      await MEDIA.delete(payload.key!);
+      throw error;
+    }
+  }
+
+  return NextResponse.json({ error: "Unknown upload action." }, { status: 400 });
+}
+
+export async function PUT(request: Request) {
+  const url = new URL(request.url);
+  const key = url.searchParams.get("key") || "";
+  const uploadId = url.searchParams.get("uploadId") || "";
+  const partNumber = Number(url.searchParams.get("partNumber"));
+  if (!KEY_PATTERN.test(key) || !uploadId || !Number.isInteger(partNumber) || partNumber < 1 || !request.body) {
+    return NextResponse.json({ error: "Invalid upload part." }, { status: 400 });
+  }
+  const part = await bindings().MEDIA.resumeMultipartUpload(key, uploadId).uploadPart(partNumber, request.body);
+  return NextResponse.json({ partNumber: part.partNumber, etag: part.etag });
+}
+
+export async function DELETE(request: Request) {
+  const url = new URL(request.url);
+  const key = url.searchParams.get("key") || "";
+  const uploadId = url.searchParams.get("uploadId") || "";
+  if (!KEY_PATTERN.test(key) || !uploadId) return NextResponse.json({ aborted: true });
+  await bindings().MEDIA.resumeMultipartUpload(key, uploadId).abort();
+  return NextResponse.json({ aborted: true });
+}
