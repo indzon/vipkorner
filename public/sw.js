@@ -1,4 +1,4 @@
-const CACHE = "estagram-v1";
+const CACHE = "estagram-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {

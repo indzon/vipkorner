@@ -250,6 +250,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .profile-photo-row strong { font-size: 12px; }
 .profile-photo-row span { color: var(--muted); font-size: 10px; }
 .profile-photo-row > button { margin-left: auto; border: 1px solid var(--line); border-radius: 8px; background: white; padding: 7px 10px; color: var(--accent); font-size: 9px; font-weight: 700; cursor: pointer; }
+.profile-cropper { margin: 12px 25px 6px; padding: 15px; border: 1px solid var(--line); border-radius: 14px; background: #fcf8f4; }
+.profile-cropper > div:first-child { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.profile-cropper > div:first-child span { font-size: 12px; font-weight: 750; }
+.profile-cropper > div:first-child small { color: var(--muted); font-size: 9px; }
+.profile-crop-preview { width: 180px; height: 180px; margin: 0 auto 13px; overflow: hidden; border: 3px solid white; border-radius: 50%; background: #eee7e1; box-shadow: 0 8px 24px rgba(50,36,28,.13); }
+.profile-crop-preview img { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform .12s ease; }
+.profile-cropper label { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 10px; margin-top: 7px; color: var(--muted); font-size: 10px; }
+.profile-cropper input[type="range"] { width: 100%; accent-color: var(--accent); }
 .form-fields { display: flex; flex-direction: column; gap: 15px; padding: 17px 25px 26px; }
 .form-fields label { position: relative; display: flex; flex-direction: column; gap: 6px; }
 .form-fields label > span { font-size: 10px; font-weight: 700; }
@@ -326,9 +334,20 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .viewer-caption-form button, .viewer-actions > button { border: 1px solid var(--line); border-radius: 9px; background: white; padding: 9px 11px; font-size: 10px; font-weight: 700; cursor: pointer; }
 .viewer-caption-form button:last-child { color: white; border-color: var(--ink); background: var(--ink); }
 .viewer-caption-form button:disabled, .viewer-actions button:disabled { opacity: .55; cursor: default; }
-.viewer-stats { display: flex; gap: 15px; padding: 12px 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 10px; font-weight: 650; }
-.viewer-stats span { display: flex; align-items: center; gap: 5px; }
+.viewer-stats { display: flex; gap: 5px; padding: 7px 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 10px; font-weight: 650; }
+.viewer-stats button { display: flex; align-items: center; gap: 5px; border: 0; border-radius: 8px; padding: 7px 6px; color: var(--ink); background: transparent; font: inherit; cursor: pointer; }
+.viewer-stats button:hover { background: #f8f2ed; }
+.viewer-stats button.liked { color: var(--accent); }
 .viewer-stats svg { width: 15px; height: 15px; }
+.viewer-comments { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+.viewer-comments .comment-item { grid-template-columns: 24px 1fr; }
+.viewer-comments .comment-item img { width: 24px; height: 24px; }
+.viewer-comments-empty { color: var(--muted); font-size: 10px !important; }
+.viewer-comments form { display: grid; grid-template-columns: 28px 1fr auto; gap: 7px; align-items: center; margin-top: 12px; }
+.viewer-comments form img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.viewer-comments form input { min-width: 0; border: 1px solid var(--line); border-radius: 999px; padding: 8px 10px; outline: none; font-size: 10px; }
+.viewer-comments form button { border: 0; color: var(--accent); background: transparent; font-size: 10px; font-weight: 750; cursor: pointer; }
+.viewer-comments form button:disabled { color: #c7bfb9; cursor: default; }
 .viewer-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 18px 18px; }
 .viewer-actions > button { display: flex; align-items: center; gap: 6px; }
 .viewer-actions > button svg { width: 14px; }

@@ -21,6 +21,8 @@ interface D1Database {
 interface R2ObjectBody {
   body: ReadableStream;
   httpEtag: string;
+  size: number;
+  range?: { offset: number; length: number };
   writeHttpMetadata(headers: Headers): void;
 }
 
@@ -39,7 +41,7 @@ interface R2MultipartUpload {
 
 interface R2Bucket {
   put(key: string, value: ReadableStream | ArrayBuffer | Blob, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
-  get(key: string): Promise<R2ObjectBody | null>;
+  get(key: string, options?: { range?: Headers | { offset?: number; length?: number; suffix?: number } }): Promise<R2ObjectBody | null>;
   delete(key: string): Promise<void>;
   createMultipartUpload(key: string, options?: { httpMetadata?: { contentType?: string } }): Promise<R2MultipartUpload>;
   resumeMultipartUpload(key: string, uploadId: string): R2MultipartUpload;

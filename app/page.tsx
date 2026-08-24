@@ -133,6 +133,29 @@ async function uploadMediaInParts(file: File, contentKind: UploadContentKind, ca
   }
 }
 
+async function cropProfileImage(file: File, zoom: number, horizontal: number, vertical: number) {
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = sourceUrl;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 640;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("This browser could not crop the photo.");
+    const sourceSize = Math.min(image.naturalWidth, image.naturalHeight) / zoom;
+    const sourceX = Math.max(0, (image.naturalWidth - sourceSize) * (horizontal / 100));
+    const sourceY = Math.max(0, (image.naturalHeight - sourceSize) * (vertical / 100));
+    context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, 640, 640);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", .9));
+    if (!blob) throw new Error("This browser could not crop the photo.");
+    return new File([blob], `profile-${Date.now()}.jpg`, { type: "image/jpeg" });
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
+
 function timeAgo(timestamp: number) {
   const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
   if (seconds < 60) return "just now";
@@ -329,7 +352,7 @@ export default function HomePage() {
       {profilePanel === "edit" && <EditProfileModal profile={profile} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Profile updated."); }} />}
       {profilePanel === "settings" && <SettingsModal profile={profile} installPrompt={installPrompt} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Settings saved."); }} />}
       {profilePanel === "activity" && <ActivityModal activities={activities} posts={posts} onClose={() => setProfilePanel(null)} />}
-      {activePost && <MediaViewer post={activePost} profile={profile} onClose={() => setActivePostId(null)} onCaptionUpdate={updateCaption} onDelete={deletePost} />}
+      {activePost && <MediaViewer post={activePost} profile={profile} onClose={() => setActivePostId(null)} onCaptionUpdate={updateCaption} onDelete={deletePost} onToggle={togglePost} onComment={addComment} />}
       {toast && <div className="toast" role="status"><Check size={17} /> {toast}</div>}
     </main>
   );
@@ -551,14 +574,18 @@ function ProfileView({ posts, profile, onCreate, onEdit, onSettings, onActivity,
   );
 }
 
-function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete }: { post: Post; profile: Profile; onClose: () => void; onCaptionUpdate: (postId: string, caption: string) => Promise<void>; onDelete: (postId: string) => Promise<void> }) {
+function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete, onToggle, onComment }: { post: Post; profile: Profile; onClose: () => void; onCaptionUpdate: (postId: string, caption: string) => Promise<void>; onDelete: (postId: string) => Promise<void>; onToggle: (id: string, action: "like" | "save") => Promise<void>; onComment: (postId: string, body: string) => Promise<void> }) {
   const [caption, setCaption] = useState(post.caption);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
   const [videoMuted, setVideoMuted] = useState(true);
+  const [commentOpen, setCommentOpen] = useState(false);
+  const [comment, setComment] = useState("");
+  const [commentBusy, setCommentBusy] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const commentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (post.mediaType === "video") videoRef.current?.play().catch(() => undefined);
@@ -586,6 +613,15 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete }: { po
     if (videoRef.current.paused) videoRef.current.play().catch(() => undefined);
   }
 
+  async function submitViewerComment(event: FormEvent) {
+    event.preventDefault();
+    if (!comment.trim()) return;
+    setCommentBusy(true); setError("");
+    try { await onComment(post.id, comment); setComment(""); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not post comment."); }
+    finally { setCommentBusy(false); }
+  }
+
   return (
     <div className="media-viewer" role="dialog" aria-modal="true" aria-label="Post media viewer" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <button className="media-viewer-close" onClick={onClose} aria-label="Close full-screen media"><X /></button>
@@ -593,8 +629,8 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete }: { po
         <div className="media-viewer-stage">{post.mediaType === "video" ? <><video ref={videoRef} key={`${post.id}-${post.imageKey || post.imageUrl}`} src={imageSource(post)} autoPlay muted={videoMuted} controls playsInline preload="auto" onCanPlay={(event) => event.currentTarget.play().catch(() => undefined)} /><button type="button" className="media-audio-toggle" onClick={toggleViewerSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <img src={imageSource(post)} alt={post.caption} />}</div>
         <aside className="media-viewer-details">
           <header><img src={profileImage(profile)} alt="" /><div><strong>{profile.username}</strong><span>{profile.location}</span></div></header>
-          {editing ? <form className="viewer-caption-form" onSubmit={saveCaption}><label htmlFor="viewer-caption">Edit caption</label><textarea id="viewer-caption" autoFocus value={caption} onChange={(event) => setCaption(event.target.value.slice(0, 500))} rows={6} /><small>{caption.length}/500</small><div><button type="button" onClick={() => { setCaption(post.caption); setEditing(false); }}>Cancel</button><button disabled={busy || !caption.trim()}>{busy ? "Saving…" : "Save caption"}</button></div></form> : <div className="viewer-caption"><p><b>{profile.username}</b> {post.caption}</p><time>{relativeTime(post.createdAt)}</time></div>}
-          <div className="viewer-stats"><span><Heart fill={post.liked ? "currentColor" : "none"} /> {post.likes.toLocaleString()} likes</span><span><MessageCircle /> {post.comments.length} comments</span></div>
+          {editing ? <form className="viewer-caption-form" onSubmit={saveCaption}><label htmlFor="viewer-caption">Edit caption</label><textarea id="viewer-caption" autoFocus value={caption} onChange={(event) => setCaption(event.target.value.slice(0, 500))} rows={6} /><small>{caption.length}/500</small><div><button type="button" onClick={() => { setCaption(post.caption); setEditing(false); }}>Cancel</button><button disabled={busy || !caption.trim()}>{busy ? "Saving…" : "Save caption"}</button></div></form> : <div className="viewer-caption"><p><b>{profile.username}</b> {post.caption}</p><time>{relativeTime(post.createdAt)}</time>{commentOpen && <div className="viewer-comments">{post.comments.length ? post.comments.map((item) => <div className="comment-item" key={item.id}><img src={profileImage(profile)} alt="" /><p><b>{profile.username}</b> {item.body}</p></div>) : <p className="viewer-comments-empty">Be the first to comment.</p>}<form onSubmit={submitViewerComment}><img src={profileImage(profile)} alt="" /><input ref={commentInputRef} value={comment} onChange={(event) => setComment(event.target.value.slice(0, 280))} placeholder="Add a comment…" aria-label="Add a comment" /><button disabled={!comment.trim() || commentBusy}>{commentBusy ? "Posting…" : "Post"}</button></form></div>}</div>}
+          <div className="viewer-stats"><button className={post.liked ? "liked" : ""} onClick={() => onToggle(post.id, "like")} aria-label={post.liked ? "Unlike post" : "Like post"}><Heart fill={post.liked ? "currentColor" : "none"} /> {post.likes.toLocaleString()} likes</button><button onClick={() => { const next = !commentOpen; setCommentOpen(next); if (next) window.setTimeout(() => commentInputRef.current?.focus(), 0); }} aria-expanded={commentOpen}><MessageCircle /> {post.comments.length} comments</button></div>
           <div className="viewer-actions"><button onClick={() => setEditing(true)}>Edit caption</button>{confirmDelete ? <div className="delete-confirm"><p>Delete this post permanently?</p><button onClick={() => setConfirmDelete(false)}>Cancel</button><button onClick={remove} disabled={busy}>{busy ? "Deleting…" : "Yes, delete"}</button></div> : <button className="danger" onClick={() => setConfirmDelete(true)}><Trash2 /> Delete post</button>}</div>
           {error && <p className="viewer-error">{error}</p>}
         </aside>
@@ -609,6 +645,9 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropX, setCropX] = useState(50);
+  const [cropY, setCropY] = useState(50);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const photoPreview = useMemo(() => photoFile ? URL.createObjectURL(photoFile) : profileImage(profile), [photoFile, profile]);
 
@@ -616,11 +655,21 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
 
   const update = (key: keyof Profile, value: string) => setDraft((current) => ({ ...current, [key]: value }));
 
+  function selectProfilePhoto(file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/") || file.type === "image/gif") { setError("Choose a JPG, PNG or WebP profile photo."); return; }
+    if (file.size > 10 * 1024 * 1024) { setError("Profile photos must be under 10 MB."); return; }
+    setPhotoFile(file); setCropZoom(1); setCropX(50); setCropY(50); setError("");
+  }
+
   async function save(event: FormEvent) {
     event.preventDefault();
     setBusy(true); setError("");
     try {
-      if (photoFile) await uploadMediaInParts(photoFile, "profile", "", setUploadProgress);
+      if (photoFile) {
+        const croppedPhoto = await cropProfileImage(photoFile, cropZoom, cropX, cropY);
+        await uploadMediaInParts(croppedPhoto, "profile", "", setUploadProgress);
+      }
       const response = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) });
       const data = await readApiResponse<Profile>(response, "Could not update profile.");
       onSaved(data);
@@ -635,7 +684,8 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit profile" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <form className="profile-modal" onSubmit={save}>
         <ModalHeader eyebrow="PROFILE" title="Edit profile" onClose={onClose} action={busy && uploadProgress ? `Uploading ${uploadProgress}%` : busy ? "Saving…" : "Save"} disabled={busy} />
-        <div className="profile-photo-row"><input ref={photoInputRef} className="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setPhotoFile(event.target.files?.[0] || null)} /><img src={photoPreview} alt={draft.displayName} /><div><strong>{draft.username}</strong><span>JPG, PNG or WebP · up to 10 MB</span></div><button type="button" onClick={() => photoInputRef.current?.click()}>Change photo</button></div>
+        <div className="profile-photo-row"><input ref={photoInputRef} className="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => selectProfilePhoto(event.target.files?.[0] || null)} /><img src={photoPreview} alt={draft.displayName} /><div><strong>{draft.username}</strong><span>JPG, PNG or WebP · up to 10 MB</span></div><button type="button" onClick={() => photoInputRef.current?.click()}>Change photo</button></div>
+        {photoFile && <section className="profile-cropper" aria-label="Adjust profile photo crop"><div><span>Adjust crop</span><small>Your saved photo will be square.</small></div><div className="profile-crop-preview"><img src={photoPreview} alt="Crop preview" style={{ objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})` }} /></div><label><span>Zoom</span><input type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} /></label><label><span>Horizontal</span><input type="range" min="0" max="100" value={cropX} onChange={(event) => setCropX(Number(event.target.value))} /></label><label><span>Vertical</span><input type="range" min="0" max="100" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} /></label></section>}
         <div className="form-fields">
           <label><span>Name</span><input value={draft.displayName} onChange={(event) => update("displayName", event.target.value)} maxLength={50} required /></label>
           <label><span>Username</span><div className="input-prefix"><i>@</i><input value={draft.username} onChange={(event) => update("username", event.target.value.replace(/\s/g, ""))} maxLength={30} required /></div></label>
