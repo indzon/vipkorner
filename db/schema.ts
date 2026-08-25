@@ -15,6 +15,7 @@ export const posts = sqliteTable("posts", {
   liked: integer("liked", { mode: "boolean" }).notNull().default(false),
   saved: integer("saved", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at").notNull(),
+  userId: text("user_id"),
 });
 
 export const profile = sqliteTable("profile", {
@@ -36,6 +37,7 @@ export const comments = sqliteTable("comments", {
   postId: text("post_id").notNull(),
   body: text("body").notNull(),
   createdAt: integer("created_at").notNull(),
+  userId: text("user_id"),
 });
 
 export const activities = sqliteTable("activities", {
@@ -54,4 +56,99 @@ export const stories = sqliteTable("stories", {
   mediaType: text("media_type").notNull().default("image"),
   createdAt: integer("created_at").notNull(),
   expiresAt: integer("expires_at").notNull(),
+  userId: text("user_id"),
+  captionX: integer("caption_x").notNull().default(50),
+  captionY: integer("caption_y").notNull().default(86),
+});
+
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  username: text("username").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  bio: text("bio").notNull().default(""),
+  website: text("website").notNull().default(""),
+  location: text("location").notNull().default(""),
+  imageKey: text("image_key"),
+  imageUrl: text("image_url"),
+  role: text("role").notNull().default("user"),
+  status: text("status").notNull().default("active"),
+  isPublic: integer("is_public", { mode: "boolean" }).notNull().default(true),
+  storyReplies: integer("story_replies", { mode: "boolean" }).notNull().default(true),
+  highQualityUploads: integer("high_quality_uploads", { mode: "boolean" }).notNull().default(true),
+  adultConfirmedAt: integer("adult_confirmed_at").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const invites = sqliteTable("invites", {
+  code: text("code").primaryKey(),
+  createdBy: text("created_by").notNull(),
+  claimedBy: text("claimed_by"),
+  createdAt: integer("created_at").notNull(),
+  claimedAt: integer("claimed_at"),
+  revoked: integer("revoked", { mode: "boolean" }).notNull().default(false),
+});
+
+export const follows = sqliteTable("follows", {
+  followerId: text("follower_id").notNull(),
+  followedId: text("followed_id").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const blocks = sqliteTable("blocks", {
+  blockerId: text("blocker_id").notNull(),
+  blockedId: text("blocked_id").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const notifications = sqliteTable("notifications", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  actorId: text("actor_id"),
+  type: text("type").notNull(),
+  entityId: text("entity_id"),
+  message: text("message").notNull(),
+  readAt: integer("read_at"),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const conversations = sqliteTable("conversations", {
+  id: text("id").primaryKey(),
+  userA: text("user_a").notNull(),
+  userB: text("user_b").notNull(),
+  requestedBy: text("requested_by").notNull(),
+  status: text("status").notNull().default("accepted"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const messages = sqliteTable("messages", {
+  id: text("id").primaryKey(),
+  conversationId: text("conversation_id").notNull(),
+  senderId: text("sender_id").notNull(),
+  body: text("body").notNull(),
+  createdAt: integer("created_at").notNull(),
+  readAt: integer("read_at"),
+});
+
+export const reports = sqliteTable("reports", {
+  id: text("id").primaryKey(),
+  reporterId: text("reporter_id").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("open"),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const postLikes = sqliteTable("post_likes", {
+  postId: text("post_id").notNull(),
+  userId: text("user_id").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const postSaves = sqliteTable("post_saves", {
+  postId: text("post_id").notNull(),
+  userId: text("user_id").notNull(),
+  createdAt: integer("created_at").notNull(),
 });

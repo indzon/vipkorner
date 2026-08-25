@@ -2,6 +2,7 @@
 
 import {
   Bell,
+  Ban,
   Bookmark,
   Check,
   ChevronLeft,
@@ -10,8 +11,11 @@ import {
   Heart,
   Home,
   ImagePlus,
+  Download,
+  Flag,
   Menu,
   MessageCircle,
+  Mail,
   MoreHorizontal,
   Play,
   Plus,
@@ -22,6 +26,7 @@ import {
   Sparkles,
   Trash2,
   UserRound,
+  UserPlus,
   Video,
   Volume2,
   VolumeX,
@@ -41,12 +46,17 @@ type Post = {
   saved: number | boolean;
   createdAt: number;
   comments: Comment[];
+  userId: string;
+  owned: boolean;
+  author: PublicUser;
 };
 
-type Comment = { id: string; postId: string; body: string; createdAt: number };
-type Activity = { id: string; type: "like" | "comment"; postId: string | null; message: string; createdAt: number };
+type PublicUser = { id: string; username: string; displayName: string; location?: string; bio?: string; imageKey: string | null; imageUrl: string | null };
+type Comment = { id: string; postId: string; body: string; createdAt: number; author: PublicUser };
+type Activity = { id: string; type: "like" | "comment" | "follow" | "message"; postId: string | null; message: string; createdAt: number; readAt?: number | null };
 
 type Profile = {
+  id: string;
   username: string;
   displayName: string;
   bio: string;
@@ -57,6 +67,9 @@ type Profile = {
   privateAccount: number | boolean;
   storyReplies: number | boolean;
   highQualityUploads: number | boolean;
+  role: "admin" | "user";
+  following: number;
+  followers: number;
 };
 
 type Story = {
@@ -67,10 +80,19 @@ type Story = {
   mediaType: "image" | "video";
   createdAt: number;
   expiresAt: number;
+  userId: string;
+  owned: boolean;
+  captionX: number;
+  captionY: number;
+  author: PublicUser;
 };
 
-const PROFILE_IMAGE = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=88";
+type DiscoveryUser = PublicUser & { following: number | boolean; followsYou: number | boolean; blocked: number | boolean; followers: number; posts: number; role: string };
+type Conversation = { id: string; status: "pending" | "accepted"; requestedBy: string; updatedAt: number; otherId: string; username: string; displayName: string; imageKey: string | null; imageUrl: string | null; lastMessage: string | null; unread: number };
+type DirectMessage = { id: string; senderId: string; body: string; createdAt: number };
+
 const DEFAULT_PROFILE: Profile = {
+  id: "",
   username: "emma.wright",
   displayName: "Emma Wright",
   bio: "Little moments, city light, and everything in between. ✨",
@@ -81,10 +103,15 @@ const DEFAULT_PROFILE: Profile = {
   privateAccount: true,
   storyReplies: true,
   highQualityUploads: true,
+  role: "user",
+  following: 0,
+  followers: 0,
 };
 
-function profileImage(profile: Profile) {
-  return profile.imageKey || profile.imageUrl ? imageSource(profile) : PROFILE_IMAGE;
+function profileImage(profile: { imageKey: string | null; imageUrl: string | null; username?: string; displayName?: string }) {
+  if (profile.imageKey || profile.imageUrl) return imageSource(profile);
+  const initials = ((profile.displayName || profile.username || "E").match(/[a-z0-9]/gi) || ["E"]).slice(0, 2).join("").toUpperCase();
+  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#6d2b61"/><stop offset="1" stop-color="#ef5778"/></linearGradient></defs><rect width="100" height="100" rx="50" fill="url(#g)"/><text x="50" y="58" text-anchor="middle" fill="white" font-family="Arial" font-size="34" font-weight="700">${initials}</text></svg>`)}`;
 }
 
 function imageSource(item: { imageKey: string | null; imageUrl: string | null }) {
@@ -177,7 +204,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [composer, setComposer] = useState<"post" | "story" | null>(null);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
-  const [view, setView] = useState<"home" | "profile">("home");
+  const [view, setView] = useState<"home" | "profile" | "explore" | "messages">("home");
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -185,12 +212,17 @@ export default function HomePage() {
   const [profilePanel, setProfilePanel] = useState<"edit" | "settings" | "activity" | null>(null);
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [accessReady, setAccessReady] = useState(false);
+  const [discovery, setDiscovery] = useState<DiscoveryUser[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [installGuideOpen, setInstallGuideOpen] = useState(false);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
   const activePost = posts.find((post) => post.id === activePostId) || null;
 
   const loadFeed = useCallback(async () => {
     try {
       const response = await fetch("/api/feed");
+      if (response.status === 401 || response.status === 403) { location.replace("/login"); return; }
       if (!response.ok) throw new Error("Could not load feed");
       const data = await response.json() as { posts: Post[]; stories: Story[]; profile: Profile | null; activities: Activity[] };
       setPosts(data.posts);
@@ -204,16 +236,20 @@ export default function HomePage() {
     }
   }, []);
 
-  useEffect(() => {
-    const confirmedAt = Number(localStorage.getItem("estagram-adult-access") || 0);
-    const validForThirtyDays = confirmedAt > 0 && Date.now() - confirmedAt < 30 * 24 * 60 * 60 * 1000;
-    if (!validForThirtyDays) {
-      location.replace("/login");
-      return;
-    }
-    const readyTimer = window.setTimeout(() => setAccessReady(true), 0);
-    return () => window.clearTimeout(readyTimer);
+  const loadDiscovery = useCallback(async (search = "") => {
+    const response = await fetch(`/api/social?q=${encodeURIComponent(search)}`);
+    if (response.status === 401 || response.status === 403) { location.replace("/login"); return; }
+    const data = await readApiResponse<{ users: DiscoveryUser[] }>(response, "Could not load people.");
+    setDiscovery(data.users || []);
   }, []);
+
+  const loadConversations = useCallback(async () => {
+    const response = await fetch("/api/messages");
+    const data = await readApiResponse<{ conversations: Conversation[] }>(response, "Could not load messages.");
+    setConversations(data.conversations || []);
+  }, []);
+
+  useEffect(() => { const readyTimer = window.setTimeout(() => setAccessReady(true), 0); return () => window.clearTimeout(readyTimer); }, []);
 
   useEffect(() => {
     if (!accessReady) return;
@@ -287,10 +323,12 @@ export default function HomePage() {
     setToast("Story deleted.");
   }
 
-  const profileNav = () => { setView("profile"); setSearchOpen(false); };
-  const homeNav = () => { setView("home"); setSearchOpen(false); };
+  const profileNav = () => { setView("profile"); setSearchOpen(false); setQuery(""); };
+  const homeNav = () => { setView("home"); setSearchOpen(false); setQuery(""); };
+  const exploreNav = () => { setView("explore"); setSearchOpen(true); void loadDiscovery(query); };
+  const messagesNav = () => { setView("messages"); setSearchOpen(false); void loadConversations(); };
 
-  if (!accessReady) return <div className="auth-check" role="status"><span className="brand-mark">e</span><p>Checking private access…</p></div>;
+  if (!accessReady) return <div className="auth-check" role="status"><span className="brand-mark">e</span><p>Checking access…</p></div>;
 
   return (
     <main className="app-shell">
@@ -298,26 +336,26 @@ export default function HomePage() {
         <button className="brand" onClick={homeNav} aria-label="Estagram home"><span className="brand-mark">e</span><span>estagram</span></button>
         <nav>
           <NavButton icon={<Home />} label="Home" active={view === "home" && !searchOpen} onClick={homeNav} />
-          <NavButton icon={<Search />} label="Search" active={searchOpen} onClick={() => setSearchOpen((open) => !open)} />
-          <NavButton icon={<Compass />} label="Explore" onClick={() => setToast("Explore is all you — this is your private space.")} />
+          <NavButton icon={<Compass />} label="Explore" active={view === "explore"} onClick={exploreNav} />
+          <NavButton icon={<Mail />} label="Messages" active={view === "messages"} onClick={messagesNav} />
           <NavButton icon={<UserRound />} label="Profile" active={view === "profile"} onClick={profileNav} />
         </nav>
         <div className="nav-footer">
-          {installPrompt && <button className="install-button" onClick={() => installPrompt.prompt?.()}><Sparkles size={17} /> Install app</button>}
-          <NavButton icon={<Menu />} label="More" onClick={() => setToast("Your settings are coming soon.")} />
+          <button className="install-button" onClick={() => installPrompt?.prompt ? installPrompt.prompt() : setInstallGuideOpen(true)}><Download size={17} /> Install app</button>
+          <NavButton icon={<Menu />} label="More" onClick={() => setProfilePanel("settings")} />
         </div>
       </aside>
 
       <section className="content-column">
         <header className="mobile-header">
           <button className="brand" onClick={homeNav} aria-label="Estagram home"><span className="brand-mark">e</span><span>estagram</span></button>
-          <div className="header-actions"><button className="icon-button" onClick={profileNav} aria-label="Profile"><UserRound /></button><button className="icon-button" onClick={() => setToast("No new messages.")} aria-label="Messages"><Send /></button></div>
+          <div className="header-actions"><button className="icon-button" onClick={profileNav} aria-label="Profile"><UserRound /></button><button className="icon-button" onClick={messagesNav} aria-label="Messages"><Send /></button></div>
         </header>
 
         {searchOpen && (
           <div className="search-panel">
             <Search size={18} />
-            <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search your captions" aria-label="Search posts" />
+            <input autoFocus value={query} onChange={(event) => { setQuery(event.target.value); if (view === "explore") void loadDiscovery(event.target.value); }} placeholder={view === "explore" ? "Search people" : "Search captions"} aria-label="Search" />
             {query && <button onClick={() => setQuery("")} aria-label="Clear search"><X size={16} /></button>}
           </div>
         )}
@@ -330,29 +368,32 @@ export default function HomePage() {
               {loading ? <FeedSkeleton /> : filteredPosts.length ? filteredPosts.map((post) => <PostCard key={post.id} post={post} profile={profile} onToggle={togglePost} onComment={addComment} onCaptionUpdate={updateCaption} onDelete={deletePost} />) : <EmptyState searched={Boolean(query)} onCreate={() => setComposer("post")} />}
             </section>
           </>
-        ) : (
+        ) : view === "profile" ? (
           <ProfileView posts={posts} profile={profile} onCreate={() => setComposer("post")} onEdit={() => setProfilePanel("edit")} onSettings={() => setProfilePanel("settings")} onActivity={() => setProfilePanel("activity")} onOpenPost={(post) => setActivePostId(post.id)} />
-        )}
+        ) : view === "explore" ? <ExploreView users={discovery} onRefresh={() => loadDiscovery(query)} onMessage={(conversationId) => { setActiveConversationId(conversationId); setView("messages"); void loadConversations(); }} />
+        : <MessagesView key={activeConversationId || "messages"} profile={profile} conversations={conversations} initialConversationId={activeConversationId} onRefresh={loadConversations} />}
       </section>
 
       <aside className="desktop-profile">
         <div className="mini-profile"><img src={profileImage(profile)} alt={profile.displayName} /><div><strong>{profile.username}</strong><span>{profile.displayName}</span></div><button onClick={view === "profile" ? homeNav : profileNav}>{view === "profile" ? "Home" : "View"}</button></div>
-        <div className="daily-note"><span className="note-icon"><Sparkles /></span><p>Keep the moments that feel like you.</p><small>Your private creative corner</small></div>
+        <div className="daily-note"><span className="note-icon"><Sparkles /></span><p>Keep the moments that feel like you.</p><small>Your social space, on your terms</small></div>
         <footer><button>About</button><span>·</span><button>Privacy</button><span>·</span><button>Help</button><p>© 2026 ESTAGRAM</p></footer>
       </aside>
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
         <button className={view === "home" ? "active" : ""} onClick={homeNav} aria-label="Home"><Home /></button>
-        <button onClick={() => { setSearchOpen(true); setView("home"); }} aria-label="Search"><Search /></button>
+        <button className={view === "explore" ? "active" : ""} onClick={exploreNav} aria-label="Explore"><Search /></button>
+        <button className={view === "messages" ? "active" : ""} onClick={messagesNav} aria-label="Messages"><Mail /></button>
         <button className={view === "profile" ? "active" : ""} onClick={profileNav} aria-label="Profile"><img src={profileImage(profile)} alt="" /></button>
       </nav>
 
       {composer && <Composer type={composer} profile={profile} onClose={() => setComposer(null)} onCreated={(message) => { setComposer(null); setToast(message); loadFeed(); }} />}
-      {activeStoryId && <StoryViewer key={activeStoryId} stories={stories} activeId={activeStoryId} profile={profile} onChange={setActiveStoryId} onClose={() => setActiveStoryId(null)} onDelete={deleteStory} />}
+      {activeStoryId && <StoryViewer key={activeStoryId} stories={stories} activeId={activeStoryId} onChange={setActiveStoryId} onClose={() => setActiveStoryId(null)} onDelete={deleteStory} />}
       {profilePanel === "edit" && <EditProfileModal profile={profile} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Profile updated."); }} />}
-      {profilePanel === "settings" && <SettingsModal profile={profile} installPrompt={installPrompt} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Settings saved."); }} />}
+      {profilePanel === "settings" && <SettingsModal profile={profile} installPrompt={installPrompt} onInstallGuide={() => { setProfilePanel(null); setInstallGuideOpen(true); }} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Settings saved."); }} />}
       {profilePanel === "activity" && <ActivityModal activities={activities} posts={posts} onClose={() => setProfilePanel(null)} />}
       {activePost && <MediaViewer post={activePost} profile={profile} onClose={() => setActivePostId(null)} onCaptionUpdate={updateCaption} onDelete={deletePost} onToggle={togglePost} onComment={addComment} />}
+      {installGuideOpen && <InstallGuide onClose={() => setInstallGuideOpen(false)} />}
       {toast && <div className="toast" role="status"><Check size={17} /> {toast}</div>}
     </main>
   );
@@ -372,7 +413,7 @@ function StoriesTray({ stories, profile, onAdd, onOpen }: { stories: Story[]; pr
         </button>
         {stories.map((story, index) => (
           <button className="story-item" key={story.id} onClick={() => onOpen(story)}>
-            <span className="story-ring active-story">{story.mediaType === "video" ? <><video src={imageSource(story)} muted playsInline preload="metadata" aria-label="Your video story" /><i className="story-video-badge"><Video /></i></> : <img src={imageSource(story)} alt="Your story" />}</span><span>{index === 0 ? "Today" : relativeTime(story.createdAt)}</span>
+            <span className="story-ring active-story">{story.mediaType === "video" ? <><video src={imageSource(story)} muted playsInline preload="metadata" aria-label={`${story.author.username}'s video story`} /><i className="story-video-badge"><Video /></i></> : <img src={imageSource(story)} alt={`${story.author.username}'s story`} />}</span><span>{story.owned && index === 0 ? "Your story" : story.author.username}</span>
           </button>
         ))}
       </div>
@@ -432,15 +473,23 @@ function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate, onDelet
     }
   }
 
+  async function reportPost() {
+    const reason = window.prompt("Why are you reporting this post?");
+    if (!reason) return;
+    const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "report", targetType: "post", targetId: post.id, reason }) });
+    await readApiResponse(response, "Could not submit this report.");
+    setOptionsOpen(false); setActionError("Report sent to the administrator.");
+  }
+
   return (
     <article className="post-card">
-      <header className="post-header"><div className="post-author"><img src={profileImage(profile)} alt="" /><div><strong>{profile.username}</strong><span>{profile.location}</span></div></div><div className="post-menu-wrap"><button className="icon-button" aria-label="Post options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><MoreHorizontal /></button>{optionsOpen && <div className="post-menu"><button onClick={() => { setCaptionDraft(post.caption); setEditingCaption(true); setOptionsOpen(false); }}>Edit caption</button><button onClick={async () => { await navigator.clipboard?.writeText(location.href); setOptionsOpen(false); }}>Copy post link</button><button className="post-menu-danger" onClick={async () => { if (!window.confirm("Delete this post permanently?")) return; setOptionsOpen(false); try { await onDelete(post.id); } catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not delete post."); } }}>Delete post</button><button onClick={() => setOptionsOpen(false)}>Cancel</button></div>}</div></header>
+      <header className="post-header"><div className="post-author"><img src={profileImage(post.author)} alt="" /><div><strong>{post.author.username}</strong><span>{post.author.location}</span></div></div><div className="post-menu-wrap"><button className="icon-button" aria-label="Post options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><MoreHorizontal /></button>{optionsOpen && <div className="post-menu">{post.owned && <button onClick={() => { setCaptionDraft(post.caption); setEditingCaption(true); setOptionsOpen(false); }}>Edit caption</button>}<button onClick={async () => { await navigator.clipboard?.writeText(`${location.origin}/?post=${post.id}`); setOptionsOpen(false); }}>Copy post link</button>{post.owned ? <button className="post-menu-danger" onClick={async () => { if (!window.confirm("Delete this post permanently?")) return; setOptionsOpen(false); try { await onDelete(post.id); } catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not delete post."); } }}>Delete post</button> : <button className="post-menu-danger" onClick={reportPost}><Flag /> Report post</button>}<button onClick={() => setOptionsOpen(false)}>Cancel</button></div>}</div></header>
       <div className={`post-image-wrap ${post.mediaType === "video" ? "has-video" : ""}`} onClick={toggleVideoPlayback} onDoubleClick={() => post.mediaType === "image" && !post.liked && onToggle(post.id, "like")} onKeyDown={(event) => { if (post.mediaType === "video" && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); toggleVideoPlayback(); } }} tabIndex={post.mediaType === "video" ? 0 : undefined} role={post.mediaType === "video" ? "button" : undefined} aria-label={post.mediaType === "video" ? `${videoPlaying ? "Pause" : "Play"} video: ${post.caption}` : undefined}>
         {post.mediaType === "video" ? <><video ref={inlineVideoRef} className="post-image post-video" src={imageSource(post)} muted={videoMuted} playsInline preload="metadata" aria-label={post.caption} onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />{!videoPlaying && <span className="post-play-indicator" aria-hidden="true"><Play fill="currentColor" /></span>}<button type="button" className="post-audio-toggle" onClick={toggleVideoSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <img className="post-image" src={imageSource(post)} alt={post.caption} />}
       </div>
       <div className="post-actions"><div><button className={`icon-button ${post.liked ? "liked" : ""}`} onClick={() => onToggle(post.id, "like")} aria-label={post.liked ? "Unlike" : "Like"}><Heart fill={post.liked ? "currentColor" : "none"} /></button><button className="icon-button" onClick={() => setCommentOpen((open) => !open)} aria-label="Comment"><MessageCircle /></button><button className="icon-button" onClick={() => navigator.share?.({ title: "Estagram", text: post.caption, url: location.href })} aria-label="Share"><Send /></button></div><button className={`icon-button ${post.saved ? "saved" : ""}`} onClick={() => onToggle(post.id, "save")} aria-label={post.saved ? "Unsave" : "Save"}><Bookmark fill={post.saved ? "currentColor" : "none"} /></button></div>
-      <div className="post-copy"><strong>{post.likes.toLocaleString()} likes</strong>{editingCaption ? <form className="caption-editor" onSubmit={saveCaption}><textarea autoFocus value={captionDraft} onChange={(event) => setCaptionDraft(event.target.value.slice(0, 500))} rows={2} /><div><button type="button" onClick={() => setEditingCaption(false)}>Cancel</button><button>Save</button></div></form> : <p><b>{profile.username}</b> {post.caption}</p>}{post.comments?.length > 0 && <div className="post-comments">{post.comments.slice(-2).map((item) => <div className="comment-item" key={item.id}><img src={profileImage(profile)} alt="" /><p><b>{profile.username}</b> {item.body}</p></div>)}{post.comments.length > 2 && <small>View all {post.comments.length} comments</small>}</div>}<time>{relativeTime(post.createdAt)}</time>{actionError && <span className="inline-error">{actionError}</span>}</div>
-      {commentOpen && <form className="comment-row" onSubmit={submitComment}><input autoFocus value={comment} onChange={(event) => setComment(event.target.value.slice(0, 280))} placeholder="Add a comment…" aria-label="Comment" /><button disabled={!comment.trim() || commentBusy}>{commentBusy ? "Posting…" : "Post"}</button></form>}
+      <div className="post-copy"><strong>{post.likes.toLocaleString()} likes</strong>{editingCaption ? <form className="caption-editor" onSubmit={saveCaption}><textarea autoFocus value={captionDraft} onChange={(event) => setCaptionDraft(event.target.value.slice(0, 500))} rows={2} /><div><button type="button" onClick={() => setEditingCaption(false)}>Cancel</button><button>Save</button></div></form> : <p><b>{post.author.username}</b> {post.caption}</p>}{post.comments?.length > 0 && <div className="post-comments">{post.comments.slice(-2).map((item) => <div className="comment-item" key={item.id}><img src={profileImage(item.author)} alt="" /><p><b>{item.author.username}</b> {item.body}</p></div>)}{post.comments.length > 2 && <small>View all {post.comments.length} comments</small>}</div>}<time>{relativeTime(post.createdAt)}</time>{actionError && <span className="inline-error">{actionError}</span>}</div>
+      {commentOpen && <form className="comment-row" onSubmit={submitComment}><img src={profileImage(profile)} alt="" /><input autoFocus value={comment} onChange={(event) => setComment(event.target.value.slice(0, 280))} placeholder="Add a comment…" aria-label="Comment" /><button disabled={!comment.trim() || commentBusy}>{commentBusy ? "Posting…" : "Post"}</button></form>}
     </article>
   );
 }
@@ -507,12 +556,13 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
   );
 }
 
-function StoryViewer({ stories, activeId, profile, onChange, onClose, onDelete }: { stories: Story[]; activeId: string; profile: Profile; onChange: (id: string) => void; onClose: () => void; onDelete: (id: string) => Promise<void> }) {
+function StoryViewer({ stories, activeId, onChange, onClose, onDelete }: { stories: Story[]; activeId: string; onChange: (id: string) => void; onClose: () => void; onDelete: (id: string) => Promise<void> }) {
   const story = stories.find((item) => item.id === activeId);
   const currentIndex = stories.findIndex((item) => item.id === activeId);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [error, setError] = useState("");
+  const [captionPosition, setCaptionPosition] = useState({ x: story?.captionX ?? 50, y: story?.captionY ?? 86 });
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const goNext = useCallback(() => {
@@ -546,27 +596,96 @@ function StoryViewer({ stories, activeId, profile, onChange, onClose, onDelete }
     }
   }
 
+  async function moveCaption(event: React.PointerEvent<HTMLParagraphElement>) {
+    if (!story?.owned) return;
+    const frame = event.currentTarget.closest(".story-frame")?.getBoundingClientRect();
+    if (!frame) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    let nextPosition = captionPosition;
+    const update = (clientX: number, clientY: number) => { nextPosition = { x: Math.max(8, Math.min(92, ((clientX - frame.left) / frame.width) * 100)), y: Math.max(10, Math.min(92, ((clientY - frame.top) / frame.height) * 100)) }; setCaptionPosition(nextPosition); };
+    update(event.clientX, event.clientY);
+    const target = event.currentTarget;
+    target.onpointermove = (next) => update(next.clientX, next.clientY);
+    target.onpointerup = async () => {
+      target.onpointermove = null; target.onpointerup = null;
+      await fetch("/api/stories", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: story.id, caption: story.caption, captionX: nextPosition.x, captionY: nextPosition.y }) }).catch(() => undefined);
+    };
+  }
+
   return (
     <div className="story-viewer" role="dialog" aria-modal="true" aria-label="Story">
       <div className="story-frame">
         <div className="story-progress" aria-hidden="true">{stories.map((item, index) => <i key={item.id} className={index < currentIndex ? "done" : index === currentIndex ? "current" : ""}><span style={index === currentIndex && story.mediaType === "video" ? { animationDuration: "30s" } : undefined} /></i>)}</div>
-        <header><div><img src={profileImage(profile)} alt="" /><strong>{profile.username}</strong><span>{timeAgo(story.createdAt)}</span></div><div className="story-header-actions"><button onClick={() => setConfirmDelete(true)} aria-label="Delete story"><Trash2 /></button><button onClick={onClose} aria-label="Close story"><X /></button></div></header>
+        <header><div><img src={profileImage(story.author)} alt="" /><strong>{story.author.username}</strong><span>{timeAgo(story.createdAt)}</span></div><div className="story-header-actions">{story.owned && <button onClick={() => setConfirmDelete(true)} aria-label="Delete story"><Trash2 /></button>}<button onClick={onClose} aria-label="Close story"><X /></button></div></header>
         {story.mediaType === "video" ? <video ref={videoRef} key={story.id} className="story-full-image" src={imageSource(story)} autoPlay muted playsInline onEnded={goNext} aria-label={story.caption || "Your video story"} /> : <img className="story-full-image" src={imageSource(story)} alt={story.caption || "Your story"} />}
         {currentIndex > 0 && <button className="story-nav previous" onClick={() => onChange(stories[currentIndex - 1].id)} aria-label="Previous story"><ChevronLeft /></button>}
         {currentIndex < stories.length - 1 && <button className="story-nav next" onClick={goNext} aria-label="Next story"><ChevronRight /></button>}
-        <footer>{story.caption && <p>{story.caption}</p>}<span>Story expires automatically within 24 hours</span></footer>
+        <footer>{story.caption && <p className={story.owned ? "movable-caption" : ""} onPointerDown={moveCaption} style={{ left: `${captionPosition.x}%`, top: `${captionPosition.y}%` }}>{story.caption}{story.owned && <small>Drag to move</small>}</p>}<span>Story expires automatically within 24 hours</span></footer>
         {confirmDelete && <div className="story-delete-confirm"><strong>Delete this story?</strong><p>This removes it immediately instead of waiting for it to expire.</p>{error && <span>{error}</span>}<div><button onClick={() => setConfirmDelete(false)}>Cancel</button><button onClick={removeStory} disabled={deleteBusy}>{deleteBusy ? "Deleting…" : "Delete"}</button></div></div>}
       </div>
     </div>
   );
 }
 
+function ExploreView({ users, onRefresh, onMessage }: { users: DiscoveryUser[]; onRefresh: () => Promise<void>; onMessage: (conversationId: string) => void }) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  async function action(user: DiscoveryUser, name: "follow" | "block" | "message" | "report") {
+    setBusyId(user.id); setNotice("");
+    try {
+      if (name === "message") {
+        const response = await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", targetId: user.id }) });
+        const data = await readApiResponse<{ id: string }>(response, "Could not start a conversation.");
+        onMessage(data.id); return;
+      }
+      let reason = "";
+      if (name === "report") { reason = window.prompt(`Why are you reporting @${user.username}?`) || ""; if (!reason) return; }
+      if (name === "block" && !user.blocked && !window.confirm(`Block @${user.username}? Following relationships will be removed and you won't see or message each other.`)) return;
+      const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: name, targetId: user.id, targetType: "profile", reason }) });
+      await readApiResponse(response, "Could not update this profile.");
+      setNotice(name === "report" ? "Report sent to the administrator." : "Profile updated.");
+      await onRefresh();
+    } catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not complete this action."); }
+    finally { setBusyId(null); }
+  }
+  return <section className="explore-page"><div className="section-heading"><span className="eyebrow">DISCOVER</span><h1>Find your people</h1><p>Public profiles from the Estagram community.</p></div>{notice && <p className="panel-notice">{notice}</p>}<div className="people-grid">{users.length ? users.map((user) => <article className="person-card" key={user.id}><img src={profileImage(user)} alt="" /><div><h2>{user.displayName}</h2><strong>@{user.username}</strong><p>{user.bio || "New to Estagram."}</p><small>{user.posts} posts · {user.followers} followers{user.followsYou ? " · Follows you" : ""}</small></div><div className="person-actions"><button className={user.following ? "following" : "primary"} disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "follow")}>{user.following ? "Following" : <><UserPlus /> Follow</>}</button><button disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "message")}><Mail /> Message</button><button className={user.blocked ? "danger" : ""} disabled={busyId === user.id} onClick={() => action(user, "block")}><Ban /> {user.blocked ? "Unblock" : "Block"}</button><button disabled={busyId === user.id} onClick={() => action(user, "report")}><Flag /> Report</button></div></article>) : <div className="empty-state"><span><Compass /></span><h2>No profiles found</h2><p>Try a different name or username.</p></div>}</div></section>;
+}
+
+function MessagesView({ profile, conversations, initialConversationId, onRefresh }: { profile: Profile; conversations: Conversation[]; initialConversationId: string | null; onRefresh: () => Promise<void> }) {
+  const [activeId, setActiveId] = useState<string | null>(initialConversationId || conversations[0]?.id || null);
+  const [messages, setMessages] = useState<DirectMessage[]>([]);
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const active = conversations.find((item) => item.id === activeId);
+  useEffect(() => {
+    if (!activeId) return;
+    fetch(`/api/messages?conversationId=${encodeURIComponent(activeId)}`).then((response) => readApiResponse<{ messages: DirectMessage[] }>(response, "Could not load this conversation.")).then((data) => setMessages(data.messages)).catch((reason) => setError(reason instanceof Error ? reason.message : "Could not load messages."));
+  }, [activeId]);
+  async function sendMessage(event: FormEvent) {
+    event.preventDefault(); if (!activeId || !body.trim()) return; setBusy(true); setError("");
+    try { const response = await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send", conversationId: activeId, body }) }); const message = await readApiResponse<DirectMessage>(response, "Could not send this message."); setMessages((current) => [...current, message]); setBody(""); await onRefresh(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not send this message."); } finally { setBusy(false); }
+  }
+  async function requestAction(action: "accept" | "decline") {
+    if (!activeId) return; setBusy(true); setError("");
+    try { const response = await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, conversationId: activeId }) }); await readApiResponse(response, "Could not update this request."); if (action === "decline") { setActiveId(null); setMessages([]); } await onRefresh(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update this request."); } finally { setBusy(false); }
+  }
+  return <section className="messages-page"><aside className="conversation-list"><div className="section-heading"><span className="eyebrow">DIRECT</span><h1>Messages</h1></div>{conversations.map((conversation) => <button key={conversation.id} className={activeId === conversation.id ? "active" : ""} onClick={() => setActiveId(conversation.id)}><img src={profileImage(conversation)} alt="" /><div><strong>{conversation.username}</strong><span>{conversation.lastMessage || (conversation.status === "pending" ? "Message request" : "Start the conversation")}</span></div>{conversation.unread > 0 && <i>{conversation.unread}</i>}</button>)}{!conversations.length && <p className="conversation-empty">Find someone in Explore and tap Message.</p>}</aside><div className="message-thread">{active ? <><header><img src={profileImage(active)} alt="" /><div><strong>@{active.username}</strong><span>{active.status === "pending" ? "Message request" : "Text-only conversation"}</span></div></header>{active.status === "pending" && active.requestedBy !== profile.id && <div className="message-request"><p>@{active.username} wants to message you.</p><button onClick={() => requestAction("decline")} disabled={busy}>Decline</button><button onClick={() => requestAction("accept")} disabled={busy}>Accept</button></div>}<div className="message-scroll">{messages.map((message) => <p key={message.id} className={message.senderId === profile.id ? "mine" : "theirs"}>{message.body}<time>{timeAgo(message.createdAt)}</time></p>)}</div>{error && <p className="inline-error">{error}</p>}<form className="message-composer" onSubmit={sendMessage}><input value={body} onChange={(event) => setBody(event.target.value.slice(0, 2000))} placeholder="Write a message…" disabled={active.status === "pending" && active.requestedBy !== profile.id} /><button disabled={busy || !body.trim()}><Send /></button></form></> : <div className="message-placeholder"><Mail /><h2>Your conversations</h2><p>Select a message or find someone in Explore.</p></div>}</div></section>;
+}
+
+function InstallGuide({ onClose }: { onClose: () => void }) {
+  return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Install Estagram" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="profile-modal install-guide"><ModalHeader eyebrow="PWA" title="Install Estagram" onClose={onClose} /><div className="settings-intro"><span><Download /></span><div><strong>Use Estagram like an app</strong><p>Installation keeps it one tap away and enables a full-screen app experience.</p></div></div><ol><li><strong>iPhone or iPad</strong><span>Open this site in Safari, tap Share, then choose “Add to Home Screen.”</span></li><li><strong>Android</strong><span>Open the browser menu and choose “Install app” or “Add to Home screen.”</span></li><li><strong>Desktop</strong><span>Use the install icon in the address bar, or open the browser menu and choose “Install Estagram.”</span></li></ol><p className="install-note">If an install option is missing, open Estagram in Safari or Chrome first.</p></section></div>;
+}
+
 function ProfileView({ posts, profile, onCreate, onEdit, onSettings, onActivity, onOpenPost }: { posts: Post[]; profile: Profile; onCreate: () => void; onEdit: () => void; onSettings: () => void; onActivity: () => void; onOpenPost: (post: Post) => void }) {
   const [tab, setTab] = useState<"posts" | "saved">("posts");
-  const visiblePosts = tab === "saved" ? posts.filter((post) => Boolean(post.saved)) : posts;
+  const ownPosts = posts.filter((post) => post.owned);
+  const visiblePosts = tab === "saved" ? posts.filter((post) => Boolean(post.saved)) : ownPosts;
   return (
     <section className="profile-page">
-      <header className="profile-hero"><button className="profile-photo-button" onClick={onEdit} aria-label="Update profile photo"><img src={profileImage(profile)} alt={profile.displayName} /><span><ImagePlus /></span></button><div className="profile-info"><div><h1>{profile.username}</h1><button onClick={onEdit}>Edit profile</button><button className="icon-button profile-settings" onClick={onSettings} aria-label="Profile settings"><Settings /></button></div><dl><div><dt>{posts.length}</dt><dd>posts</dd></div><div><dt>{posts.reduce((total, post) => total + post.likes, 0).toLocaleString()}</dt><dd>likes</dd></div><div><dt>1</dt><dd>creative space</dd></div></dl><p><strong>{profile.displayName}</strong><br />{profile.bio}<br /><a href={`https://${profile.website.replace(/^https?:\/\//, "")}`}>{profile.website}</a></p></div></header>
+      <header className="profile-hero"><button className="profile-photo-button" onClick={onEdit} aria-label="Update profile photo"><img src={profileImage(profile)} alt={profile.displayName} /><span><ImagePlus /></span></button><div className="profile-info"><div><h1>{profile.username}</h1><button onClick={onEdit}>Edit profile</button><button className="icon-button profile-settings" onClick={onSettings} aria-label="Profile settings"><Settings /></button></div><dl><div><dt>{ownPosts.length}</dt><dd>posts</dd></div><div><dt>{profile.followers}</dt><dd>followers</dd></div><div><dt>{profile.following}</dt><dd>following</dd></div></dl><p><strong>{profile.displayName}</strong><br />{profile.bio}<br />{profile.website && <a href={`https://${profile.website.replace(/^https?:\/\//, "")}`}>{profile.website}</a>}</p></div></header>
       <div className="profile-actions" aria-label="Profile actions"><button onClick={onActivity}><Bell /><span><strong>Activity</strong><small>See your latest updates</small></span></button><button onClick={onCreate}><Plus /><span><strong>Create</strong><small>Share a new post</small></span></button></div>
       <div className="profile-tabs" role="tablist" aria-label="Profile posts"><button className={tab === "posts" ? "active" : ""} role="tab" aria-selected={tab === "posts"} onClick={() => setTab("posts")}><ImagePlus size={15} /> POSTS</button><button className={tab === "saved" ? "active" : ""} role="tab" aria-selected={tab === "saved"} onClick={() => setTab("saved")}><Bookmark size={15} /> SAVED</button></div>
       {visiblePosts.length ? <div className="profile-grid">{visiblePosts.map((post) => <button key={post.id} onClick={() => onOpenPost(post)} aria-label={`Open ${post.mediaType}: ${post.caption}`}>{post.mediaType === "video" ? <><video src={imageSource(post)} muted playsInline preload="metadata" aria-label={post.caption} /><i className="video-badge"><Video /></i></> : <img src={imageSource(post)} alt={post.caption} />}<span><Heart fill="currentColor" size={17} /> {post.likes}</span></button>)}{tab === "posts" && <button className="grid-add" onClick={onCreate}><Plus /><span>Add a post</span></button>}</div> : <div className="saved-empty"><span><Bookmark /></span><h3>No saved posts yet</h3><p>Tap the bookmark on a post and it will appear here.</p></div>}
@@ -584,6 +703,8 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete, onTogg
   const [commentOpen, setCommentOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
+  const [fitMode, setFitMode] = useState<"fit" | "fill">("fit");
+  const [zoom, setZoom] = useState(1);
   const videoRef = useRef<HTMLVideoElement>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
 
@@ -626,12 +747,12 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete, onTogg
     <div className="media-viewer" role="dialog" aria-modal="true" aria-label="Post media viewer" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <button className="media-viewer-close" onClick={onClose} aria-label="Close full-screen media"><X /></button>
       <section className={`media-viewer-card ${post.mediaType === "video" ? "video-viewer-card" : "image-viewer-card"}`}>
-        <div className="media-viewer-stage">{post.mediaType === "video" ? <><video ref={videoRef} key={`${post.id}-${post.imageKey || post.imageUrl}`} src={imageSource(post)} autoPlay muted={videoMuted} controls playsInline preload="auto" onCanPlay={(event) => event.currentTarget.play().catch(() => undefined)} /><button type="button" className="media-audio-toggle" onClick={toggleViewerSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <img src={imageSource(post)} alt={post.caption} />}</div>
+        <div className={`media-viewer-stage ${fitMode === "fill" ? "viewer-fill" : "viewer-fit"}`}>{post.mediaType === "video" ? <><video ref={videoRef} key={`${post.id}-${post.imageKey || post.imageUrl}`} src={imageSource(post)} autoPlay muted={videoMuted} controls playsInline preload="auto" onCanPlay={(event) => event.currentTarget.play().catch(() => undefined)} /><button type="button" className="media-audio-toggle" onClick={toggleViewerSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <><img src={imageSource(post)} alt={post.caption} style={{ transform: `scale(${zoom})` }} /><div className="viewer-media-controls"><button className={fitMode === "fit" ? "active" : ""} onClick={() => { setFitMode("fit"); setZoom(1); }}>Fit</button><button className={fitMode === "fill" ? "active" : ""} onClick={() => setFitMode("fill")}>Fill</button><button onClick={() => setZoom((value) => Math.min(3, value + .25))} aria-label="Zoom in">+</button><button onClick={() => setZoom((value) => Math.max(1, value - .25))} aria-label="Zoom out">−</button><button onClick={() => { setFitMode("fit"); setZoom(1); }}>Reset</button></div></>}</div>
         <aside className="media-viewer-details">
-          <header><img src={profileImage(profile)} alt="" /><div><strong>{profile.username}</strong><span>{profile.location}</span></div></header>
-          {editing ? <form className="viewer-caption-form" onSubmit={saveCaption}><label htmlFor="viewer-caption">Edit caption</label><textarea id="viewer-caption" autoFocus value={caption} onChange={(event) => setCaption(event.target.value.slice(0, 500))} rows={6} /><small>{caption.length}/500</small><div><button type="button" onClick={() => { setCaption(post.caption); setEditing(false); }}>Cancel</button><button disabled={busy || !caption.trim()}>{busy ? "Saving…" : "Save caption"}</button></div></form> : <div className="viewer-caption"><p><b>{profile.username}</b> {post.caption}</p><time>{relativeTime(post.createdAt)}</time>{commentOpen && <div className="viewer-comments">{post.comments.length ? post.comments.map((item) => <div className="comment-item" key={item.id}><img src={profileImage(profile)} alt="" /><p><b>{profile.username}</b> {item.body}</p></div>) : <p className="viewer-comments-empty">Be the first to comment.</p>}<form onSubmit={submitViewerComment}><img src={profileImage(profile)} alt="" /><input ref={commentInputRef} value={comment} onChange={(event) => setComment(event.target.value.slice(0, 280))} placeholder="Add a comment…" aria-label="Add a comment" /><button disabled={!comment.trim() || commentBusy}>{commentBusy ? "Posting…" : "Post"}</button></form></div>}</div>}
+          <header><img src={profileImage(post.author)} alt="" /><div><strong>{post.author.username}</strong><span>{post.author.location}</span></div></header>
+          {editing ? <form className="viewer-caption-form" onSubmit={saveCaption}><label htmlFor="viewer-caption">Edit caption</label><textarea id="viewer-caption" autoFocus value={caption} onChange={(event) => setCaption(event.target.value.slice(0, 500))} rows={6} /><small>{caption.length}/500</small><div><button type="button" onClick={() => { setCaption(post.caption); setEditing(false); }}>Cancel</button><button disabled={busy || !caption.trim()}>{busy ? "Saving…" : "Save caption"}</button></div></form> : <div className="viewer-caption"><p><b>{post.author.username}</b> {post.caption}</p><time>{relativeTime(post.createdAt)}</time>{commentOpen && <div className="viewer-comments">{post.comments.length ? post.comments.map((item) => <div className="comment-item" key={item.id}><img src={profileImage(item.author)} alt="" /><p><b>{item.author.username}</b> {item.body}</p></div>) : <p className="viewer-comments-empty">Be the first to comment.</p>}<form onSubmit={submitViewerComment}><img src={profileImage(profile)} alt="" /><input ref={commentInputRef} value={comment} onChange={(event) => setComment(event.target.value.slice(0, 280))} placeholder="Add a comment…" aria-label="Add a comment" /><button disabled={!comment.trim() || commentBusy}>{commentBusy ? "Posting…" : "Post"}</button></form></div>}</div>}
           <div className="viewer-stats"><button className={post.liked ? "liked" : ""} onClick={() => onToggle(post.id, "like")} aria-label={post.liked ? "Unlike post" : "Like post"}><Heart fill={post.liked ? "currentColor" : "none"} /> {post.likes.toLocaleString()} likes</button><button onClick={() => { const next = !commentOpen; setCommentOpen(next); if (next) window.setTimeout(() => commentInputRef.current?.focus(), 0); }} aria-expanded={commentOpen}><MessageCircle /> {post.comments.length} comments</button></div>
-          <div className="viewer-actions"><button onClick={() => setEditing(true)}>Edit caption</button>{confirmDelete ? <div className="delete-confirm"><p>Delete this post permanently?</p><button onClick={() => setConfirmDelete(false)}>Cancel</button><button onClick={remove} disabled={busy}>{busy ? "Deleting…" : "Yes, delete"}</button></div> : <button className="danger" onClick={() => setConfirmDelete(true)}><Trash2 /> Delete post</button>}</div>
+          {post.owned && <div className="viewer-actions"><button onClick={() => setEditing(true)}>Edit caption</button>{confirmDelete ? <div className="delete-confirm"><p>Delete this post permanently?</p><button onClick={() => setConfirmDelete(false)}>Cancel</button><button onClick={remove} disabled={busy}>{busy ? "Deleting…" : "Yes, delete"}</button></div> : <button className="danger" onClick={() => setConfirmDelete(true)}><Trash2 /> Delete post</button>}</div>}
           {error && <p className="viewer-error">{error}</p>}
         </aside>
       </section>
@@ -699,7 +820,7 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
   );
 }
 
-function SettingsModal({ profile, installPrompt, onClose, onSaved }: { profile: Profile; installPrompt: (Event & { prompt?: () => Promise<void> }) | null; onClose: () => void; onSaved: (profile: Profile) => void }) {
+function SettingsModal({ profile, installPrompt, onInstallGuide, onClose, onSaved }: { profile: Profile; installPrompt: (Event & { prompt?: () => Promise<void> }) | null; onInstallGuide: () => void; onClose: () => void; onSaved: (profile: Profile) => void }) {
   const [draft, setDraft] = useState(profile);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -722,25 +843,40 @@ function SettingsModal({ profile, installPrompt, onClose, onSaved }: { profile: 
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Profile settings" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="profile-modal settings-modal">
         <ModalHeader eyebrow="YOUR SPACE" title="Settings" onClose={onClose} action={busy ? "Saving…" : "Done"} disabled={busy} onAction={save} />
-        <div className="settings-intro"><span><SlidersHorizontal /></span><div><strong>Make Estagram yours</strong><p>Choose how your private creative space behaves.</p></div></div>
+        <div className="settings-intro"><span><SlidersHorizontal /></span><div><strong>Make Estagram yours</strong><p>Choose how your profile and uploads behave.</p></div></div>
         <div className="settings-list">
-          <SettingRow title="Private account" description="Only you can access this creative space." checked={Boolean(draft.privateAccount)} onChange={() => toggle("privateAccount")} />
+          <SettingRow title="Private account" description="Hide your profile from public discovery." checked={Boolean(draft.privateAccount)} onChange={() => toggle("privateAccount")} />
           <SettingRow title="Story replies" description="Allow quick replies while viewing stories." checked={Boolean(draft.storyReplies)} onChange={() => toggle("storyReplies")} />
           <SettingRow title="High-quality uploads" description="Keep original detail in photos and videos." checked={Boolean(draft.highQualityUploads)} onChange={() => toggle("highQualityUploads")} />
         </div>
-        {installPrompt && <button className="settings-install" onClick={() => installPrompt.prompt?.()}><Sparkles /> Install Estagram on this device</button>}
+        <button className="settings-install" onClick={() => installPrompt?.prompt ? installPrompt.prompt() : onInstallGuide()}><Sparkles /> Install Estagram on this device</button>
+        {profile.role === "admin" && <AdminControls />}
+        <a className="settings-signout" href="/signout-with-chatgpt?return_to=%2Flogin">Sign out of Estagram</a>
         {error && <p className="form-error profile-error">{error}</p>}
       </section>
     </div>
   );
 }
 
+type AdminData = { registrationMode: string; invites: { code: string; claimedUsername?: string; revoked: number }[]; reports: { id: string; targetType: string; targetId: string; reason: string; status: string; reporterUsername: string }[]; members: { id: string; username: string; displayName: string; status: string }[] };
+
+function AdminControls() {
+  const [data, setData] = useState<AdminData | null>(null);
+  const [notice, setNotice] = useState("");
+  const load = useCallback(async () => { const response = await fetch("/api/social"); const result = await readApiResponse<{ admin: AdminData }>(response, "Could not load admin tools."); setData(result.admin); }, []);
+  useEffect(() => { fetch("/api/social").then((response) => readApiResponse<{ admin: AdminData }>(response, "Could not load admin tools.")).then((result) => setData(result.admin)).catch((reason) => setNotice(reason instanceof Error ? reason.message : "Could not load admin tools.")); }, []);
+  async function act(payload: Record<string, unknown>) { setNotice(""); try { const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const result = await readApiResponse<{ code?: string }>(response, "Could not complete this admin action."); setNotice(result.code ? `Invite created: ${result.code}` : "Admin setting updated."); await load(); } catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not complete this admin action."); } }
+  if (!data) return <section className="admin-controls"><p>Loading admin tools…</p></section>;
+  return <section className="admin-controls"><header><div><span>ADMIN</span><h3>Community controls</h3></div><button type="button" onClick={() => act({ action: "create-invite" })}>Create invite</button></header><SettingRow title="Open registration" description="Allow adults to join without an invite code." checked={data.registrationMode === "open"} onChange={() => act({ action: "registration-mode", mode: data.registrationMode === "open" ? "invite" : "open" })} />{notice && <p className="panel-notice">{notice}</p>}<details><summary>Invite codes ({data.invites.length})</summary>{data.invites.map((invite) => <p key={invite.code}><code>{invite.code}</code><span>{invite.claimedUsername ? `Claimed by @${invite.claimedUsername}` : invite.revoked ? "Revoked" : "Available"}</span></p>)}</details><details><summary>Reports ({data.reports.filter((item) => item.status === "open").length} open)</summary>{data.reports.map((report) => <article key={report.id}><strong>{report.targetType} report from @{report.reporterUsername}</strong><p>{report.reason}</p>{report.status === "open" && <button type="button" onClick={() => act({ action: "resolve-report", reportId: report.id })}>Mark resolved</button>}</article>)}</details><details><summary>Members ({data.members.length})</summary>{data.members.map((member) => <p key={member.id}><span><b>@{member.username}</b> · {member.displayName}</span><button type="button" onClick={() => act({ action: "suspend", targetId: member.id })}>{member.status === "active" ? "Suspend" : "Restore"}</button></p>)}</details></section>;
+}
+
 function ActivityModal({ activities, posts, onClose }: { activities: Activity[]; posts: Post[]; onClose: () => void }) {
+  useEffect(() => { fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "read-notifications" }) }).catch(() => undefined); }, []);
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Activity" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="profile-modal activity-modal">
         <ModalHeader eyebrow="PROFILE" title="Activity" onClose={onClose} />
-        {activities.length ? <div className="activity-list">{activities.map((activity) => { const post = posts.find((item) => item.id === activity.postId); return <div className="activity-item" key={activity.id}><span className={`activity-icon ${activity.type}`}>{activity.type === "like" ? <Heart fill="currentColor" /> : <MessageCircle />}</span><div><p>{activity.message}</p><time>{relativeTime(activity.createdAt)}</time></div>{post && (post.mediaType === "video" ? <span className="activity-video"><Video /></span> : <img src={imageSource(post)} alt="" />)}</div>; })}</div> : <div className="activity-empty"><span><Bell /></span><h3>No activity yet</h3><p>Your likes and comments will appear here.</p></div>}
+        {activities.length ? <div className="activity-list">{activities.map((activity) => { const post = posts.find((item) => item.id === activity.postId); return <div className="activity-item" key={activity.id}><span className={`activity-icon ${activity.type}`}>{activity.type === "like" ? <Heart fill="currentColor" /> : activity.type === "follow" ? <UserPlus /> : activity.type === "message" ? <Mail /> : <MessageCircle />}</span><div><p>{activity.message}</p><time>{relativeTime(activity.createdAt)}</time></div>{post && (post.mediaType === "video" ? <span className="activity-video"><Video /></span> : <img src={imageSource(post)} alt="" />)}</div>; })}</div> : <div className="activity-empty"><span><Bell /></span><h3>No activity yet</h3><p>Follows, messages, likes, and comments will appear here.</p></div>}
       </section>
     </div>
   );

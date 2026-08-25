@@ -1,29 +1,71 @@
 import { NextResponse } from "next/server";
-import { bindings, ensureSchema, seedDemoContent } from "@/db/storage";
+import { bindings, ensureSchema } from "@/db/storage";
+import { authErrorResponse, requireUser } from "@/lib/current-user";
 
 export async function GET() {
-  await ensureSchema();
-  await seedDemoContent();
-  const { DB } = bindings();
-  const now = Date.now();
+  try {
+    await ensureSchema();
+    const viewer = await requireUser();
+    const { DB } = bindings();
+    const now = Date.now();
+    await DB.prepare("DELETE FROM stories WHERE expires_at <= ?").bind(now).run();
 
-  const [posts, stories, profile, comments, activities] = await Promise.all([
-    DB.prepare("SELECT id, caption, image_key AS imageKey, image_url AS imageUrl, media_type AS mediaType, likes, liked, saved, created_at AS createdAt FROM posts ORDER BY created_at DESC").all(),
-    DB.prepare("SELECT id, caption, image_key AS imageKey, image_url AS imageUrl, media_type AS mediaType, created_at AS createdAt, expires_at AS expiresAt FROM stories WHERE expires_at > ? ORDER BY created_at ASC").bind(now).all(),
-    DB.prepare("SELECT username, display_name AS displayName, bio, website, location, image_key AS imageKey, image_url AS imageUrl, private_account AS privateAccount, story_replies AS storyReplies, high_quality_uploads AS highQualityUploads FROM profile WHERE id = 'me'").first(),
-    DB.prepare("SELECT id, post_id AS postId, body, created_at AS createdAt FROM comments ORDER BY created_at ASC").all(),
-    DB.prepare("SELECT id, type, post_id AS postId, message, created_at AS createdAt FROM activities ORDER BY created_at DESC LIMIT 30").all(),
-  ]);
+    const [posts, stories, comments, notifications, following, followers] = await Promise.all([
+      DB.prepare(`SELECT p.id, p.caption, p.image_key AS imageKey, p.image_url AS imageUrl,
+        p.media_type AS mediaType, p.created_at AS createdAt, p.user_id AS userId,
+        p.likes + (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
+        EXISTS(SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.user_id = ?) AS liked,
+        EXISTS(SELECT 1 FROM post_saves s WHERE s.post_id = p.id AND s.user_id = ?) AS saved,
+        u.username, u.display_name AS displayName, u.location, u.image_key AS authorImageKey, u.image_url AS authorImageUrl
+        FROM posts p JOIN users u ON u.id = p.user_id
+        WHERE u.status = 'active' AND (u.is_public = 1 OR p.user_id = ? OR EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = p.user_id)) AND NOT EXISTS (
+          SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = p.user_id)
+          OR (b.blocker_id = p.user_id AND b.blocked_id = ?)
+        ) ORDER BY p.created_at DESC LIMIT 100`).bind(viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id).all(),
+      DB.prepare(`SELECT s.id, s.caption, s.image_key AS imageKey, s.image_url AS imageUrl,
+        s.media_type AS mediaType, s.created_at AS createdAt, s.expires_at AS expiresAt,
+        s.caption_x AS captionX, s.caption_y AS captionY, s.user_id AS userId,
+        u.username, u.display_name AS displayName, u.image_key AS authorImageKey, u.image_url AS authorImageUrl
+        FROM stories s JOIN users u ON u.id = s.user_id
+        WHERE s.expires_at > ? AND u.status = 'active' AND (u.is_public = 1 OR s.user_id = ? OR EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = s.user_id)) AND NOT EXISTS (
+          SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = s.user_id)
+          OR (b.blocker_id = s.user_id AND b.blocked_id = ?)
+        ) ORDER BY s.created_at ASC`).bind(now, viewer.id, viewer.id, viewer.id, viewer.id).all(),
+      DB.prepare(`SELECT c.id, c.post_id AS postId, c.body, c.created_at AS createdAt, c.user_id AS userId,
+        u.username, u.display_name AS displayName, u.image_key AS authorImageKey, u.image_url AS authorImageUrl
+        FROM comments c JOIN users u ON u.id = c.user_id
+        WHERE u.status = 'active' AND NOT EXISTS(SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = c.user_id) OR (b.blocker_id = c.user_id AND b.blocked_id = ?))
+        ORDER BY c.created_at ASC`).bind(viewer.id, viewer.id).all(),
+      DB.prepare(`SELECT n.id, n.type, n.entity_id AS postId, n.message, n.created_at AS createdAt,
+        n.read_at AS readAt, u.username AS actorUsername, u.image_key AS actorImageKey, u.image_url AS actorImageUrl
+        FROM notifications n LEFT JOIN users u ON u.id = n.actor_id
+        WHERE n.user_id = ? ORDER BY n.created_at DESC LIMIT 50`).bind(viewer.id).all(),
+      DB.prepare("SELECT COUNT(*) AS total FROM follows WHERE follower_id = ?").bind(viewer.id).first<{ total: number }>(),
+      DB.prepare("SELECT COUNT(*) AS total FROM follows WHERE followed_id = ?").bind(viewer.id).first<{ total: number }>(),
+    ]);
 
-  const commentsByPost = comments.results.reduce<Record<string, unknown[]>>((grouped, comment) => {
-    const postId = String(comment.postId);
-    (grouped[postId] ||= []).push(comment);
-    return grouped;
-  }, {});
-  const postsWithComments = posts.results.map((post) => {
-    const source = String(post.imageKey ?? post.imageUrl ?? "");
-    const mediaType = post.mediaType === "video" || /\.(mp4|webm|mov)(?:$|\?)/i.test(source) ? "video" : "image";
-    return { ...post, mediaType, comments: commentsByPost[String(post.id)] || [] };
-  });
-  return NextResponse.json({ posts: postsWithComments, stories: stories.results, profile, activities: activities.results });
+    const commentsByPost = comments.results.reduce<Record<string, unknown[]>>((grouped, comment) => {
+      const postId = String(comment.postId);
+      (grouped[postId] ||= []).push({
+        ...comment,
+        author: { id: comment.userId, username: comment.username, displayName: comment.displayName, imageKey: comment.authorImageKey, imageUrl: comment.authorImageUrl },
+      });
+      return grouped;
+    }, {});
+    const postsWithComments = posts.results.map((post) => ({
+      ...post,
+      author: { id: post.userId, username: post.username, displayName: post.displayName, location: post.location, imageKey: post.authorImageKey, imageUrl: post.authorImageUrl },
+      comments: commentsByPost[String(post.id)] || [],
+      owned: post.userId === viewer.id,
+    }));
+    const storyResults = stories.results.map((story) => ({
+      ...story,
+      author: { id: story.userId, username: story.username, displayName: story.displayName, imageKey: story.authorImageKey, imageUrl: story.authorImageUrl },
+      owned: story.userId === viewer.id,
+    }));
+    const profile = { ...viewer, privateAccount: !Boolean(viewer.isPublic), following: following?.total || 0, followers: followers?.total || 0 };
+    return NextResponse.json({ posts: postsWithComments, stories: storyResults, profile, activities: notifications.results });
+  } catch (error) {
+    return authErrorResponse(error) || NextResponse.json({ error: "Could not load the feed." }, { status: 500 });
+  }
 }

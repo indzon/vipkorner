@@ -1,7 +1,7 @@
 {
   "name": "Estagram — Your moments",
   "short_name": "Estagram",
-  "description": "A private photo journal for posts and 24-hour stories.",
+  "description": "Public profiles, posts, 24-hour stories, and private messages.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fffaf5",

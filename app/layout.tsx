@@ -11,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") || (host.startsWith("localhost") ? "http" : "https");
   const socialImage = `${protocol}://${host}/og.png`;
   const title = "Estagram — Your moments, your way";
-  const description = "A private, installable photo journal for posts and 24-hour stories.";
+  const description = "An installable social app for public profiles, posts, 24-hour stories, and private messages.";
 
   return {
     title,

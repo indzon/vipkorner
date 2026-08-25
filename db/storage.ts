@@ -66,11 +66,62 @@ export async function ensureSchema() {
     )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS comments_post_idx ON comments (post_id, created_at)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS activities_created_idx ON activities (created_at DESC)"),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, username TEXT NOT NULL UNIQUE,
+      display_name TEXT NOT NULL, bio TEXT NOT NULL DEFAULT '', website TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '', image_key TEXT, image_url TEXT,
+      role TEXT NOT NULL DEFAULT 'user', status TEXT NOT NULL DEFAULT 'active', is_public INTEGER NOT NULL DEFAULT 1,
+      story_replies INTEGER NOT NULL DEFAULT 1, high_quality_uploads INTEGER NOT NULL DEFAULT 1,
+      adult_confirmed_at INTEGER NOT NULL, created_at INTEGER NOT NULL
+    )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS invites (
+      code TEXT PRIMARY KEY, created_by TEXT NOT NULL, claimed_by TEXT, created_at INTEGER NOT NULL,
+      claimed_at INTEGER, revoked INTEGER NOT NULL DEFAULT 0
+    )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS follows (
+      follower_id TEXT NOT NULL, followed_id TEXT NOT NULL, created_at INTEGER NOT NULL,
+      PRIMARY KEY (follower_id, followed_id)
+    )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS blocks (
+      blocker_id TEXT NOT NULL, blocked_id TEXT NOT NULL, created_at INTEGER NOT NULL,
+      PRIMARY KEY (blocker_id, blocked_id)
+    )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY, user_id TEXT NOT NULL, actor_id TEXT, type TEXT NOT NULL,
+      entity_id TEXT, message TEXT NOT NULL, read_at INTEGER, created_at INTEGER NOT NULL
+    )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS conversations (
+      id TEXT PRIMARY KEY, user_a TEXT NOT NULL, user_b TEXT NOT NULL, requested_by TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'accepted', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+      UNIQUE (user_a, user_b)
+    )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, sender_id TEXT NOT NULL,
+      body TEXT NOT NULL, created_at INTEGER NOT NULL, read_at INTEGER
+    )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS reports (
+      id TEXT PRIMARY KEY, reporter_id TEXT NOT NULL, target_type TEXT NOT NULL, target_id TEXT NOT NULL,
+      reason TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_at INTEGER NOT NULL
+    )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS post_likes (
+      post_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at INTEGER NOT NULL,
+      PRIMARY KEY (post_id, user_id)
+    )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS post_saves (
+      post_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at INTEGER NOT NULL,
+      PRIMARY KEY (post_id, user_id)
+    )`),
+    DB.prepare("CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, created_at DESC)"),
+    DB.prepare("CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages (conversation_id, created_at)"),
+    DB.prepare("CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status, created_at DESC)"),
   ]);
 
   const postColumns = await DB.prepare("PRAGMA table_info(posts)").all<{ name: string }>();
   if (!postColumns.results.some((column) => column.name === "media_type")) {
     await DB.prepare("ALTER TABLE posts ADD COLUMN media_type TEXT NOT NULL DEFAULT 'image'").run();
+  }
+  if (!postColumns.results.some((column) => column.name === "user_id")) {
+    await DB.prepare("ALTER TABLE posts ADD COLUMN user_id TEXT").run();
   }
 
   const storyColumns = await DB.prepare("PRAGMA table_info(stories)").all<{ name: string }>();
@@ -79,6 +130,20 @@ export async function ensureSchema() {
   }
   if (!storyColumns.results.some((column) => column.name === "media_type")) {
     await DB.prepare("ALTER TABLE stories ADD COLUMN media_type TEXT NOT NULL DEFAULT 'image'").run();
+  }
+  if (!storyColumns.results.some((column) => column.name === "user_id")) {
+    await DB.prepare("ALTER TABLE stories ADD COLUMN user_id TEXT").run();
+  }
+  if (!storyColumns.results.some((column) => column.name === "caption_x")) {
+    await DB.prepare("ALTER TABLE stories ADD COLUMN caption_x INTEGER NOT NULL DEFAULT 50").run();
+  }
+  if (!storyColumns.results.some((column) => column.name === "caption_y")) {
+    await DB.prepare("ALTER TABLE stories ADD COLUMN caption_y INTEGER NOT NULL DEFAULT 86").run();
+  }
+
+  const commentColumns = await DB.prepare("PRAGMA table_info(comments)").all<{ name: string }>();
+  if (!commentColumns.results.some((column) => column.name === "user_id")) {
+    await DB.prepare("ALTER TABLE comments ADD COLUMN user_id TEXT").run();
   }
 
   const profileColumns = await DB.prepare("PRAGMA table_info(profile)").all<{ name: string }>();
@@ -92,6 +157,7 @@ export async function ensureSchema() {
   await DB.prepare(`INSERT OR IGNORE INTO profile (
     id, username, display_name, bio, website, location, private_account, story_replies, high_quality_uploads
   ) VALUES ('me', 'emma.wright', 'Emma Wright', 'Little moments, city light, and everything in between. ✨', 'emmawrites.co', 'New York, NY', 1, 1, 1)`).run();
+  await DB.prepare("INSERT OR IGNORE INTO app_meta (key, value) VALUES ('registration_mode', 'invite')").run();
   await DB.prepare(`INSERT OR IGNORE INTO activities (id, type, post_id, message, created_at)
     SELECT 'like-' || id, 'like', id, 'You liked “' || substr(caption, 1, 72) || '”', CAST(strftime('%s', 'now') AS INTEGER) * 1000
     FROM posts

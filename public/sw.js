@@ -1,5 +1,5 @@
-const CACHE = "estagram-v2";
-const SHELL = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
+const CACHE = "estagram-v3";
+const SHELL = ["/offline.html", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
@@ -14,10 +14,12 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);
-  if (request.method !== "GET" || url.pathname.startsWith("/api/")) return;
-  event.respondWith(fetch(request).then((response) => {
-    const copy = response.clone();
-    caches.open(CACHE).then((cache) => cache.put(request, copy));
+  if (request.method !== "GET" || url.pathname.startsWith("/api/") || request.mode === "navigate") {
+    if (request.mode === "navigate") event.respondWith(fetch(request).catch(() => caches.match("/offline.html")));
+    return;
+  }
+  event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+    if (response.ok && url.origin === self.location.origin) caches.open(CACHE).then((cache) => cache.put(request, response.clone()));
     return response;
-  }).catch(() => caches.match(request).then((cached) => cached || caches.match("/"))));
+  })));
 });

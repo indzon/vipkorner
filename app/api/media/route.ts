@@ -1,6 +1,8 @@
 import { bindings } from "@/db/storage";
+import { identityEmail } from "@/lib/current-user";
 
 export async function GET(request: Request) {
+  if (!await identityEmail()) return new Response("Sign in required", { status: 401 });
   const key = new URL(request.url).searchParams.get("key");
   if (!key) return new Response("Missing key", { status: 400 });
   const rangeRequested = request.headers.has("Range");

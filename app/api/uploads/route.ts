@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { bindings, ensureSchema } from "@/db/storage";
 import { inspectMediaMetadata } from "@/lib/media-upload";
+import { authErrorResponse, publicUserFields, requireUser } from "@/lib/current-user";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
@@ -9,7 +10,9 @@ const KEY_PATTERN = /^([0-9a-f-]{36})\.(jpg|png|webp|gif|mp4|webm|mov)$/;
 type UploadPart = { partNumber: number; etag: string };
 
 export async function POST(request: Request) {
+  try {
   await ensureSchema();
+  const user = await requireUser();
   const payload = await request.json() as {
     action?: "start" | "complete";
     fileName?: string;
@@ -52,23 +55,23 @@ export async function POST(request: Request) {
     const caption = String(payload.caption || "").trim();
     try {
       if (payload.contentKind === "profile") {
-        const current = await DB.prepare("SELECT image_key AS imageKey FROM profile WHERE id = 'me'").first<{ imageKey: string | null }>();
-        await DB.prepare("UPDATE profile SET image_key = ?, image_url = NULL WHERE id = 'me'").bind(payload.key).run();
+        const current = await DB.prepare("SELECT image_key AS imageKey FROM users WHERE id = ?").bind(user.id).first<{ imageKey: string | null }>();
+        await DB.prepare("UPDATE users SET image_key = ?, image_url = NULL WHERE id = ?").bind(payload.key, user.id).run();
         if (current?.imageKey && current.imageKey !== payload.key) await MEDIA.delete(current.imageKey);
-        const profile = await DB.prepare("SELECT username, display_name AS displayName, bio, website, location, image_key AS imageKey, image_url AS imageUrl, private_account AS privateAccount, story_replies AS storyReplies, high_quality_uploads AS highQualityUploads FROM profile WHERE id = 'me'").first();
-        return NextResponse.json(profile, { status: 201 });
+        const profile = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE id = ?`).bind(user.id).first<Record<string, unknown>>();
+        return NextResponse.json({ ...profile, privateAccount: !Boolean(profile?.isPublic) }, { status: 201 });
       }
       if (payload.contentKind === "story") {
         const storyCaption = caption.slice(0, 280);
         const expiresAt = createdAt + 24 * 60 * 60 * 1000;
-        await DB.prepare("INSERT INTO stories (id, caption, image_key, media_type, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)")
-          .bind(id, storyCaption, payload.key, mediaType, createdAt, expiresAt).run();
-        return NextResponse.json({ id, caption: storyCaption, imageKey: payload.key, imageUrl: null, mediaType, createdAt, expiresAt }, { status: 201 });
+        await DB.prepare("INSERT INTO stories (id, user_id, caption, image_key, media_type, created_at, expires_at, caption_x, caption_y) VALUES (?, ?, ?, ?, ?, ?, ?, 50, 86)")
+          .bind(id, user.id, storyCaption, payload.key, mediaType, createdAt, expiresAt).run();
+        return NextResponse.json({ id, userId: user.id, caption: storyCaption, captionX: 50, captionY: 86, imageKey: payload.key, imageUrl: null, mediaType, createdAt, expiresAt, owned: true }, { status: 201 });
       }
       const postCaption = caption.slice(0, 500) || "A new moment.";
-      await DB.prepare("INSERT INTO posts (id, caption, image_key, media_type, likes, created_at) VALUES (?, ?, ?, ?, 0, ?)")
-        .bind(id, postCaption, payload.key, mediaType, createdAt).run();
-      return NextResponse.json({ id, caption: postCaption, imageKey: payload.key, imageUrl: null, mediaType, likes: 0, liked: 0, saved: 0, createdAt }, { status: 201 });
+      await DB.prepare("INSERT INTO posts (id, user_id, caption, image_key, media_type, likes, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)")
+        .bind(id, user.id, postCaption, payload.key, mediaType, createdAt).run();
+      return NextResponse.json({ id, userId: user.id, caption: postCaption, imageKey: payload.key, imageUrl: null, mediaType, likes: 0, liked: 0, saved: 0, createdAt, owned: true }, { status: 201 });
     } catch (error) {
       await MEDIA.delete(payload.key!);
       throw error;
@@ -76,9 +79,12 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ error: "Unknown upload action." }, { status: 400 });
+  } catch (error) { return authErrorResponse(error) || NextResponse.json({ error: "Could not process this upload." }, { status: 500 }); }
 }
 
 export async function PUT(request: Request) {
+  try {
+  await requireUser();
   const url = new URL(request.url);
   const key = url.searchParams.get("key") || "";
   const uploadId = url.searchParams.get("uploadId") || "";
@@ -88,13 +94,17 @@ export async function PUT(request: Request) {
   }
   const part = await bindings().MEDIA.resumeMultipartUpload(key, uploadId).uploadPart(partNumber, request.body);
   return NextResponse.json({ partNumber: part.partNumber, etag: part.etag });
+  } catch (error) { return authErrorResponse(error) || NextResponse.json({ error: "Could not upload this part." }, { status: 500 }); }
 }
 
 export async function DELETE(request: Request) {
+  try {
+  await requireUser();
   const url = new URL(request.url);
   const key = url.searchParams.get("key") || "";
   const uploadId = url.searchParams.get("uploadId") || "";
   if (!KEY_PATTERN.test(key) || !uploadId) return NextResponse.json({ aborted: true });
   await bindings().MEDIA.resumeMultipartUpload(key, uploadId).abort();
   return NextResponse.json({ aborted: true });
+  } catch (error) { return authErrorResponse(error) || NextResponse.json({ error: "Could not cancel this upload." }, { status: 500 }); }
 }
