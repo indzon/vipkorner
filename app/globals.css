@@ -587,6 +587,22 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .admin-controls details > p, .admin-controls details > article { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 9px 0 0; padding-top: 9px; border-top: 1px solid #f1e9e4; font-size: 9px; }
 .admin-controls article { display: block !important; }
 .admin-controls article p { color: var(--muted); }
+.admin-controls button:disabled { cursor: wait; opacity: .55; }
+.invite-toolbar { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.admin-controls .invite-toolbar button { padding: 5px 8px; color: var(--muted); background: #faf7f5; }
+.admin-controls .invite-toolbar button.active { border-color: var(--accent); color: var(--accent); background: #fff1f5; }
+.invite-list { display: grid; gap: 8px; margin-top: 9px; }
+.admin-controls details > .invite-list > .invite-row { display: grid !important; gap: 6px; margin: 0; padding: 10px; border: 1px solid #eee5e0; border-radius: 9px; background: #fffdfc; }
+.invite-code-line { display: flex; align-items: center; justify-content: space-between; gap: 9px; }
+.invite-code-line code { font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+.invite-status { padding: 3px 6px; border-radius: 999px; font-size: 7px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.invite-status.available { color: #28734f; background: #e7f6ee; }
+.invite-status.claimed { color: #3b5f94; background: #eaf1fb; }
+.invite-status.revoked { color: #9d3b48; background: #fbe9ec; }
+.admin-controls .invite-row .invite-meta { margin: 0; font-size: 8px; line-height: 1.45; }
+.invite-actions { display: flex; gap: 6px; margin-top: 2px; }
+.admin-controls .invite-actions button { padding: 5px 8px; }
+.invite-empty { margin: 2px 0 0; padding: 10px; color: var(--muted); text-align: center; font-size: 9px; }
 .settings-signout { display: block; margin: 18px auto 0; text-align: center; text-decoration: none; }
 .settings-content .profile-error { margin: 14px 0 0; }
 

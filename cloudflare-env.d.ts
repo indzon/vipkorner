@@ -4,6 +4,8 @@ interface Fetcher {
 
 interface D1Result<T = Record<string, unknown>> {
   results: T[];
+  success?: boolean;
+  meta?: { changes?: number };
 }
 
 interface D1PreparedStatement {

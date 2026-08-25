@@ -25,7 +25,10 @@ export async function GET(request: Request) {
     const unread = await DB.prepare("SELECT COUNT(*) AS total FROM notifications WHERE user_id = ? AND read_at IS NULL").bind(viewer.id).first<{ total: number }>();
     const admin = viewer.role === "admin" ? {
       invites: (await DB.prepare(`SELECT i.code, i.created_at AS createdAt, i.claimed_at AS claimedAt, i.revoked,
-        u.username AS claimedUsername FROM invites i LEFT JOIN users u ON u.id = i.claimed_by ORDER BY i.created_at DESC LIMIT 50`).all()).results,
+        claimed.username AS claimedUsername, creator.username AS creatorUsername FROM invites i
+        LEFT JOIN users claimed ON claimed.id = i.claimed_by
+        LEFT JOIN users creator ON creator.id = i.created_by
+        ORDER BY i.created_at DESC LIMIT 50`).all()).results,
       reports: (await DB.prepare(`SELECT r.id, r.target_type AS targetType, r.target_id AS targetId, r.reason, r.status,
         r.created_at AS createdAt, u.username AS reporterUsername FROM reports r JOIN users u ON u.id = r.reporter_id
         ORDER BY CASE r.status WHEN 'open' THEN 0 ELSE 1 END, r.created_at DESC LIMIT 50`).all()).results,
@@ -39,7 +42,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     await ensureSchema(); const viewer = await requireUser(); const { DB } = bindings();
-    const input = await request.json() as { action?: string; targetId?: string; targetType?: string; reason?: string; mode?: string; reportId?: string };
+    const input = await request.json() as { action?: string; targetId?: string; targetType?: string; reason?: string; mode?: string; reportId?: string; code?: string };
     const targetId = String(input.targetId || ""); const now = Date.now();
     if (input.action === "follow") {
       if (!targetId || targetId === viewer.id || await blockedBetween(viewer.id, targetId)) return NextResponse.json({ error: "This profile cannot be followed." }, { status: 403 });
@@ -79,6 +82,15 @@ export async function POST(request: Request) {
       const code = Array.from(crypto.getRandomValues(new Uint8Array(8))).map((value) => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[value % 32]).join("");
       await DB.prepare("INSERT INTO invites (code, created_by, created_at) VALUES (?, ?, ?)").bind(code, viewer.id, now).run();
       return NextResponse.json({ code }, { status: 201 });
+    }
+    if (input.action === "revoke-invite" || input.action === "reactivate-invite") {
+      const code = String(input.code || "").trim().toUpperCase();
+      const invite = await DB.prepare("SELECT claimed_by AS claimedBy, revoked FROM invites WHERE code = ?").bind(code).first<{ claimedBy: string | null; revoked: number }>();
+      if (!invite) return NextResponse.json({ error: "Invite code not found." }, { status: 404 });
+      if (invite.claimedBy) return NextResponse.json({ error: "A claimed invite cannot be changed." }, { status: 409 });
+      const revoked = input.action === "revoke-invite" ? 1 : 0;
+      await DB.prepare("UPDATE invites SET revoked = ? WHERE code = ? AND claimed_by IS NULL").bind(revoked, code).run();
+      return NextResponse.json({ code, revoked: Boolean(revoked) });
     }
     if (input.action === "registration-mode") {
       const mode = input.mode === "open" ? "open" : "invite";

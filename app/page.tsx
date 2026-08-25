@@ -869,16 +869,78 @@ function SettingsModal({ profile, installPrompt, onInstallGuide, onClose, onSave
   );
 }
 
-type AdminData = { registrationMode: string; invites: { code: string; claimedUsername?: string; revoked: number }[]; reports: { id: string; targetType: string; targetId: string; reason: string; status: string; reporterUsername: string }[]; members: { id: string; username: string; displayName: string; status: string }[] };
+type AdminInvite = { code: string; createdAt: number; claimedAt?: number | null; creatorUsername?: string; claimedUsername?: string; revoked: number };
+type AdminData = { registrationMode: string; invites: AdminInvite[]; reports: { id: string; targetType: string; targetId: string; reason: string; status: string; reporterUsername: string }[]; members: { id: string; username: string; displayName: string; status: string }[] };
+type InviteFilter = "all" | "available" | "claimed" | "revoked";
+
+function adminDate(value?: number | null) {
+  if (!value) return "Unknown date";
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
 
 function AdminControls() {
   const [data, setData] = useState<AdminData | null>(null);
   const [notice, setNotice] = useState("");
+  const [inviteFilter, setInviteFilter] = useState<InviteFilter>("all");
+  const [busyKey, setBusyKey] = useState("");
   const load = useCallback(async () => { const response = await fetch("/api/social"); const result = await readApiResponse<{ admin: AdminData }>(response, "Could not load admin tools."); setData(result.admin); }, []);
   useEffect(() => { fetch("/api/social").then((response) => readApiResponse<{ admin: AdminData }>(response, "Could not load admin tools.")).then((result) => setData(result.admin)).catch((reason) => setNotice(reason instanceof Error ? reason.message : "Could not load admin tools.")); }, []);
-  async function act(payload: Record<string, unknown>) { setNotice(""); try { const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const result = await readApiResponse<{ code?: string }>(response, "Could not complete this admin action."); setNotice(result.code ? `Invite created: ${result.code}` : "Admin setting updated."); await load(); } catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not complete this admin action."); } }
+  const visibleInvites = useMemo(() => data?.invites.filter((invite) => inviteFilter === "all" || (inviteFilter === "claimed" ? Boolean(invite.claimedUsername) : inviteFilter === "revoked" ? Boolean(invite.revoked) : !invite.claimedUsername && !invite.revoked)) || [], [data, inviteFilter]);
+
+  async function act(payload: Record<string, unknown>, key = String(payload.action || "admin")) {
+    setNotice(""); setBusyKey(key);
+    try {
+      const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const result = await readApiResponse<{ code?: string; revoked?: boolean }>(response, "Could not complete this admin action.");
+      if (payload.action === "create-invite" && result.code) setNotice(`Invite created: ${result.code}`);
+      else if (payload.action === "revoke-invite") setNotice(`Invite ${result.code} deactivated.`);
+      else if (payload.action === "reactivate-invite") setNotice(`Invite ${result.code} reactivated.`);
+      else setNotice("Admin setting updated.");
+      await load();
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Could not complete this admin action.");
+    } finally { setBusyKey(""); }
+  }
+
+  async function copyInvite(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      setNotice(`Invite ${code} copied.`);
+    } catch {
+      window.prompt("Copy this invite code", code);
+    }
+  }
+
+  function changeInvite(invite: AdminInvite) {
+    const revoking = !invite.revoked;
+    if (revoking && !window.confirm(`Deactivate invite ${invite.code}? It will stop working immediately.`)) return;
+    act({ action: revoking ? "revoke-invite" : "reactivate-invite", code: invite.code }, `invite-${invite.code}`);
+  }
+
   if (!data) return <section className="admin-controls"><p>Loading admin tools…</p></section>;
-  return <section className="admin-controls"><header><div><span>ADMIN</span><h3>Community controls</h3></div><button type="button" onClick={() => act({ action: "create-invite" })}>Create invite</button></header><SettingRow title="Open registration" description="Allow adults to join without an invite code." checked={data.registrationMode === "open"} onChange={() => act({ action: "registration-mode", mode: data.registrationMode === "open" ? "invite" : "open" })} />{notice && <p className="panel-notice">{notice}</p>}<details><summary>Invite codes ({data.invites.length})</summary>{data.invites.map((invite) => <p key={invite.code}><code>{invite.code}</code><span>{invite.claimedUsername ? `Claimed by @${invite.claimedUsername}` : invite.revoked ? "Revoked" : "Available"}</span></p>)}</details><details><summary>Reports ({data.reports.filter((item) => item.status === "open").length} open)</summary>{data.reports.map((report) => <article key={report.id}><strong>{report.targetType} report from @{report.reporterUsername}</strong><p>{report.reason}</p>{report.status === "open" && <button type="button" onClick={() => act({ action: "resolve-report", reportId: report.id })}>Mark resolved</button>}</article>)}</details><details><summary>Members ({data.members.length})</summary>{data.members.map((member) => <p key={member.id}><span><b>@{member.username}</b> · {member.displayName}</span><button type="button" onClick={() => act({ action: "suspend", targetId: member.id })}>{member.status === "active" ? "Suspend" : "Restore"}</button></p>)}</details></section>;
+  return <section className="admin-controls">
+    <header><div><span>ADMIN</span><h3>Community controls</h3></div><button type="button" disabled={busyKey === "create-invite"} onClick={() => act({ action: "create-invite" })}>{busyKey === "create-invite" ? "Creating…" : "Create invite"}</button></header>
+    <SettingRow title="Open registration" description="Allow adults to join without an invite code." checked={data.registrationMode === "open"} onChange={() => act({ action: "registration-mode", mode: data.registrationMode === "open" ? "invite" : "open" })} />
+    {notice && <p className="panel-notice" aria-live="polite">{notice}</p>}
+    <details open>
+      <summary>Invite codes ({data.invites.length})</summary>
+      <div className="invite-toolbar" aria-label="Filter invite codes">{(["all", "available", "claimed", "revoked"] as InviteFilter[]).map((filter) => <button type="button" className={inviteFilter === filter ? "active" : ""} key={filter} onClick={() => setInviteFilter(filter)}>{filter[0].toUpperCase() + filter.slice(1)}</button>)}</div>
+      <div className="invite-list">
+        {visibleInvites.map((invite) => {
+          const status = invite.claimedUsername ? "claimed" : invite.revoked ? "revoked" : "available";
+          return <article className="invite-row" key={invite.code}>
+            <div className="invite-code-line"><code>{invite.code}</code><span className={`invite-status ${status}`}>{status}</span></div>
+            <p className="invite-meta">Created {adminDate(invite.createdAt)} by @{invite.creatorUsername || "admin"}</p>
+            {invite.claimedUsername && <p className="invite-meta">Claimed {adminDate(invite.claimedAt)} by @{invite.claimedUsername}</p>}
+            <div className="invite-actions"><button type="button" onClick={() => copyInvite(invite.code)}>Copy</button>{!invite.claimedUsername && <button type="button" disabled={busyKey === `invite-${invite.code}`} onClick={() => changeInvite(invite)}>{busyKey === `invite-${invite.code}` ? "Updating…" : invite.revoked ? "Reactivate" : "Deactivate"}</button>}</div>
+          </article>;
+        })}
+        {!visibleInvites.length && <p className="invite-empty">No {inviteFilter === "all" ? "" : `${inviteFilter} `}invite codes.</p>}
+      </div>
+    </details>
+    <details><summary>Reports ({data.reports.filter((item) => item.status === "open").length} open)</summary>{data.reports.map((report) => <article key={report.id}><strong>{report.targetType} report from @{report.reporterUsername}</strong><p>{report.reason}</p>{report.status === "open" && <button type="button" onClick={() => act({ action: "resolve-report", reportId: report.id })}>Mark resolved</button>}</article>)}</details>
+    <details><summary>Members ({data.members.length})</summary>{data.members.map((member) => <p key={member.id}><span><b>@{member.username}</b> · {member.displayName}</span><button type="button" onClick={() => act({ action: "suspend", targetId: member.id })}>{member.status === "active" ? "Suspend" : "Restore"}</button></p>)}</details>
+  </section>;
 }
 
 function ActivityModal({ activities, posts, onClose }: { activities: Activity[]; posts: Post[]; onClose: () => void }) {

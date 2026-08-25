@@ -42,29 +42,41 @@ export async function POST(request: Request) {
     ? await DB.prepare("SELECT id FROM users WHERE email = ?").bind(identity.email).first<{ id: string }>()
     : await DB.prepare("SELECT id FROM users WHERE email = ? OR lower(username) = lower(?)").bind(identity.email, username).first<{ id: string }>();
   if (existing) return NextResponse.json({ error: "That account or username is already registered." }, { status: 409 });
-  let invite: { code: string } | null = null;
+  let inviteCode: string | null = null;
   if (!firstUser) {
     const mode = await DB.prepare("SELECT value FROM app_meta WHERE key = 'registration_mode'").first<{ value: string }>();
     if (mode?.value !== "open") {
       const code = String(input.inviteCode || "").trim().toUpperCase();
-      invite = await DB.prepare("SELECT code FROM invites WHERE code = ? AND claimed_by IS NULL AND revoked = 0").bind(code).first<{ code: string }>();
+      const invite = await DB.prepare("SELECT code FROM invites WHERE code = ? AND claimed_by IS NULL AND revoked = 0").bind(code).first<{ code: string }>();
       if (!invite) return NextResponse.json({ error: "Enter a valid, unused invite code." }, { status: 403 });
+      inviteCode = invite.code;
     }
   }
 
   const id = crypto.randomUUID();
   const now = Date.now();
   const legacy = firstUser ? await DB.prepare("SELECT * FROM profile WHERE id = 'me'").first<Record<string, unknown>>() : null;
-  await DB.prepare(`INSERT INTO users (
-    id, email, username, display_name, bio, website, location, image_key, image_url, role, status,
-    is_public, story_replies, high_quality_uploads, adult_confirmed_at, created_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)`)
-    .bind(id, identity.email, firstUser ? String(legacy?.username || username) : username,
-      firstUser ? String(legacy?.display_name || displayName) : displayName,
-      firstUser ? String(legacy?.bio || "") : "", firstUser ? String(legacy?.website || "") : "",
-      firstUser ? String(legacy?.location || "") : "", firstUser ? legacy?.image_key || null : null,
-      firstUser ? legacy?.image_url || null : null, firstUser ? "admin" : "user",
-      Number(firstUser ? legacy?.story_replies ?? 1 : 1), Number(firstUser ? legacy?.high_quality_uploads ?? 1 : 1), now, now).run();
+  if (inviteCode) {
+    const claim = await DB.prepare(`UPDATE invites SET claimed_by = ?, claimed_at = ?
+      WHERE code = ? AND claimed_by IS NULL AND revoked = 0`).bind(id, now, inviteCode).run();
+    const changed = Number((claim.meta as { changes?: number } | undefined)?.changes || 0);
+    if (!claim.success || changed !== 1) return NextResponse.json({ error: "That invite code was just claimed or deactivated. Ask an administrator for another code." }, { status: 409 });
+  }
+  try {
+    await DB.prepare(`INSERT INTO users (
+      id, email, username, display_name, bio, website, location, image_key, image_url, role, status,
+      is_public, story_replies, high_quality_uploads, adult_confirmed_at, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)`)
+      .bind(id, identity.email, firstUser ? String(legacy?.username || username) : username,
+        firstUser ? String(legacy?.display_name || displayName) : displayName,
+        firstUser ? String(legacy?.bio || "") : "", firstUser ? String(legacy?.website || "") : "",
+        firstUser ? String(legacy?.location || "") : "", firstUser ? legacy?.image_key || null : null,
+        firstUser ? legacy?.image_url || null : null, firstUser ? "admin" : "user",
+        Number(firstUser ? legacy?.story_replies ?? 1 : 1), Number(firstUser ? legacy?.high_quality_uploads ?? 1 : 1), now, now).run();
+  } catch (error) {
+    if (inviteCode) await DB.prepare("UPDATE invites SET claimed_by = NULL, claimed_at = NULL WHERE code = ? AND claimed_by = ?").bind(inviteCode, id).run();
+    throw error;
+  }
   if (firstUser) {
     await DB.batch([
       DB.prepare("UPDATE posts SET user_id = ? WHERE user_id IS NULL").bind(id),
@@ -76,7 +88,6 @@ export async function POST(request: Request) {
       DB.prepare("UPDATE posts SET saved = 0 WHERE saved = 1"),
     ]);
   }
-  if (invite) await DB.prepare("UPDATE invites SET claimed_by = ?, claimed_at = ? WHERE code = ?").bind(id, now, invite.code).run();
   const user = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE id = ?`).bind(id).first();
   return NextResponse.json({ user, bootstrap: firstUser }, { status: 201 });
 }
