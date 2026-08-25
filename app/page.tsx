@@ -87,7 +87,7 @@ type Story = {
   author: PublicUser;
 };
 
-type DiscoveryUser = PublicUser & { following: number | boolean; followsYou: number | boolean; blocked: number | boolean; followers: number; posts: number; role: string };
+type DiscoveryUser = PublicUser & { following: number | boolean; followsYou: number | boolean; blocked: number | boolean; followers: number; posts: number; role: string; isSelf: number | boolean };
 type Conversation = { id: string; status: "pending" | "accepted"; requestedBy: string; updatedAt: number; otherId: string; username: string; displayName: string; imageKey: string | null; imageUrl: string | null; lastMessage: string | null; unread: number };
 type DirectMessage = { id: string; senderId: string; body: string; createdAt: number };
 
@@ -199,6 +199,7 @@ export default function HomePage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const discoveryRequestRef = useRef(0);
 
   const activePost = posts.find((post) => post.id === activePostId) || null;
 
@@ -221,10 +222,11 @@ export default function HomePage() {
   }, []);
 
   const loadDiscovery = useCallback(async (search = "") => {
+    const requestId = ++discoveryRequestRef.current;
     const response = await fetch(`/api/social?q=${encodeURIComponent(search)}`);
     if (response.status === 401 || response.status === 403) { location.replace("/login"); return; }
     const data = await readApiResponse<{ users: DiscoveryUser[] }>(response, "Could not load people.");
-    setDiscovery(data.users || []);
+    if (requestId === discoveryRequestRef.current) setDiscovery(data.users || []);
   }, []);
 
   const loadConversations = useCallback(async () => {
@@ -354,7 +356,7 @@ export default function HomePage() {
           </>
         ) : view === "profile" ? (
           <ProfileView posts={posts} profile={profile} onCreate={() => setComposer("post")} onEdit={() => setProfilePanel("edit")} onSettings={() => setProfilePanel("settings")} onActivity={() => setProfilePanel("activity")} onOpenPost={(post) => setActivePostId(post.id)} />
-        ) : view === "explore" ? <ExploreView users={discovery} onRefresh={() => loadDiscovery(query)} onMessage={(conversationId) => { setActiveConversationId(conversationId); setView("messages"); void loadConversations(); }} />
+        ) : view === "explore" ? <ExploreView users={discovery} onRefresh={() => loadDiscovery(query)} onViewSelf={profileNav} onMessage={(conversationId) => { setActiveConversationId(conversationId); setView("messages"); void loadConversations(); }} />
         : <MessagesView key={activeConversationId || "messages"} profile={profile} conversations={conversations} initialConversationId={activeConversationId} onRefresh={loadConversations} />}
       </section>
 
@@ -566,6 +568,7 @@ function StoryViewer({ stories, activeId, onChange, onClose, onDelete }: { stori
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [error, setError] = useState("");
+  const [storyMuted, setStoryMuted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const goNext = useCallback(() => {
@@ -582,8 +585,11 @@ function StoryViewer({ stories, activeId, onChange, onClose, onDelete }: { stori
   useEffect(() => {
     if (story?.mediaType !== "video") return;
     if (confirmDelete) videoRef.current?.pause();
-    else videoRef.current?.play().catch(() => undefined);
-  }, [confirmDelete, story]);
+    else {
+      if (videoRef.current) videoRef.current.muted = storyMuted;
+      videoRef.current?.play().catch(() => undefined);
+    }
+  }, [confirmDelete, story, storyMuted]);
 
   if (!story) return null;
 
@@ -603,8 +609,8 @@ function StoryViewer({ stories, activeId, onChange, onClose, onDelete }: { stori
     <div className="story-viewer" role="dialog" aria-modal="true" aria-label="Story">
       <div className="story-frame">
         <div className="story-progress" aria-hidden="true">{stories.map((item, index) => <i key={item.id} className={index < currentIndex ? "done" : index === currentIndex ? "current" : ""}><span style={index === currentIndex && story.mediaType === "video" ? { animationDuration: "30s" } : undefined} /></i>)}</div>
-        <header><div><img src={profileImage(story.author)} alt="" /><strong>{story.author.username}</strong><span>{timeAgo(story.createdAt)}</span></div><div className="story-header-actions">{story.owned && <button onClick={() => setConfirmDelete(true)} aria-label="Delete story"><Trash2 /></button>}<button onClick={onClose} aria-label="Close story"><X /></button></div></header>
-        {story.mediaType === "video" ? <video ref={videoRef} key={story.id} className="story-full-image" src={imageSource(story)} autoPlay muted playsInline onEnded={goNext} aria-label={story.caption || "Your video story"} /> : <img className="story-full-image" src={imageSource(story)} alt={story.caption || "Your story"} />}
+        <header><div><img src={profileImage(story.author)} alt="" /><strong>{story.author.username}</strong><span>{timeAgo(story.createdAt)}</span></div><div className="story-header-actions">{story.mediaType === "video" && <button onClick={() => setStoryMuted((muted) => !muted)} aria-label={storyMuted ? "Turn story sound on" : "Mute story"}>{storyMuted ? <VolumeX /> : <Volume2 />}</button>}{story.owned && <button onClick={() => setConfirmDelete(true)} aria-label="Delete story"><Trash2 /></button>}<button onClick={onClose} aria-label="Close story"><X /></button></div></header>
+        {story.mediaType === "video" ? <video ref={videoRef} key={story.id} className="story-full-image" src={imageSource(story)} autoPlay muted={storyMuted} playsInline onClick={() => setStoryMuted((muted) => !muted)} onEnded={goNext} aria-label={story.caption || "Your video story"} /> : <img className="story-full-image" src={imageSource(story)} alt={story.caption || "Your story"} />}
         {currentIndex > 0 && <button className="story-nav previous" onClick={() => onChange(stories[currentIndex - 1].id)} aria-label="Previous story"><ChevronLeft /></button>}
         {currentIndex < stories.length - 1 && <button className="story-nav next" onClick={goNext} aria-label="Next story"><ChevronRight /></button>}
         <footer>{story.caption && <p style={{ left: `${story.captionX}%`, top: `${story.captionY}%` }}>{story.caption}</p>}<span>Story expires automatically within 24 hours</span></footer>
@@ -614,7 +620,7 @@ function StoryViewer({ stories, activeId, onChange, onClose, onDelete }: { stori
   );
 }
 
-function ExploreView({ users, onRefresh, onMessage }: { users: DiscoveryUser[]; onRefresh: () => Promise<void>; onMessage: (conversationId: string) => void }) {
+function ExploreView({ users, onRefresh, onMessage, onViewSelf }: { users: DiscoveryUser[]; onRefresh: () => Promise<void>; onMessage: (conversationId: string) => void; onViewSelf: () => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   async function action(user: DiscoveryUser, name: "follow" | "block" | "message" | "report") {
@@ -635,7 +641,7 @@ function ExploreView({ users, onRefresh, onMessage }: { users: DiscoveryUser[]; 
     } catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not complete this action."); }
     finally { setBusyId(null); }
   }
-  return <section className="explore-page"><div className="section-heading"><span className="eyebrow">DISCOVER</span><h1>Find your people</h1><p>Public profiles from the Estagram community.</p></div>{notice && <p className="panel-notice">{notice}</p>}<div className="people-grid">{users.length ? users.map((user) => <article className="person-card" key={user.id}><img src={profileImage(user)} alt="" /><div><h2>{user.displayName}</h2><strong>@{user.username}</strong><p>{user.bio || "New to Estagram."}</p><small>{user.posts} posts · {user.followers} followers{user.followsYou ? " · Follows you" : ""}</small></div><div className="person-actions"><button className={user.following ? "following" : "primary"} disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "follow")}>{user.following ? "Following" : <><UserPlus /> Follow</>}</button><button disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "message")}><Mail /> Message</button><button className={user.blocked ? "danger" : ""} disabled={busyId === user.id} onClick={() => action(user, "block")}><Ban /> {user.blocked ? "Unblock" : "Block"}</button><button disabled={busyId === user.id} onClick={() => action(user, "report")}><Flag /> Report</button></div></article>) : <div className="empty-state"><span><Compass /></span><h2>No profiles found</h2><p>Try a different name or username.</p></div>}</div></section>;
+  return <section className="explore-page"><div className="section-heading"><span className="eyebrow">DISCOVER</span><h1>Find your people</h1><p>Public profiles from the Estagram community.</p></div>{notice && <p className="panel-notice">{notice}</p>}<div className="people-grid">{users.length ? users.map((user) => <article className="person-card" key={user.id}><img src={profileImage(user)} alt="" /><div><h2>{user.displayName}</h2><strong>@{user.username}</strong><p>{user.bio || "New to Estagram."}</p><small>{user.posts} posts · {user.followers} followers{user.isSelf ? " · This is you" : user.followsYou ? " · Follows you" : ""}</small></div><div className="person-actions">{user.isSelf ? <button className="primary" onClick={onViewSelf}><UserRound /> View your profile</button> : <><button className={user.following ? "following" : "primary"} disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "follow")}>{user.following ? "Following" : <><UserPlus /> Follow</>}</button><button disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "message")}><Mail /> Message</button><button className={user.blocked ? "danger" : ""} disabled={busyId === user.id} onClick={() => action(user, "block")}><Ban /> {user.blocked ? "Unblock" : "Block"}</button><button disabled={busyId === user.id} onClick={() => action(user, "report")}><Flag /> Report</button></>}</div></article>) : <div className="empty-state"><span><Compass /></span><h2>No profiles found</h2><p>Try a different name or username.</p></div>}</div></section>;
 }
 
 function MessagesView({ profile, conversations, initialConversationId, onRefresh }: { profile: Profile; conversations: Conversation[]; initialConversationId: string | null; onRefresh: () => Promise<void> }) {

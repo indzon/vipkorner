@@ -12,13 +12,16 @@ export async function GET(request: Request) {
       EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = u.id AND f.followed_id = ?) AS followsYou,
       (SELECT COUNT(*) FROM follows f WHERE f.followed_id = u.id) AS followers,
       (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id) AS posts,
-      EXISTS(SELECT 1 FROM blocks b WHERE b.blocker_id = ? AND b.blocked_id = u.id) AS blocked
-      FROM users u WHERE u.id != ? AND u.status = 'active'
-      AND (u.is_public = 1 OR EXISTS(SELECT 1 FROM follows visible WHERE visible.follower_id = ? AND visible.followed_id = u.id))
-      AND NOT EXISTS(SELECT 1 FROM blocks b WHERE b.blocker_id = u.id AND b.blocked_id = ?)
+      EXISTS(SELECT 1 FROM blocks b WHERE b.blocker_id = ? AND b.blocked_id = u.id) AS blocked,
+      (u.id = ?) AS isSelf
+      FROM users u WHERE u.status = 'active'
+      AND (u.id = ? OR (
+        (u.is_public = 1 OR EXISTS(SELECT 1 FROM follows visible WHERE visible.follower_id = ? AND visible.followed_id = u.id))
+        AND NOT EXISTS(SELECT 1 FROM blocks b WHERE b.blocker_id = u.id AND b.blocked_id = ?)
+      ))
       AND (? = '' OR lower(u.username) LIKE lower(?) OR lower(u.display_name) LIKE lower(?))
       ORDER BY followers DESC, u.created_at DESC LIMIT 40`)
-      .bind(viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, query, `%${query}%`, `%${query}%`).all();
+      .bind(viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, query, `%${query}%`, `%${query}%`).all();
     const unread = await DB.prepare("SELECT COUNT(*) AS total FROM notifications WHERE user_id = ? AND read_at IS NULL").bind(viewer.id).first<{ total: number }>();
     const admin = viewer.role === "admin" ? {
       invites: (await DB.prepare(`SELECT i.code, i.created_at AS createdAt, i.claimed_at AS claimedAt, i.revoked,
