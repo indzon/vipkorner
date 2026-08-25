@@ -9,6 +9,7 @@ export async function GET() {
     const { DB } = bindings();
     const now = Date.now();
     await DB.prepare("DELETE FROM stories WHERE expires_at <= ?").bind(now).run();
+    await DB.prepare("DELETE FROM story_views WHERE story_id NOT IN (SELECT id FROM stories)").run();
 
     const [posts, stories, comments, notifications, following, followers] = await Promise.all([
       DB.prepare(`SELECT p.id, p.caption, p.image_key AS imageKey, p.image_url AS imageUrl,
@@ -25,12 +26,13 @@ export async function GET() {
       DB.prepare(`SELECT s.id, s.caption, s.image_key AS imageKey, s.image_url AS imageUrl,
         s.media_type AS mediaType, s.created_at AS createdAt, s.expires_at AS expiresAt,
         s.caption_x AS captionX, s.caption_y AS captionY, s.user_id AS userId,
+        EXISTS(SELECT 1 FROM story_views v WHERE v.story_id = s.id AND v.user_id = ?) AS viewed,
         u.username, u.display_name AS displayName, u.image_key AS authorImageKey, u.image_url AS authorImageUrl
         FROM stories s JOIN users u ON u.id = s.user_id
         WHERE s.expires_at > ? AND u.status = 'active' AND (u.is_public = 1 OR s.user_id = ? OR EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = s.user_id)) AND NOT EXISTS (
           SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = s.user_id)
           OR (b.blocker_id = s.user_id AND b.blocked_id = ?)
-        ) ORDER BY s.created_at ASC`).bind(now, viewer.id, viewer.id, viewer.id, viewer.id).all(),
+        ) ORDER BY s.created_at ASC`).bind(viewer.id, now, viewer.id, viewer.id, viewer.id, viewer.id).all(),
       DB.prepare(`SELECT c.id, c.post_id AS postId, c.body, c.created_at AS createdAt, c.user_id AS userId,
         u.username, u.display_name AS displayName, u.image_key AS authorImageKey, u.image_url AS authorImageUrl
         FROM comments c JOIN users u ON u.id = c.user_id

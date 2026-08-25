@@ -111,6 +111,10 @@ export async function ensureSchema() {
       post_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at INTEGER NOT NULL,
       PRIMARY KEY (post_id, user_id)
     )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS story_views (
+      story_id TEXT NOT NULL, user_id TEXT NOT NULL, viewed_at INTEGER NOT NULL,
+      PRIMARY KEY (story_id, user_id)
+    )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, created_at DESC)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages (conversation_id, created_at)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status, created_at DESC)"),

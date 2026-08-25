@@ -84,6 +84,7 @@ type Story = {
   owned: boolean;
   captionX: number;
   captionY: number;
+  viewed: number | boolean;
   author: PublicUser;
 };
 
@@ -309,6 +310,11 @@ export default function HomePage() {
     setToast("Story deleted.");
   }
 
+  const markStoryViewed = useCallback((storyId: string) => {
+    setStories((current) => current.map((story) => story.id === storyId ? { ...story, viewed: true } : story));
+    fetch("/api/stories", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: storyId }) }).catch(() => undefined);
+  }, []);
+
   const profileNav = () => { setView("profile"); setSearchOpen(false); setQuery(""); };
   const homeNav = () => { setView("home"); setSearchOpen(false); setQuery(""); };
   const exploreNav = () => { setView("explore"); setSearchOpen(true); void loadDiscovery(query); };
@@ -374,7 +380,7 @@ export default function HomePage() {
       </nav>
 
       {composer && <Composer type={composer} profile={profile} onClose={() => setComposer(null)} onCreated={(message) => { setComposer(null); setToast(message); loadFeed(); }} />}
-      {activeStoryId && <StoryViewer key={activeStoryId} stories={stories} activeId={activeStoryId} onChange={setActiveStoryId} onClose={() => setActiveStoryId(null)} onDelete={deleteStory} />}
+      {activeStoryId && <StoryViewer key={activeStoryId} stories={stories} activeId={activeStoryId} onChange={setActiveStoryId} onViewed={markStoryViewed} onClose={() => setActiveStoryId(null)} onDelete={deleteStory} />}
       {profilePanel === "edit" && <EditProfileModal profile={profile} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Profile updated."); }} />}
       {profilePanel === "settings" && <SettingsModal profile={profile} installPrompt={installPrompt} onInstallGuide={() => { setProfilePanel(null); setInstallGuideOpen(true); }} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Settings saved."); }} />}
       {profilePanel === "activity" && <ActivityModal activities={activities} posts={posts} onClose={() => setProfilePanel(null)} />}
@@ -399,7 +405,7 @@ function StoriesTray({ stories, profile, onAdd, onOpen }: { stories: Story[]; pr
         </button>
         {stories.map((story, index) => (
           <button className="story-item" key={story.id} onClick={() => onOpen(story)}>
-            <span className="story-ring active-story">{story.mediaType === "video" ? <><video src={imageSource(story)} muted playsInline preload="metadata" aria-label={`${story.author.username}'s video story`} /><i className="story-video-badge"><Video /></i></> : <img src={imageSource(story)} alt={`${story.author.username}'s story`} />}</span><span>{story.owned && index === 0 ? "Your story" : story.author.username}</span>
+            <span className={`story-ring active-story ${story.viewed ? "viewed" : ""}`}>{story.mediaType === "video" ? <><video src={imageSource(story)} muted playsInline preload="metadata" aria-label={`${story.author.username}'s video story`} /><i className="story-video-badge"><Video /></i></> : <img src={imageSource(story)} alt={`${story.author.username}'s story`} />}</span><span>{story.owned && index === 0 ? "Your story" : story.author.username}</span>
           </button>
         ))}
       </div>
@@ -553,7 +559,7 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
         ) : (
           <div className={`upload-drop ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop}><span><Video /></span><h3>{dragActive ? "Drop it here" : "Choose or drop a photo or video"}</h3><p>Photos up to 10 MB · MP4, WebM, MOV or M4V up to 50 MB</p><div className="upload-choices"><button type="button" onClick={() => inputRef.current?.click()}>Choose photo</button><button type="button" onClick={() => videoInputRef.current?.click()}>Choose video</button></div></div>
         )}
-        <div className={`caption-field ${type === "story" ? "story-caption-field" : ""}`}><img src={profileImage(profile)} alt={profile.displayName} /><textarea value={caption} onChange={(event) => setCaption(event.target.value.slice(0, type === "story" ? 280 : 500))} placeholder={type === "story" ? "Add a story caption…" : "Write a caption…"} rows={type === "story" ? 2 : 3} /><small>{caption.length}/{type === "story" ? 280 : 500}</small></div>
+        <div className={`caption-field ${type === "story" ? "story-caption-field" : ""}`}><img src={profileImage(profile)} alt={profile.displayName} /><textarea value={caption} onChange={(event) => setCaption(event.target.value.slice(0, type === "story" ? 280 : 500))} onKeyDown={(event) => { if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return; event.preventDefault(); if (!file) { setError("Choose a photo or video first."); return; } if (!busy) event.currentTarget.form?.requestSubmit(); }} placeholder={type === "story" ? "Add a story caption…" : "Write a caption…"} rows={type === "story" ? 2 : 3} /><small>{caption.length}/{type === "story" ? 280 : 500}</small></div>
         {type === "story" && caption.trim() && <div className="story-caption-tools"><div><strong>Caption position</strong><span>Drag the caption on the preview, or choose a preset.</span></div><div><button type="button" onClick={() => setCaptionPosition({ x: 50, y: 22 })}>Top</button><button type="button" onClick={() => setCaptionPosition({ x: 50, y: 52 })}>Middle</button><button type="button" onClick={() => setCaptionPosition({ x: 50, y: 82 })}>Bottom</button></div></div>}
         {type === "story" && <div className="expiry-note"><span>24h</span><p><strong>Made for the moment.</strong>Your story will disappear automatically after 24 hours.</p></div>}
         {error && <p className="form-error">{error}</p>}
@@ -562,7 +568,7 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
   );
 }
 
-function StoryViewer({ stories, activeId, onChange, onClose, onDelete }: { stories: Story[]; activeId: string; onChange: (id: string) => void; onClose: () => void; onDelete: (id: string) => Promise<void> }) {
+function StoryViewer({ stories, activeId, onChange, onViewed, onClose, onDelete }: { stories: Story[]; activeId: string; onChange: (id: string) => void; onViewed: (id: string) => void; onClose: () => void; onDelete: (id: string) => Promise<void> }) {
   const story = stories.find((item) => item.id === activeId);
   const currentIndex = stories.findIndex((item) => item.id === activeId);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -570,6 +576,10 @@ function StoryViewer({ stories, activeId, onChange, onClose, onDelete }: { stori
   const [error, setError] = useState("");
   const [storyMuted, setStoryMuted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (story && !story.viewed) onViewed(story.id);
+  }, [onViewed, story]);
 
   const goNext = useCallback(() => {
     if (currentIndex >= 0 && currentIndex < stories.length - 1) onChange(stories[currentIndex + 1].id);

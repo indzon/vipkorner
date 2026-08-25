@@ -23,6 +23,29 @@ export async function POST(request: Request) {
   } catch (error) { return authErrorResponse(error) || NextResponse.json({ error: "Could not share this story." }, { status: 500 }); }
 }
 
+export async function PUT(request: Request) {
+  try {
+    await ensureSchema();
+    const user = await requireUser();
+    const input = await request.json() as { id?: string };
+    const id = String(input.id || "");
+    if (!id) return NextResponse.json({ error: "Story id is required." }, { status: 400 });
+    const { DB } = bindings();
+    const story = await DB.prepare(`SELECT s.id FROM stories s JOIN users u ON u.id = s.user_id
+      WHERE s.id = ? AND s.expires_at > ? AND u.status = 'active'
+      AND (s.user_id = ? OR u.is_public = 1 OR EXISTS(
+        SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = s.user_id
+      )) AND NOT EXISTS(
+        SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = s.user_id)
+        OR (b.blocker_id = s.user_id AND b.blocked_id = ?)
+      )`).bind(id, Date.now(), user.id, user.id, user.id, user.id).first<{ id: string }>();
+    if (!story) return NextResponse.json({ error: "Story not found." }, { status: 404 });
+    await DB.prepare("INSERT OR REPLACE INTO story_views (story_id, user_id, viewed_at) VALUES (?, ?, ?)")
+      .bind(id, user.id, Date.now()).run();
+    return NextResponse.json({ viewed: true });
+  } catch (error) { return authErrorResponse(error) || NextResponse.json({ error: "Could not mark this story as viewed." }, { status: 500 }); }
+}
+
 export async function DELETE(request: Request) {
   try {
     await ensureSchema(); const user = await requireUser();
@@ -32,7 +55,10 @@ export async function DELETE(request: Request) {
     const story = await DB.prepare("SELECT user_id AS userId, image_key AS imageKey FROM stories WHERE id = ?").bind(id).first<{ userId: string; imageKey: string | null }>();
     if (!story) return NextResponse.json({ error: "Story not found." }, { status: 404 });
     if (story.userId !== user.id) return NextResponse.json({ error: "Only the story owner can delete it." }, { status: 403 });
-    await DB.prepare("DELETE FROM stories WHERE id = ?").bind(id).run();
+    await DB.batch([
+      DB.prepare("DELETE FROM story_views WHERE story_id = ?").bind(id),
+      DB.prepare("DELETE FROM stories WHERE id = ?").bind(id),
+    ]);
     if (story.imageKey) await MEDIA.delete(story.imageKey);
     return NextResponse.json({ deleted: true });
   } catch (error) { return authErrorResponse(error) || NextResponse.json({ error: "Could not delete this story." }, { status: 500 }); }

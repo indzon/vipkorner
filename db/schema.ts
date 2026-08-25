@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
@@ -60,6 +60,12 @@ export const stories = sqliteTable("stories", {
   captionX: integer("caption_x").notNull().default(50),
   captionY: integer("caption_y").notNull().default(86),
 });
+
+export const storyViews = sqliteTable("story_views", {
+  storyId: text("story_id").notNull(),
+  userId: text("user_id").notNull(),
+  viewedAt: integer("viewed_at").notNull(),
+}, (table) => [primaryKey({ columns: [table.storyId, table.userId] })]);
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
