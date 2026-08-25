@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const { data, error } = await client.auth.signUp({
       email,
       password,
-      options: { data: { display_name: String(input.displayName || "").trim().slice(0, 50) }, emailRedirectTo: `${origin}/login` },
+      options: { data: { display_name: String(input.displayName || "").trim().slice(0, 50) }, emailRedirectTo: `${origin}/auth/confirm` },
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ authenticated: Boolean(data.session), confirmationRequired: !data.session });

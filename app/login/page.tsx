@@ -28,10 +28,24 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.has("code")) {
+      location.replace(`/auth/confirm?${params.toString()}`);
+      return;
+    }
+    const confirmationNotice = params.get("confirmed") === "1"
+      ? "Email confirmed. You can now sign in to VipKorner."
+      : "";
+    const confirmationError = params.get("confirmation_error") === "1"
+      ? "Your email link could not create a session. If your email was verified, sign in below; otherwise request a new confirmation email."
+      : "";
+
     fetch("/api/session").then(async (response) => {
       const data = await response.json() as SessionState;
       setSession(data);
       setDisplayName(data.identity?.displayName || "");
+      if (confirmationNotice) setAuthNotice(confirmationNotice);
+      if (confirmationError) setError(confirmationError);
       if (data.user?.status === "active") location.replace("/");
     }).catch(() => setError("VipKorner could not verify this session. Try refreshing."));
   }, []);
