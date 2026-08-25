@@ -24,10 +24,10 @@ Before running it, configure these repository secrets:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
-- `VIPKORNER_D1_DATABASE_ID`
 
 The workflow uses the `vipkorner-db` D1 database and `vipkorner-media` R2
-bucket. The Supabase URL and publishable key are included at build time.
+bucket. Its non-secret D1 resource ID and the Supabase public connection values
+are included at build time.
 
 ## Useful commands
 
