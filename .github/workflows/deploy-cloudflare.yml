@@ -22,6 +22,8 @@ jobs:
       - name: Build VipKorner
         run: pnpm build
         env:
+          NEXT_PUBLIC_SUPABASE_URL: https://nqqonvcrxnnhjxivtevr.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_LQ-QerfB-KaiQEbBKmC28Q_0XRu8obO
           VIPKORNER_D1_DATABASE_ID: ${{ secrets.VIPKORNER_D1_DATABASE_ID }}
           VIPKORNER_D1_DATABASE_NAME: vipkorner-db
           VIPKORNER_R2_BUCKET_NAME: vipkorner-media
