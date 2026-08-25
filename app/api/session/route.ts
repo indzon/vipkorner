@@ -34,13 +34,14 @@ export async function POST(request: Request) {
   if (!input.adult) return NextResponse.json({ error: "You must confirm that you are at least 18 years old." }, { status: 400 });
   const username = normalizeUsername(input.username);
   const displayName = String(input.displayName || identity.displayName).trim().slice(0, 50);
-  if (username.length < 3 || !displayName) return NextResponse.json({ error: "Choose a username with at least 3 letters, numbers, dots, or underscores." }, { status: 400 });
-
   const { DB } = bindings();
-  const existing = await DB.prepare("SELECT id FROM users WHERE email = ? OR lower(username) = lower(?)").bind(identity.email, username).first<{ id: string }>();
-  if (existing) return NextResponse.json({ error: "That account or username is already registered." }, { status: 409 });
   const count = await DB.prepare("SELECT COUNT(*) AS total FROM users").first<{ total: number }>();
   const firstUser = !count?.total;
+  if (!firstUser && (username.length < 3 || !displayName)) return NextResponse.json({ error: "Choose a username with at least 3 letters, numbers, dots, or underscores." }, { status: 400 });
+  const existing = firstUser
+    ? await DB.prepare("SELECT id FROM users WHERE email = ?").bind(identity.email).first<{ id: string }>()
+    : await DB.prepare("SELECT id FROM users WHERE email = ? OR lower(username) = lower(?)").bind(identity.email, username).first<{ id: string }>();
+  if (existing) return NextResponse.json({ error: "That account or username is already registered." }, { status: 409 });
   let invite: { code: string } | null = null;
   if (!firstUser) {
     const mode = await DB.prepare("SELECT value FROM app_meta WHERE key = 'registration_mode'").first<{ value: string }>();
