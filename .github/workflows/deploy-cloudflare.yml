@@ -1,0 +1,32 @@
+name: Deploy VipKorner to Cloudflare
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Build VipKorner
+        run: pnpm build
+        env:
+          VIPKORNER_D1_DATABASE_ID: ${{ secrets.VIPKORNER_D1_DATABASE_ID }}
+          VIPKORNER_D1_DATABASE_NAME: vipkorner-db
+          VIPKORNER_R2_BUCKET_NAME: vipkorner-media
+      - name: Deploy Worker
+        run: pnpm exec wrangler deploy --config dist/server/wrangler.json
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

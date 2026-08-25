@@ -1,8 +1,10 @@
 {
-  "name": "Estagram — Your moments",
-  "short_name": "Estagram",
+  "name": "VipKorner — Your people, your moments",
+  "short_name": "VipKorner",
   "description": "Public profiles, posts, 24-hour stories, and private messages.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#fffaf5",
   "theme_color": "#fffaf5",

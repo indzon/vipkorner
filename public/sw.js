@@ -1,4 +1,4 @@
-const CACHE = "estagram-v3";
+const CACHE = "vipkorner-v1";
 const SHELL = ["/offline.html", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {

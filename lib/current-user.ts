@@ -1,5 +1,6 @@
 import { chatGPTSignInPath, getChatGPTUser } from "@/app/chatgpt-auth";
 import { bindings, ensureSchema } from "@/db/storage";
+import { supabaseConfigured, supabaseServerClient } from "@/lib/supabase-server";
 
 export type AppUser = {
   id: string;
@@ -24,9 +25,15 @@ const USER_SELECT = `id, email, username, display_name AS displayName, bio, webs
   story_replies AS storyReplies, high_quality_uploads AS highQualityUploads, created_at AS createdAt`;
 
 export async function identityEmail() {
+  if (supabaseConfigured()) {
+    const client = await supabaseServerClient();
+    const { data } = await client!.auth.getUser();
+    const user = data.user;
+    if (user?.email) return { email: user.email.toLowerCase(), displayName: String(user.user_metadata?.display_name || user.email) };
+  }
   const identity = await getChatGPTUser();
   if (identity?.email) return { email: identity.email.toLowerCase(), displayName: identity.fullName || identity.displayName };
-  if (process.env.NODE_ENV === "development") return { email: "local-admin@estagram.test", displayName: "Local Admin" };
+  if (process.env.NODE_ENV === "development") return { email: "local-admin@vipkorner.test", displayName: "Local Admin" };
   return null;
 }
 
@@ -39,8 +46,8 @@ export async function currentUser(): Promise<AppUser | null> {
 
 export async function requireUser(): Promise<AppUser> {
   const user = await currentUser();
-  if (!user) throw new AuthError("Sign in and finish setting up your Estagram account.", 401);
-  if (user.status !== "active") throw new AuthError("This account is suspended. Contact the Estagram administrator.", 403);
+  if (!user) throw new AuthError("Sign in and finish setting up your VipKorner account.", 401);
+  if (user.status !== "active") throw new AuthError("This account is suspended. Contact the VipKorner administrator.", 403);
   return user;
 }
 
@@ -50,7 +57,7 @@ export class AuthError extends Error {
 
 export function authErrorResponse(error: unknown) {
   if (!(error instanceof AuthError)) return null;
-  return Response.json({ error: error.message, signInPath: chatGPTSignInPath("/login") }, { status: error.status });
+  return Response.json({ error: error.message, signInPath: supabaseConfigured() ? "/login" : chatGPTSignInPath("/login") }, { status: error.status });
 }
 
 export async function blockedBetween(firstId: string, secondId: string) {

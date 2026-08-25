@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { chatGPTSignInPath, chatGPTSignOutPath } from "@/app/chatgpt-auth";
 import { bindings, ensureSchema } from "@/db/storage";
 import { identityEmail, publicUserFields } from "@/lib/current-user";
+import { supabaseConfigured } from "@/lib/supabase-server";
 
 function normalizeUsername(input: unknown) {
   return String(input || "").trim().replace(/^@/, "").replace(/[^a-zA-Z0-9._]/g, "").slice(0, 30);
@@ -10,26 +11,28 @@ function normalizeUsername(input: unknown) {
 export async function GET() {
   await ensureSchema();
   const identity = await identityEmail();
-  if (!identity) return NextResponse.json({ authenticated: false, signInPath: chatGPTSignInPath("/login") });
+  const authProvider = supabaseConfigured() ? "supabase" : "chatgpt";
+  if (!identity) return NextResponse.json({ authenticated: false, authProvider, signInPath: authProvider === "supabase" ? "/login" : chatGPTSignInPath("/login") });
   const { DB } = bindings();
   const user = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE email = ?`).bind(identity.email).first();
   const count = await DB.prepare("SELECT COUNT(*) AS total FROM users").first<{ total: number }>();
   const mode = await DB.prepare("SELECT value FROM app_meta WHERE key = 'registration_mode'").first<{ value: string }>();
   return NextResponse.json({
     authenticated: true,
+    authProvider,
     identity: { displayName: identity.displayName },
     user,
     bootstrapRequired: !count?.total,
     inviteRequired: Boolean(count?.total) && mode?.value !== "open",
     registrationMode: mode?.value || "invite",
-    signOutPath: chatGPTSignOutPath("/login"),
+    signOutPath: authProvider === "supabase" ? "/api/auth" : chatGPTSignOutPath("/login"),
   });
 }
 
 export async function POST(request: Request) {
   await ensureSchema();
   const identity = await identityEmail();
-  if (!identity) return NextResponse.json({ error: "Sign in with ChatGPT first.", signInPath: chatGPTSignInPath("/login") }, { status: 401 });
+  if (!identity) return NextResponse.json({ error: "Sign in first.", signInPath: supabaseConfigured() ? "/login" : chatGPTSignInPath("/login") }, { status: 401 });
   const input = await request.json() as { username?: string; displayName?: string; inviteCode?: string; adult?: boolean };
   if (!input.adult) return NextResponse.json({ error: "You must confirm that you are at least 18 years old." }, { status: 400 });
   const username = normalizeUsername(input.username);
