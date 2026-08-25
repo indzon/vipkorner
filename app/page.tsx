@@ -91,23 +91,6 @@ type DiscoveryUser = PublicUser & { following: number | boolean; followsYou: num
 type Conversation = { id: string; status: "pending" | "accepted"; requestedBy: string; updatedAt: number; otherId: string; username: string; displayName: string; imageKey: string | null; imageUrl: string | null; lastMessage: string | null; unread: number };
 type DirectMessage = { id: string; senderId: string; body: string; createdAt: number };
 
-const DEFAULT_PROFILE: Profile = {
-  id: "",
-  username: "emma.wright",
-  displayName: "Emma Wright",
-  bio: "Little moments, city light, and everything in between. ✨",
-  website: "emmawrites.co",
-  location: "New York, NY",
-  imageKey: null,
-  imageUrl: null,
-  privateAccount: true,
-  storyReplies: true,
-  highQualityUploads: true,
-  role: "user",
-  following: 0,
-  followers: 0,
-};
-
 function profileImage(profile: { imageKey: string | null; imageUrl: string | null; username?: string; displayName?: string }) {
   if (profile.imageKey || profile.imageUrl) return imageSource(profile);
   const initials = ((profile.displayName || profile.username || "E").match(/[a-z0-9]/gi) || ["E"]).slice(0, 2).join("").toUpperCase();
@@ -132,7 +115,7 @@ async function readApiResponse<T>(response: Response, fallback: string): Promise
   return data as T;
 }
 
-async function uploadMediaInParts(file: File, contentKind: UploadContentKind, caption: string, onProgress: (value: number) => void) {
+async function uploadMediaInParts(file: File, contentKind: UploadContentKind, caption: string, onProgress: (value: number) => void, captionPosition?: { x: number; y: number }) {
   const inspected = await inspectMediaUpload(file);
   if (!inspected) throw new Error("This file is not a supported photo or video.");
   if (contentKind === "profile" && (inspected.kind !== "image" || inspected.extension === "gif")) throw new Error("Choose a JPG, PNG or WebP profile photo.");
@@ -150,7 +133,7 @@ async function uploadMediaInParts(file: File, contentKind: UploadContentKind, ca
       parts.push(await readApiResponse<{ partNumber: number; etag: string }>(partResponse, `Could not upload part ${partNumber}.`));
       onProgress(Math.round((partNumber / totalParts) * 90));
     }
-    const completeResponse = await fetch("/api/uploads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", key: started.key, uploadId: started.uploadId, parts, contentKind, caption }) });
+    const completeResponse = await fetch("/api/uploads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", key: started.key, uploadId: started.uploadId, parts, contentKind, caption, captionX: captionPosition?.x, captionY: captionPosition?.y }) });
     const result = await readApiResponse(completeResponse, "Could not finish upload.");
     onProgress(100);
     return result;
@@ -199,7 +182,7 @@ function relativeTime(timestamp: number) {
 export default function HomePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
-  const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [composer, setComposer] = useState<"post" | "story" | null>(null);
@@ -227,7 +210,8 @@ export default function HomePage() {
       const data = await response.json() as { posts: Post[]; stories: Story[]; profile: Profile | null; activities: Activity[] };
       setPosts(data.posts);
       setStories(data.stories);
-      if (data.profile) setProfile(data.profile);
+      if (!data.profile) { location.replace("/login"); return; }
+      setProfile(data.profile);
       setActivities(data.activities || []);
     } catch {
       setToast("We couldn't refresh the feed. Try again in a moment.");
@@ -328,7 +312,7 @@ export default function HomePage() {
   const exploreNav = () => { setView("explore"); setSearchOpen(true); void loadDiscovery(query); };
   const messagesNav = () => { setView("messages"); setSearchOpen(false); void loadConversations(); };
 
-  if (!accessReady) return <div className="auth-check" role="status"><span className="brand-mark">e</span><p>Checking access…</p></div>;
+  if (!accessReady || !profile) return <div className="auth-check" role="status"><span className="brand-mark">e</span><p>Loading your space…</p></div>;
 
   return (
     <main className="app-shell">
@@ -501,8 +485,11 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const [captionPosition, setCaptionPosition] = useState({ x: 50, y: 82 });
+  const [captionDragging, setCaptionDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const preview = useMemo(() => file ? URL.createObjectURL(file) : "", [file]);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
@@ -523,12 +510,28 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
     selectFile(event.dataTransfer.files?.[0] || null);
   }
 
+  function updateCaptionPosition(event: React.PointerEvent<HTMLParagraphElement>) {
+    if (!captionDragging && event.type !== "pointerdown") return;
+    const frame = previewRef.current?.getBoundingClientRect();
+    if (!frame) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.type === "pointerdown") {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setCaptionDragging(true);
+    }
+    setCaptionPosition({
+      x: Math.max(10, Math.min(90, ((event.clientX - frame.left) / frame.width) * 100)),
+      y: Math.max(12, Math.min(88, ((event.clientY - frame.top) / frame.height) * 100)),
+    });
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!file) { setError("Choose a photo or video first."); return; }
     setBusy(true); setError("");
     try {
-      await uploadMediaInParts(file, type, caption, setUploadProgress);
+      await uploadMediaInParts(file, type, caption, setUploadProgress, type === "story" ? captionPosition : undefined);
       onCreated(type === "post" ? "Your post is live." : "Story shared for 24 hours.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Something went wrong.");
@@ -544,11 +547,12 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
         <input ref={inputRef} className="file-input" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.gif" onChange={(event) => selectFile(event.target.files?.[0] || null)} />
         <input ref={videoInputRef} className="file-input" type="file" accept="video/*,.mp4,.webm,.mov,.m4v" onChange={(event) => selectFile(event.target.files?.[0] || null)} />
         {preview ? (
-          <button type="button" className={`preview-frame ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop} onClick={() => file && isVideoFile(file) ? videoInputRef.current?.click() : inputRef.current?.click()}>{file && isVideoFile(file) ? <video src={preview} autoPlay loop muted playsInline aria-label="Selected video preview" /> : <img src={preview} alt="Selected preview" />}<span>Change {file && isVideoFile(file) ? "video" : "photo"}</span></button>
+          <div ref={previewRef} className={`preview-frame ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop}>{file && isVideoFile(file) ? <video src={preview} autoPlay loop muted playsInline aria-label="Selected video preview" /> : <img src={preview} alt="Selected preview" />}{type === "story" && caption.trim() && <p className={`story-caption-preview ${captionDragging ? "dragging" : ""}`} style={{ left: `${captionPosition.x}%`, top: `${captionPosition.y}%` }} onPointerDown={updateCaptionPosition} onPointerMove={updateCaptionPosition} onPointerUp={(event) => { event.currentTarget.releasePointerCapture(event.pointerId); setCaptionDragging(false); }} onPointerCancel={() => setCaptionDragging(false)}>{caption}</p>}<button type="button" className="preview-change" onClick={() => file && isVideoFile(file) ? videoInputRef.current?.click() : inputRef.current?.click()}>Change {file && isVideoFile(file) ? "video" : "photo"}</button></div>
         ) : (
           <div className={`upload-drop ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop}><span><Video /></span><h3>{dragActive ? "Drop it here" : "Choose or drop a photo or video"}</h3><p>Photos up to 10 MB · MP4, WebM, MOV or M4V up to 50 MB</p><div className="upload-choices"><button type="button" onClick={() => inputRef.current?.click()}>Choose photo</button><button type="button" onClick={() => videoInputRef.current?.click()}>Choose video</button></div></div>
         )}
         <div className={`caption-field ${type === "story" ? "story-caption-field" : ""}`}><img src={profileImage(profile)} alt={profile.displayName} /><textarea value={caption} onChange={(event) => setCaption(event.target.value.slice(0, type === "story" ? 280 : 500))} placeholder={type === "story" ? "Add a story caption…" : "Write a caption…"} rows={type === "story" ? 2 : 3} /><small>{caption.length}/{type === "story" ? 280 : 500}</small></div>
+        {type === "story" && caption.trim() && <div className="story-caption-tools"><div><strong>Caption position</strong><span>Drag the caption on the preview, or choose a preset.</span></div><div><button type="button" onClick={() => setCaptionPosition({ x: 50, y: 22 })}>Top</button><button type="button" onClick={() => setCaptionPosition({ x: 50, y: 52 })}>Middle</button><button type="button" onClick={() => setCaptionPosition({ x: 50, y: 82 })}>Bottom</button></div></div>}
         {type === "story" && <div className="expiry-note"><span>24h</span><p><strong>Made for the moment.</strong>Your story will disappear automatically after 24 hours.</p></div>}
         {error && <p className="form-error">{error}</p>}
       </form>
@@ -562,7 +566,6 @@ function StoryViewer({ stories, activeId, onChange, onClose, onDelete }: { stori
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [error, setError] = useState("");
-  const [captionPosition, setCaptionPosition] = useState({ x: story?.captionX ?? 50, y: story?.captionY ?? 86 });
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const goNext = useCallback(() => {
@@ -596,22 +599,6 @@ function StoryViewer({ stories, activeId, onChange, onClose, onDelete }: { stori
     }
   }
 
-  async function moveCaption(event: React.PointerEvent<HTMLParagraphElement>) {
-    if (!story?.owned) return;
-    const frame = event.currentTarget.closest(".story-frame")?.getBoundingClientRect();
-    if (!frame) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    let nextPosition = captionPosition;
-    const update = (clientX: number, clientY: number) => { nextPosition = { x: Math.max(8, Math.min(92, ((clientX - frame.left) / frame.width) * 100)), y: Math.max(10, Math.min(92, ((clientY - frame.top) / frame.height) * 100)) }; setCaptionPosition(nextPosition); };
-    update(event.clientX, event.clientY);
-    const target = event.currentTarget;
-    target.onpointermove = (next) => update(next.clientX, next.clientY);
-    target.onpointerup = async () => {
-      target.onpointermove = null; target.onpointerup = null;
-      await fetch("/api/stories", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: story.id, caption: story.caption, captionX: nextPosition.x, captionY: nextPosition.y }) }).catch(() => undefined);
-    };
-  }
-
   return (
     <div className="story-viewer" role="dialog" aria-modal="true" aria-label="Story">
       <div className="story-frame">
@@ -620,7 +607,7 @@ function StoryViewer({ stories, activeId, onChange, onClose, onDelete }: { stori
         {story.mediaType === "video" ? <video ref={videoRef} key={story.id} className="story-full-image" src={imageSource(story)} autoPlay muted playsInline onEnded={goNext} aria-label={story.caption || "Your video story"} /> : <img className="story-full-image" src={imageSource(story)} alt={story.caption || "Your story"} />}
         {currentIndex > 0 && <button className="story-nav previous" onClick={() => onChange(stories[currentIndex - 1].id)} aria-label="Previous story"><ChevronLeft /></button>}
         {currentIndex < stories.length - 1 && <button className="story-nav next" onClick={goNext} aria-label="Next story"><ChevronRight /></button>}
-        <footer>{story.caption && <p className={story.owned ? "movable-caption" : ""} onPointerDown={moveCaption} style={{ left: `${captionPosition.x}%`, top: `${captionPosition.y}%` }}>{story.caption}{story.owned && <small>Drag to move</small>}</p>}<span>Story expires automatically within 24 hours</span></footer>
+        <footer>{story.caption && <p style={{ left: `${story.captionX}%`, top: `${story.captionY}%` }}>{story.caption}</p>}<span>Story expires automatically within 24 hours</span></footer>
         {confirmDelete && <div className="story-delete-confirm"><strong>Delete this story?</strong><p>This removes it immediately instead of waiting for it to expire.</p>{error && <span>{error}</span>}<div><button onClick={() => setConfirmDelete(false)}>Cancel</button><button onClick={removeStory} disabled={deleteBusy}>{deleteBusy ? "Deleting…" : "Delete"}</button></div></div>}
       </div>
     </div>
@@ -843,16 +830,18 @@ function SettingsModal({ profile, installPrompt, onInstallGuide, onClose, onSave
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Profile settings" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="profile-modal settings-modal">
         <ModalHeader eyebrow="YOUR SPACE" title="Settings" onClose={onClose} action={busy ? "Saving…" : "Done"} disabled={busy} onAction={save} />
-        <div className="settings-intro"><span><SlidersHorizontal /></span><div><strong>Make Estagram yours</strong><p>Choose how your profile and uploads behave.</p></div></div>
-        <div className="settings-list">
-          <SettingRow title="Private account" description="Hide your profile from public discovery." checked={Boolean(draft.privateAccount)} onChange={() => toggle("privateAccount")} />
-          <SettingRow title="Story replies" description="Allow quick replies while viewing stories." checked={Boolean(draft.storyReplies)} onChange={() => toggle("storyReplies")} />
-          <SettingRow title="High-quality uploads" description="Keep original detail in photos and videos." checked={Boolean(draft.highQualityUploads)} onChange={() => toggle("highQualityUploads")} />
+        <div className="settings-content">
+          <div className="settings-intro"><span><SlidersHorizontal /></span><div><strong>Make Estagram yours</strong><p>Choose how your profile and uploads behave.</p></div></div>
+          <div className="settings-list">
+            <SettingRow title="Private account" description="Hide your profile from public discovery." checked={Boolean(draft.privateAccount)} onChange={() => toggle("privateAccount")} />
+            <SettingRow title="Story replies" description="Allow quick replies while viewing stories." checked={Boolean(draft.storyReplies)} onChange={() => toggle("storyReplies")} />
+            <SettingRow title="High-quality uploads" description="Keep original detail in photos and videos." checked={Boolean(draft.highQualityUploads)} onChange={() => toggle("highQualityUploads")} />
+          </div>
+          <button className="settings-install" onClick={() => installPrompt?.prompt ? installPrompt.prompt() : onInstallGuide()}><Sparkles /> Install Estagram on this device</button>
+          {profile.role === "admin" && <AdminControls />}
+          <a className="settings-signout" href="/signout-with-chatgpt?return_to=%2Flogin">Sign out of Estagram</a>
+          {error && <p className="form-error profile-error">{error}</p>}
         </div>
-        <button className="settings-install" onClick={() => installPrompt?.prompt ? installPrompt.prompt() : onInstallGuide()}><Sparkles /> Install Estagram on this device</button>
-        {profile.role === "admin" && <AdminControls />}
-        <a className="settings-signout" href="/signout-with-chatgpt?return_to=%2Flogin">Sign out of Estagram</a>
-        {error && <p className="form-error profile-error">{error}</p>}
       </section>
     </div>
   );

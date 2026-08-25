@@ -151,13 +151,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .preview-frame { position: relative; display: block; width: calc(100% - 50px); height: 390px; border: 0; padding: 0; margin: 25px; border-radius: 15px; overflow: hidden; background: #eee; cursor: pointer; }
 .preview-frame.story { width: min(300px, calc(100% - 50px)); height: auto; aspect-ratio: 9/14; margin: 25px auto; }
 .preview-frame img, .preview-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.preview-frame span { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); color: white; background: rgba(22,22,22,.7); padding: 8px 13px; border-radius: 999px; font-size: 11px; white-space: nowrap; }
+.preview-change { position: absolute; z-index: 3; bottom: 14px; left: 50%; transform: translateX(-50%); border: 0; color: white; background: rgba(22,22,22,.7); padding: 8px 13px; border-radius: 999px; font-size: 11px; white-space: nowrap; cursor: pointer; }
+.story-caption-preview { position: absolute; z-index: 2; width: min(82%, 250px); margin: 0; padding: 8px 11px; border-radius: 10px; color: white; background: rgba(0,0,0,.5); text-align: center; transform: translate(-50%, -50%); cursor: grab; touch-action: none; user-select: none; }
+.story-caption-preview.dragging { cursor: grabbing; }
 .caption-field { position: relative; display: grid; grid-template-columns: 38px 1fr; gap: 10px; padding: 2px 25px 24px; }
 .caption-field img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
 .caption-field textarea { border: 0; background: transparent; resize: none; outline: none; font-size: 13px; padding: 8px 0; }
 .caption-field small { position: absolute; bottom: 12px; right: 25px; color: #aaa29c; font-size: 9px; }
 .story-caption-field { padding-bottom: 20px; border-top: 1px solid var(--line); padding-top: 11px; margin-top: -8px; }
 .story-caption-field small { bottom: 8px; }
+.story-caption-tools { margin: -5px 25px 18px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fcf8f4; }
+.story-caption-tools > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.story-caption-tools strong { font-size: 11px; }
+.story-caption-tools span { color: var(--muted); font-size: 9px; }
+.story-caption-tools > div:last-child { display: flex; gap: 7px; margin-top: 10px; }
+.story-caption-tools button { flex: 1; padding: 7px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: white; font-size: 9px; font-weight: 700; cursor: pointer; }
 .expiry-note { display: flex; gap: 13px; align-items: center; margin: 0 25px 25px; border: 1px solid var(--line); border-radius: 13px; padding: 13px; }
 .expiry-note > span { width: 40px; height: 40px; display: grid; place-items: center; flex: 0 0 40px; border-radius: 50%; background: #fff0f1; color: var(--accent); font-size: 11px; font-weight: 800; }
 .expiry-note p { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: 11px; color: var(--muted); }
@@ -267,15 +275,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .input-prefix i { display: grid; place-items: center; border-right: 1px solid var(--line); color: var(--muted); font-size: 11px; font-style: normal; }
 .input-prefix input { border: 0; border-radius: 0; }
 .profile-error { margin: -8px 25px 22px; }
-.settings-intro { display: flex; gap: 13px; align-items: center; margin: 24px 25px 13px; }
+.settings-content { padding: 24px 25px; }
+.settings-intro { display: flex; gap: 13px; align-items: center; margin: 0 0 13px; }
 .settings-intro > span { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--accent); background: #fff0f1; }
 .settings-intro svg { width: 20px; }
 .settings-intro div { display: flex; flex-direction: column; gap: 3px; }
 .settings-intro strong { font-family: Georgia, serif; font-size: 17px; font-weight: 500; }
 .settings-intro p { color: var(--muted); font-size: 10px; margin: 0; }
-.settings-list { margin: 0 25px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-.settings-modal .settings-list { margin-bottom: 24px; }
-.settings-modal .settings-install { margin-top: -9px; }
+.settings-list { margin: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.settings-modal .settings-list { margin-bottom: 15px; }
 .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 15px; }
 .setting-row + .setting-row { border-top: 1px solid var(--line); }
 .setting-row > div { display: flex; flex-direction: column; gap: 3px; }
@@ -285,7 +293,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .toggle span { position: absolute; width: 17px; height: 17px; left: 3px; top: 3px; border-radius: 50%; background: white; box-shadow: 0 1px 5px #0002; transition: transform .18s ease; }
 .toggle.on { background: var(--accent); }
 .toggle.on span { transform: translateX(16px); }
-.settings-install { width: calc(100% - 50px); margin: 15px 25px 25px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 11px; background: var(--ink); color: white; padding: 11px; font-size: 10px; cursor: pointer; }
+.settings-install { width: 100%; margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 11px; background: var(--ink); color: white; padding: 11px; font-size: 10px; cursor: pointer; }
 .settings-install svg { width: 15px; }
 .activity-modal { min-height: 355px; }
 .activity-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 58px 25px; text-align: center; }
@@ -554,8 +562,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .message-request { padding: 12px 15px; border-bottom: 1px solid #eadde1; background: #fff4f7; }
 .message-request p { margin: 0 0 8px; font-size: 11px; }
 .message-request button { margin-right: 7px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: white; }
-.message-placeholder { margin: auto; padding: 30px; text-align: center; }
-.message-placeholder svg { width: 42px; height: 42px; color: var(--accent); }
+.message-placeholder { margin: auto; display: grid; justify-items: center; padding: 30px; text-align: center; }
+.message-placeholder svg { display: block; width: 42px; height: 42px; margin: 0 auto; color: var(--accent); }
 .message-placeholder h2 { font-family: Georgia, serif; font-weight: 500; }
 .message-placeholder p { color: var(--muted); font-size: 11px; }
 
@@ -577,7 +585,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .admin-controls details > p, .admin-controls details > article { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 9px 0 0; padding-top: 9px; border-top: 1px solid #f1e9e4; font-size: 9px; }
 .admin-controls article { display: block !important; }
 .admin-controls article p { color: var(--muted); }
-.settings-signout { display: block; margin: 18px auto 4px; text-align: center; text-decoration: none; }
+.settings-signout { display: block; margin: 18px auto 0; text-align: center; text-decoration: none; }
+.settings-content .profile-error { margin: 14px 0 0; }
 
 .install-guide { padding-bottom: 24px; }
 .install-guide ol { display: grid; gap: 10px; margin: 0; padding: 0 22px; list-style: none; }
@@ -594,8 +603,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .media-viewer-stage.viewer-fill img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; }
 
 .story-frame footer { inset: 0; padding: 0; pointer-events: none; background: none; }
-.story-frame footer > p { position: absolute; z-index: 3; width: min(82%, 330px); max-width: none; margin: 0; padding: 9px 12px; border-radius: 11px; background: rgba(0,0,0,.48); transform: translate(-50%, -50%); pointer-events: auto; touch-action: none; user-select: none; }
-.story-frame footer > p small { display: block; margin-top: 4px; font-family: var(--font-geist), sans-serif; font-size: 8px; opacity: .65; }
+.story-frame footer > p { position: absolute; z-index: 3; width: min(82%, 330px); max-width: none; margin: 0; padding: 9px 12px; border-radius: 11px; background: rgba(0,0,0,.48); transform: translate(-50%, -50%); pointer-events: none; }
 .story-frame footer > span { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; padding: 60px 22px 18px; background: linear-gradient(transparent, rgba(0,0,0,.78)); }
 
 @media (max-width: 720px) {

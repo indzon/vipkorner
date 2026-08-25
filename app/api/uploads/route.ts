@@ -24,6 +24,8 @@ export async function POST(request: Request) {
     parts?: UploadPart[];
     contentKind?: "post" | "story" | "profile";
     caption?: string;
+    captionX?: number;
+    captionY?: number;
   };
   const { DB, MEDIA } = bindings();
 
@@ -63,10 +65,12 @@ export async function POST(request: Request) {
       }
       if (payload.contentKind === "story") {
         const storyCaption = caption.slice(0, 280);
+        const captionX = Math.max(10, Math.min(90, Number(payload.captionX ?? 50)));
+        const captionY = Math.max(12, Math.min(88, Number(payload.captionY ?? 82)));
         const expiresAt = createdAt + 24 * 60 * 60 * 1000;
-        await DB.prepare("INSERT INTO stories (id, user_id, caption, image_key, media_type, created_at, expires_at, caption_x, caption_y) VALUES (?, ?, ?, ?, ?, ?, ?, 50, 86)")
-          .bind(id, user.id, storyCaption, payload.key, mediaType, createdAt, expiresAt).run();
-        return NextResponse.json({ id, userId: user.id, caption: storyCaption, captionX: 50, captionY: 86, imageKey: payload.key, imageUrl: null, mediaType, createdAt, expiresAt, owned: true }, { status: 201 });
+        await DB.prepare("INSERT INTO stories (id, user_id, caption, image_key, media_type, created_at, expires_at, caption_x, caption_y) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+          .bind(id, user.id, storyCaption, payload.key, mediaType, createdAt, expiresAt, captionX, captionY).run();
+        return NextResponse.json({ id, userId: user.id, caption: storyCaption, captionX, captionY, imageKey: payload.key, imageUrl: null, mediaType, createdAt, expiresAt, owned: true }, { status: 201 });
       }
       const postCaption = caption.slice(0, 500) || "A new moment.";
       await DB.prepare("INSERT INTO posts (id, user_id, caption, image_key, media_type, likes, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)")
