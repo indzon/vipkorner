@@ -303,16 +303,18 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .activity-empty h3 { font-family: Georgia, serif; font-size: 20px; font-weight: 500; margin: 15px 0 5px; }
 .activity-empty p { color: var(--muted); font-size: 10px; margin: 0; }
 .activity-list { max-height: 430px; overflow-y: auto; padding: 10px 20px 20px; }
-.activity-item { display: grid; grid-template-columns: 39px 1fr 46px; gap: 11px; align-items: center; padding: 12px 4px; border-bottom: 1px solid var(--line); }
+.activity-item { width: 100%; display: grid; grid-template-columns: 39px 1fr 46px; gap: 11px; align-items: center; padding: 12px 4px; border: 0; border-bottom: 1px solid var(--line); color: inherit; text-align: left; background: transparent; cursor: pointer; }
 .activity-item:last-child { border-bottom: 0; }
+.activity-item:disabled { cursor: default; }
 .activity-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; }
 .activity-icon.like { color: var(--accent); background: #fff0f1; }
 .activity-icon.comment { color: var(--plum); background: #f3edf4; }
 .activity-icon svg { width: 17px; }
-.activity-item > div { min-width: 0; }
+.activity-copy { min-width: 0; }
 .activity-item p { margin: 0 0 4px; font-size: 12.5px; line-height: 1.38; }
 .activity-item time { color: var(--muted); font-size: 10px; }
-.activity-item > img, .activity-video { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: #292421; }
+.activity-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+.activity-media, .activity-video { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: #292421; }
 .activity-video { display: grid; place-items: center; color: white; }
 .activity-video svg { width: 16px; }
 
@@ -512,7 +514,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .panel-notice { margin: 0 0 14px; padding: 10px 13px; border-radius: 10px; color: #6f2f55; background: #fff0f5; font-size: 11px; }
 .people-grid { display: grid; gap: 12px; }
 .person-card { display: grid; grid-template-columns: 66px 1fr; gap: 14px; padding: 17px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.82); box-shadow: 0 8px 30px rgba(71,48,39,.04); }
-.person-card > img { width: 66px; height: 66px; border-radius: 50%; object-fit: cover; }
+.person-avatar-button { width: 66px; height: 66px; align-self: center; padding: 0; overflow: hidden; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.person-avatar-button img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.person-identity { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; border: 0; color: inherit; text-align: center; background: transparent; cursor: pointer; }
 .person-card h2 { margin: 2px 0; font-family: Georgia, serif; font-size: 18px; font-weight: 500; }
 .person-card strong { font-size: 11px; }
 .person-card p { margin: 7px 0 5px; color: #534b46; font-size: 11px; }
@@ -527,14 +531,24 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 
 .connections-modal { overflow: hidden; }
 .connection-list { max-height: min(560px, calc(100dvh - 150px)); overflow-y: auto; padding: 8px 18px 20px; }
-.connection-list article { display: grid; grid-template-columns: 48px 1fr; gap: 11px; align-items: center; padding: 12px 2px; border-bottom: 1px solid var(--line); }
-.connection-list article:last-child { border-bottom: 0; }
+.connection-person { width: 100%; display: grid; grid-template-columns: 48px 1fr; gap: 11px; align-items: center; padding: 12px 2px; border: 0; border-bottom: 1px solid var(--line); color: inherit; text-align: left; background: transparent; cursor: pointer; }
+.connection-person:last-child { border-bottom: 0; }
 .connection-list img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
-.connection-list article > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.connection-person > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; color: inherit; }
 .connection-list strong { font-size: 12px; }
-.connection-list span { color: var(--muted); font-size: 11px; }
+.connection-list i { color: var(--muted); font-size: 11px; font-style: normal; }
 .connection-list p { margin: 3px 0 0; overflow: hidden; color: #5d554f; font-size: 11px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .connection-list .connection-status { padding: 38px 10px; color: var(--muted); text-align: center; white-space: normal; }
+
+.member-back { display: inline-flex; align-items: center; gap: 5px; margin: 14px 0 18px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 10px; background: white; cursor: pointer; }
+.member-back svg { width: 16px; }
+.member-profile-photo { width: 148px; height: 148px; border-radius: 50%; object-fit: cover; box-shadow: 0 8px 35px rgba(70,37,49,.13); }
+.member-profile-note { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); text-align: center; background: rgba(255,255,255,.72); font-size: 11px; }
+.member-profile-state { min-height: 460px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.member-profile-state > span { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; color: var(--accent); background: #fff0f4; }
+.member-profile-state h1 { margin: 14px 0 5px; font-family: Georgia, serif; font-weight: 500; }
+.member-profile-state p { color: var(--muted); }
+.member-profile-state button { padding: 10px 14px; border: 0; border-radius: 10px; color: white; background: var(--ink); cursor: pointer; }
 
 .messages-page { min-height: calc(100dvh - 130px); display: grid; grid-template-columns: 220px minmax(0, 1fr); margin-top: 20px; overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,.86); }
 .conversation-list { border-right: 1px solid var(--line); }
@@ -637,7 +651,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .conversation-list img { width: 46px; height: 46px; }
   .message-scroll { min-height: 0; }
   .person-card { grid-template-columns: 54px 1fr; }
-  .person-card > img { width: 54px; height: 54px; }
+  .person-avatar-button { width: 54px; height: 54px; }
   .viewer-media-controls { bottom: 10px; }
   .viewer-media-controls button { min-width: 27px; padding: 0 7px; }
 }

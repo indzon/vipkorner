@@ -17,6 +17,24 @@ export async function GET(request: Request) {
     if (params.get("counts") === "1") {
       return NextResponse.json({ counts: await connectionCounts(DB, viewer.id) });
     }
+    const profileId = params.get("profile")?.trim();
+    if (profileId) {
+      const profile = await DB.prepare(`SELECT u.id, u.username, u.display_name AS displayName,
+        u.bio, u.website, u.location, u.image_key AS imageKey, u.image_url AS imageUrl,
+        u.is_public AS isPublic,
+        EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = u.id) AS following,
+        EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = u.id AND f.followed_id = ?) AS followsYou,
+        (SELECT COUNT(*) FROM follows f WHERE f.followed_id = u.id) AS followers,
+        (SELECT COUNT(*) FROM follows f WHERE f.follower_id = u.id) AS followingCount,
+        (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id) AS posts,
+        (u.id = ?) AS isSelf
+        FROM users u WHERE u.id = ? AND u.status = 'active'
+        AND NOT EXISTS(SELECT 1 FROM blocks b WHERE
+          (b.blocker_id = ? AND b.blocked_id = u.id) OR (b.blocker_id = u.id AND b.blocked_id = ?))`)
+        .bind(viewer.id, viewer.id, viewer.id, profileId, viewer.id, viewer.id).first();
+      if (!profile) return NextResponse.json({ error: "This profile is unavailable." }, { status: 404 });
+      return NextResponse.json({ profile });
+    }
     const list = params.get("list");
     if (list === "followers" || list === "following") {
       const join = list === "followers" ? "f.follower_id = u.id" : "f.followed_id = u.id";

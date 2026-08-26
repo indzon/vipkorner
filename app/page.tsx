@@ -53,7 +53,7 @@ type Post = {
 
 type PublicUser = { id: string; username: string; displayName: string; location?: string; bio?: string; imageKey: string | null; imageUrl: string | null };
 type Comment = { id: string; postId: string; body: string; createdAt: number; author: PublicUser };
-type Activity = { id: string; type: "like" | "comment" | "follow" | "message"; postId: string | null; message: string; createdAt: number; readAt?: number | null };
+type Activity = { id: string; type: "like" | "comment" | "follow" | "message"; postId: string | null; message: string; createdAt: number; readAt?: number | null; actorId?: string | null; actorUsername?: string | null; actorDisplayName?: string | null; actorImageKey?: string | null; actorImageUrl?: string | null };
 
 type Profile = {
   id: string;
@@ -89,6 +89,7 @@ type Story = {
 };
 
 type DiscoveryUser = PublicUser & { following: number | boolean; followsYou: number | boolean; blocked: number | boolean; followers: number; posts: number; role: string; isSelf: number | boolean };
+type MemberProfile = PublicUser & { website?: string; isPublic: number | boolean; following: number | boolean; followsYou: number | boolean; followers: number; followingCount: number; posts: number; isSelf: number | boolean };
 type ConnectionCounts = { following: number; followers: number };
 type ConnectionUser = PublicUser & { connectedAt: number };
 type Conversation = { id: string; status: "pending" | "accepted"; requestedBy: string; updatedAt: number; otherId: string; username: string; displayName: string; imageKey: string | null; imageUrl: string | null; lastMessage: string | null; unread: number };
@@ -190,7 +191,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [composer, setComposer] = useState<"post" | "story" | null>(null);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
-  const [view, setView] = useState<"home" | "profile" | "explore" | "messages">("home");
+  const [view, setView] = useState<"home" | "profile" | "member" | "explore" | "messages">("home");
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -202,6 +203,8 @@ export default function HomePage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
+  const [memberProfileError, setMemberProfileError] = useState("");
   const discoveryRequestRef = useRef(0);
 
   const activePost = posts.find((post) => post.id === activePostId) || null;
@@ -248,6 +251,23 @@ export default function HomePage() {
     const data = await response.json() as { counts?: ConnectionCounts };
     if (data.counts) updateConnectionCounts(data.counts);
   }, [updateConnectionCounts]);
+
+  const openMemberProfile = useCallback(async (userId: string) => {
+    if (userId === profile?.id) { setView("profile"); setSearchOpen(false); setQuery(""); return; }
+    setProfilePanel(null);
+    setMemberProfile(null);
+    setMemberProfileError("");
+    setView("member");
+    setSearchOpen(false);
+    setQuery("");
+    try {
+      const response = await fetch(`/api/social?profile=${encodeURIComponent(userId)}`);
+      const data = await readApiResponse<{ profile: MemberProfile }>(response, "Could not load this profile.");
+      setMemberProfile(data.profile);
+    } catch (reason) {
+      setMemberProfileError(reason instanceof Error ? reason.message : "Could not load this profile.");
+    }
+  }, [profile?.id]);
 
   useEffect(() => { const readyTimer = window.setTimeout(() => setAccessReady(true), 0); return () => window.clearTimeout(readyTimer); }, []);
 
@@ -387,8 +407,9 @@ export default function HomePage() {
             </section>
           </>
         ) : view === "profile" ? (
-          <ProfileView posts={posts} profile={profile} onCounts={updateConnectionCounts} onCreate={() => setComposer("post")} onEdit={() => setProfilePanel("edit")} onSettings={() => setProfilePanel("settings")} onActivity={() => setProfilePanel("activity")} onOpenPost={(post) => setActivePostId(post.id)} />
-        ) : view === "explore" ? <ExploreView users={discovery} onRefresh={() => loadDiscovery(query)} onCounts={updateConnectionCounts} onViewSelf={profileNav} onMessage={(conversationId) => { setActiveConversationId(conversationId); setView("messages"); void loadConversations(); }} />
+          <ProfileView posts={posts} profile={profile} onCounts={updateConnectionCounts} onViewProfile={openMemberProfile} onCreate={() => setComposer("post")} onEdit={() => setProfilePanel("edit")} onSettings={() => setProfilePanel("settings")} onActivity={() => setProfilePanel("activity")} onOpenPost={(post) => setActivePostId(post.id)} />
+        ) : view === "member" ? <MemberProfileView member={memberProfile} error={memberProfileError} posts={posts} onBack={exploreNav} onOpenPost={(post) => setActivePostId(post.id)} />
+        : view === "explore" ? <ExploreView users={discovery} onRefresh={() => loadDiscovery(query)} onCounts={updateConnectionCounts} onViewProfile={openMemberProfile} onViewSelf={profileNav} onMessage={(conversationId) => { setActiveConversationId(conversationId); setView("messages"); void loadConversations(); }} />
         : <MessagesView key={activeConversationId || "messages"} profile={profile} conversations={conversations} initialConversationId={activeConversationId} onRefresh={loadConversations} />}
       </section>
 
@@ -409,7 +430,7 @@ export default function HomePage() {
       {activeStoryId && <StoryViewer key={activeStoryId} stories={stories} activeId={activeStoryId} onChange={setActiveStoryId} onViewed={markStoryViewed} onClose={() => setActiveStoryId(null)} onDelete={deleteStory} />}
       {profilePanel === "edit" && <EditProfileModal profile={profile} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Profile updated."); }} />}
       {profilePanel === "settings" && <SettingsModal profile={profile} installPrompt={installPrompt} onInstallGuide={() => { setProfilePanel(null); setInstallGuideOpen(true); }} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Settings saved."); }} />}
-      {profilePanel === "activity" && <ActivityModal activities={activities} posts={posts} onClose={() => setProfilePanel(null)} />}
+      {profilePanel === "activity" && <ActivityModal activities={activities} posts={posts} onViewProfile={openMemberProfile} onClose={() => setProfilePanel(null)} />}
       {activePost && <MediaViewer post={activePost} profile={profile} onClose={() => setActivePostId(null)} onCaptionUpdate={updateCaption} onDelete={deletePost} onToggle={togglePost} onComment={addComment} />}
       {installGuideOpen && <InstallGuide onClose={() => setInstallGuideOpen(false)} />}
       {toast && <div className="toast" role="status"><Check size={17} /> {toast}</div>}
@@ -656,7 +677,19 @@ function StoryViewer({ stories, activeId, onChange, onViewed, onClose, onDelete 
   );
 }
 
-function ExploreView({ users, onRefresh, onCounts, onMessage, onViewSelf }: { users: DiscoveryUser[]; onRefresh: () => Promise<void>; onCounts: (counts: ConnectionCounts) => void; onMessage: (conversationId: string) => void; onViewSelf: () => void }) {
+function MemberProfileView({ member, error, posts, onBack, onOpenPost }: { member: MemberProfile | null; error: string; posts: Post[]; onBack: () => void; onOpenPost: (post: Post) => void }) {
+  if (error) return <section className="member-profile-state"><span><UserRound /></span><h1>Profile unavailable</h1><p>{error}</p><button onClick={onBack}>Back to Explore</button></section>;
+  if (!member) return <section className="member-profile-state" role="status"><span><UserRound /></span><h1>Loading profile…</h1></section>;
+  const visiblePosts = posts.filter((post) => post.userId === member.id);
+  return <section className="profile-page member-profile-page">
+    <button className="member-back" onClick={onBack}><ChevronLeft /> Explore</button>
+    <header className="profile-hero"><img className="member-profile-photo" src={profileImage(member)} alt={member.displayName} /><div className="profile-info"><div><h1>{member.username}</h1></div><div className="profile-stats"><span><strong>{member.posts}</strong> posts</span><span><strong>{member.followers}</strong> followers</span><span><strong>{member.followingCount}</strong> following</span></div><p><strong>{member.displayName}</strong><br />{member.bio || "New to VipKorner."}<br />{member.website && <a href={`https://${member.website.replace(/^https?:\/\//, "")}`}>{member.website}</a>}</p></div></header>
+    <div className="member-profile-note">{member.isPublic || member.following ? "Public profile" : "Private profile · Follow this member to see their posts."}</div>
+    {visiblePosts.length ? <div className="profile-grid">{visiblePosts.map((post) => <button key={post.id} onClick={() => onOpenPost(post)} aria-label={`Open ${post.mediaType}: ${post.caption}`}>{post.mediaType === "video" ? <><video src={imageSource(post)} muted playsInline preload="metadata" aria-label={post.caption} /><i className="video-badge"><Video /></i></> : <img src={imageSource(post)} alt={post.caption} />}<span><Heart fill="currentColor" size={17} /> {post.likes}</span></button>)}</div> : <div className="saved-empty"><span><ImagePlus /></span><h3>No posts to show</h3><p>{member.isPublic || member.following ? "This member hasn’t shared a post yet." : "This member’s posts are private."}</p></div>}
+  </section>;
+}
+
+function ExploreView({ users, onRefresh, onCounts, onMessage, onViewProfile, onViewSelf }: { users: DiscoveryUser[]; onRefresh: () => Promise<void>; onCounts: (counts: ConnectionCounts) => void; onMessage: (conversationId: string) => void; onViewProfile: (userId: string) => void; onViewSelf: () => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   async function action(user: DiscoveryUser, name: "follow" | "block" | "message" | "report") {
@@ -678,7 +711,7 @@ function ExploreView({ users, onRefresh, onCounts, onMessage, onViewSelf }: { us
     } catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not complete this action."); }
     finally { setBusyId(null); }
   }
-  return <section className="explore-page"><div className="section-heading"><span className="eyebrow">DISCOVER</span><h1>Find your people</h1><p>Public profiles from the VipKorner community.</p></div>{notice && <p className="panel-notice">{notice}</p>}<div className="people-grid">{users.length ? users.map((user) => <article className="person-card" key={user.id}><img src={profileImage(user)} alt="" /><div><h2>{user.displayName}</h2><strong>@{user.username}</strong><p>{user.bio || "New to VipKorner."}</p><small>{user.posts} posts · {user.followers} followers{user.isSelf ? " · This is you" : user.followsYou ? " · Follows you" : ""}</small></div><div className="person-actions">{user.isSelf ? <button className="primary" onClick={onViewSelf}><UserRound /> View your profile</button> : <><button className={user.following ? "following" : "primary"} disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "follow")}>{user.following ? "Following" : <><UserPlus /> Follow</>}</button><button disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "message")}><Mail /> Message</button><button className={user.blocked ? "danger" : ""} disabled={busyId === user.id} onClick={() => action(user, "block")}><Ban /> {user.blocked ? "Unblock" : "Block"}</button><button disabled={busyId === user.id} onClick={() => action(user, "report")}><Flag /> Report</button></>}</div></article>) : <div className="empty-state"><span><Compass /></span><h2>No profiles found</h2><p>Try a different name or username.</p></div>}</div></section>;
+  return <section className="explore-page"><div className="section-heading"><span className="eyebrow">DISCOVER</span><h1>Find your people</h1><p>Public profiles from the VipKorner community.</p></div>{notice && <p className="panel-notice">{notice}</p>}<div className="people-grid">{users.length ? users.map((user) => <article className="person-card" key={user.id}><button className="person-avatar-button" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)} aria-label={`View @${user.username}'s profile`}><img src={profileImage(user)} alt="" /></button><button className="person-identity" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)}><h2>{user.displayName}</h2><strong>@{user.username}</strong><p>{user.bio || "New to VipKorner."}</p><small>{user.posts} posts · {user.followers} followers{user.isSelf ? " · This is you" : user.followsYou ? " · Follows you" : ""}</small></button><div className="person-actions">{user.isSelf ? <button className="primary" onClick={onViewSelf}><UserRound /> View your profile</button> : <><button className={user.following ? "following" : "primary"} disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "follow")}>{user.following ? "Following" : <><UserPlus /> Follow</>}</button><button disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "message")}><Mail /> Message</button><button className={user.blocked ? "danger" : ""} disabled={busyId === user.id} onClick={() => action(user, "block")}><Ban /> {user.blocked ? "Unblock" : "Block"}</button><button disabled={busyId === user.id} onClick={() => action(user, "report")}><Flag /> Report</button></>}</div></article>) : <div className="empty-state"><span><Compass /></span><h2>No profiles found</h2><p>Try a different name or username.</p></div>}</div></section>;
 }
 
 function MessagesView({ profile, conversations, initialConversationId, onRefresh }: { profile: Profile; conversations: Conversation[]; initialConversationId: string | null; onRefresh: () => Promise<void> }) {
@@ -709,7 +742,7 @@ function InstallGuide({ onClose }: { onClose: () => void }) {
   return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Install VipKorner" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="profile-modal install-guide"><ModalHeader eyebrow="PWA" title="Install VipKorner" onClose={onClose} /><div className="settings-intro"><span><Download /></span><div><strong>Use VipKorner like an app</strong><p>Installation keeps it one tap away and enables a full-screen app experience.</p></div></div><ol><li><strong>iPhone or iPad</strong><span>Open this site in Safari, tap Share, then choose “Add to Home Screen.”</span></li><li><strong>Android</strong><span>Open the browser menu and choose “Install app” or “Add to Home screen.”</span></li><li><strong>Desktop</strong><span>Use the install icon in the address bar, or open the browser menu and choose “Install VipKorner.”</span></li></ol><p className="install-note">If an install option is missing, open VipKorner in Safari or Chrome first.</p></section></div>;
 }
 
-function ProfileView({ posts, profile, onCounts, onCreate, onEdit, onSettings, onActivity, onOpenPost }: { posts: Post[]; profile: Profile; onCounts: (counts: ConnectionCounts) => void; onCreate: () => void; onEdit: () => void; onSettings: () => void; onActivity: () => void; onOpenPost: (post: Post) => void }) {
+function ProfileView({ posts, profile, onCounts, onViewProfile, onCreate, onEdit, onSettings, onActivity, onOpenPost }: { posts: Post[]; profile: Profile; onCounts: (counts: ConnectionCounts) => void; onViewProfile: (userId: string) => void; onCreate: () => void; onEdit: () => void; onSettings: () => void; onActivity: () => void; onOpenPost: (post: Post) => void }) {
   const [tab, setTab] = useState<"posts" | "saved">("posts");
   const [connections, setConnections] = useState<"followers" | "following" | null>(null);
   const ownPosts = posts.filter((post) => post.owned);
@@ -722,12 +755,12 @@ function ProfileView({ posts, profile, onCounts, onCreate, onEdit, onSettings, o
       <div className="profile-tabs" role="tablist" aria-label="Profile posts"><button className={tab === "posts" ? "active" : ""} role="tab" aria-selected={tab === "posts"} onClick={() => setTab("posts")}><ImagePlus size={15} /> POSTS</button><button className={tab === "saved" ? "active" : ""} role="tab" aria-selected={tab === "saved"} onClick={() => setTab("saved")}><Bookmark size={15} /> SAVED</button></div>
       {visiblePosts.length ? <div className="profile-grid">{visiblePosts.map((post) => <button key={post.id} onClick={() => onOpenPost(post)} aria-label={`Open ${post.mediaType}: ${post.caption}`}>{post.mediaType === "video" ? <><video src={imageSource(post)} muted playsInline preload="metadata" aria-label={post.caption} /><i className="video-badge"><Video /></i></> : <img src={imageSource(post)} alt={post.caption} />}<span><Heart fill="currentColor" size={17} /> {post.likes}</span></button>)}{tab === "posts" && <button className="grid-add" onClick={onCreate}><Plus /><span>Add a post</span></button>}</div> : <div className="saved-empty"><span><Bookmark /></span><h3>No saved posts yet</h3><p>Tap the bookmark on a post and it will appear here.</p></div>}
     </section>
-    {connections && <ConnectionListModal kind={connections} total={connections === "followers" ? profile.followers : profile.following} onCounts={onCounts} onClose={() => setConnections(null)} />}
+    {connections && <ConnectionListModal kind={connections} total={connections === "followers" ? profile.followers : profile.following} onCounts={onCounts} onViewProfile={onViewProfile} onClose={() => setConnections(null)} />}
     </>
   );
 }
 
-function ConnectionListModal({ kind, total, onCounts, onClose }: { kind: "followers" | "following"; total: number; onCounts: (counts: ConnectionCounts) => void; onClose: () => void }) {
+function ConnectionListModal({ kind, total, onCounts, onViewProfile, onClose }: { kind: "followers" | "following"; total: number; onCounts: (counts: ConnectionCounts) => void; onViewProfile: (userId: string) => void; onClose: () => void }) {
   const [people, setPeople] = useState<ConnectionUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -739,7 +772,7 @@ function ConnectionListModal({ kind, total, onCounts, onClose }: { kind: "follow
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [kind, total, onCounts]);
-  return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={kind === "followers" ? "Your followers" : "People you follow"} onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="profile-modal connections-modal"><ModalHeader eyebrow="YOUR PROFILE" title={kind === "followers" ? `Followers · ${total}` : `Following · ${total}`} onClose={onClose} /><div className="connection-list">{loading ? <p className="connection-status">Loading…</p> : error ? <p className="inline-error">{error}</p> : people.length ? people.map((person) => <article key={person.id}><img src={profileImage(person)} alt="" /><div><strong>{person.displayName}</strong><span>@{person.username}</span>{person.bio && <p>{person.bio}</p>}</div></article>) : <p className="connection-status">{kind === "followers" ? "No followers yet." : "You aren’t following anyone yet."}</p>}</div></section></div>;
+  return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={kind === "followers" ? "Your followers" : "People you follow"} onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="profile-modal connections-modal"><ModalHeader eyebrow="YOUR PROFILE" title={kind === "followers" ? `Followers · ${total}` : `Following · ${total}`} onClose={onClose} /><div className="connection-list">{loading ? <p className="connection-status">Loading…</p> : error ? <p className="inline-error">{error}</p> : people.length ? people.map((person) => <button className="connection-person" key={person.id} onClick={() => { onClose(); onViewProfile(person.id); }} aria-label={`View @${person.username}'s profile`}><img src={profileImage(person)} alt="" /><span><strong>{person.displayName}</strong><i>@{person.username}</i>{person.bio && <p>{person.bio}</p>}</span></button>) : <p className="connection-status">{kind === "followers" ? "No followers yet." : "You aren’t following anyone yet."}</p>}</div></section></div>;
 }
 
 function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete, onToggle, onComment }: { post: Post; profile: Profile; onClose: () => void; onCaptionUpdate: (postId: string, caption: string) => Promise<void>; onDelete: (postId: string) => Promise<void>; onToggle: (id: string, action: "like" | "save") => Promise<void>; onComment: (postId: string, body: string) => Promise<void> }) {
@@ -989,13 +1022,13 @@ function AdminControls() {
   </section>;
 }
 
-function ActivityModal({ activities, posts, onClose }: { activities: Activity[]; posts: Post[]; onClose: () => void }) {
+function ActivityModal({ activities, posts, onViewProfile, onClose }: { activities: Activity[]; posts: Post[]; onViewProfile: (userId: string) => void; onClose: () => void }) {
   useEffect(() => { fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "read-notifications" }) }).catch(() => undefined); }, []);
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Activity" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="profile-modal activity-modal">
         <ModalHeader eyebrow="PROFILE" title="Activity" onClose={onClose} />
-        {activities.length ? <div className="activity-list">{activities.map((activity) => { const post = posts.find((item) => item.id === activity.postId); return <div className="activity-item" key={activity.id}><span className={`activity-icon ${activity.type}`}>{activity.type === "like" ? <Heart fill="currentColor" /> : activity.type === "follow" ? <UserPlus /> : activity.type === "message" ? <Mail /> : <MessageCircle />}</span><div><p>{activity.message}</p><time>{relativeTime(activity.createdAt)}</time></div>{post && (post.mediaType === "video" ? <span className="activity-video"><Video /></span> : <img src={imageSource(post)} alt="" />)}</div>; })}</div> : <div className="activity-empty"><span><Bell /></span><h3>No activity yet</h3><p>Follows, messages, likes, and comments will appear here.</p></div>}
+        {activities.length ? <div className="activity-list">{activities.map((activity) => { const post = posts.find((item) => item.id === activity.postId); const actor = { username: activity.actorUsername || "Member", displayName: activity.actorDisplayName || activity.actorUsername || "VipKorner member", imageKey: activity.actorImageKey || null, imageUrl: activity.actorImageUrl || null }; return <button className="activity-item" key={activity.id} disabled={!activity.actorId} onClick={() => { if (activity.actorId) { onClose(); onViewProfile(activity.actorId); } }} aria-label={activity.actorId ? `View @${actor.username}'s profile: ${activity.message}` : activity.message}><img className="activity-avatar" src={profileImage(actor)} alt="" /><span className="activity-copy"><p>{activity.message}</p><time>{relativeTime(activity.createdAt)}</time></span>{post && (post.mediaType === "video" ? <span className="activity-video"><Video /></span> : <img className="activity-media" src={imageSource(post)} alt="" />)}</button>; })}</div> : <div className="activity-empty"><span><Bell /></span><h3>No activity yet</h3><p>Follows, messages, likes, and comments will appear here.</p></div>}
       </section>
     </div>
   );

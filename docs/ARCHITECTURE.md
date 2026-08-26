@@ -28,8 +28,11 @@ The app stays invitation-only while `app_meta.registration_mode` is `invite`.
 - Discovery returns public profile summaries and aggregate follower counts.
 - `/api/social?counts=1` returns only the signed-in member’s counts.
 - `/api/social?list=followers` and `?list=following` always resolve against the authenticated member; callers cannot request another member’s list.
+- `/api/social?profile=<id>` returns one available member’s public profile summary and aggregate counts, but never their connection lists.
 - Follow and block mutations return refreshed counts for immediate UI updates.
 - The client refreshes counts every 15 seconds while visible and whenever the window regains focus.
+
+Connection rows, notification actors, and Explore identities all use the same member-profile navigation path. Activity payloads include the actor’s public avatar fields so the UI does not substitute a generic activity icon.
 
 ## Main application routes
 

@@ -39,7 +39,8 @@ export async function GET() {
         WHERE u.status = 'active' AND NOT EXISTS(SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = c.user_id) OR (b.blocker_id = c.user_id AND b.blocked_id = ?))
         ORDER BY c.created_at ASC`).bind(viewer.id, viewer.id).all(),
       DB.prepare(`SELECT n.id, n.type, n.entity_id AS postId, n.message, n.created_at AS createdAt,
-        n.read_at AS readAt, u.username AS actorUsername, u.image_key AS actorImageKey, u.image_url AS actorImageUrl
+        n.read_at AS readAt, n.actor_id AS actorId, u.username AS actorUsername,
+        u.display_name AS actorDisplayName, u.image_key AS actorImageKey, u.image_url AS actorImageUrl
         FROM notifications n LEFT JOIN users u ON u.id = n.actor_id
         WHERE n.user_id = ? ORDER BY n.created_at DESC LIMIT 50`).bind(viewer.id).all(),
       DB.prepare("SELECT COUNT(*) AS total FROM follows WHERE follower_id = ?").bind(viewer.id).first<{ total: number }>(),

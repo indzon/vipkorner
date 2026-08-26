@@ -23,6 +23,23 @@ test("profile counts refresh without a full page reload", async () => {
   assert.match(page, /ConnectionListModal/);
 });
 
+test("member identity surfaces open profiles with activity avatars", async () => {
+  const [page, feedRoute, socialRoute] = await Promise.all([
+    read("app/page.tsx"),
+    read("app/api/feed/route.ts"),
+    read("app/api/social/route.ts"),
+  ]);
+
+  assert.match(page, /onViewProfile\(person\.id\)/);
+  assert.match(page, /onViewProfile\(activity\.actorId\)/);
+  assert.match(page, /className="activity-avatar"/);
+  assert.match(page, /className="person-identity"/);
+  assert.match(feedRoute, /n\.actor_id AS actorId/);
+  assert.match(feedRoute, /u\.display_name AS actorDisplayName/);
+  assert.match(socialRoute, /params\.get\("profile"\)/);
+  assert.doesNotMatch(socialRoute, /profileId[\s\S]*list=followers/);
+});
+
 test("repository documentation describes the deployed privacy contract", async () => {
   const [readme, architecture, operations] = await Promise.all([
     read("README.md"),

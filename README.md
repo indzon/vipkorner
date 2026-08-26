@@ -13,6 +13,7 @@ VipKorner is an invitation-only, multi-user progressive web app for adults. It c
 - Email confirmation completes the pending profile, claims the invitation, establishes the session, and redirects into the app.
 - Profiles are public by default unless the member enables the private-account setting.
 - A signed-in member can open their own follower and following lists. Other members only see aggregate counts.
+- Avatars and identity rows in connections, activity, and Explore open the relevant member profile; other members’ follower/following lists remain hidden.
 - Follow counts refresh immediately after follow/block actions, when the app regains focus, and periodically while it is visible.
 - Stories expire after 24 hours. Posts and stories support images and videos.
 - Direct messages are text-only and subject to follow/block privacy controls.
