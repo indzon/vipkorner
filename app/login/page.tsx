@@ -10,6 +10,8 @@ type SessionState = {
   signOutPath?: string;
   identity?: { displayName: string };
   user?: { username: string; status: string } | null;
+  suggestedUsername?: string;
+  suggestedDisplayName?: string;
   bootstrapRequired?: boolean;
   inviteRequired?: boolean;
 };
@@ -43,7 +45,8 @@ export default function LoginPage() {
     fetch("/api/session").then(async (response) => {
       const data = await response.json() as SessionState;
       setSession(data);
-      setDisplayName(data.identity?.displayName || "");
+      setDisplayName(data.suggestedDisplayName || data.identity?.displayName || "");
+      setUsername(data.suggestedUsername || (data.identity?.displayName || "").trim().replace(/\s+/g, ".").replace(/[^a-zA-Z0-9._]/g, "").slice(0, 30));
       if (confirmationNotice) setAuthNotice(confirmationNotice);
       if (confirmationError) setError(confirmationError);
       if (data.user?.status === "active") location.replace("/");
@@ -110,8 +113,9 @@ export default function LoginPage() {
           <form className="login-card" onSubmit={createAccount}>
             <span className="login-lock"><UserPlus /></span><span className="eyebrow">{session.bootstrapRequired ? "ADMIN SETUP" : "CREATE YOUR PROFILE"}</span>
             <h2>{session.bootstrapRequired ? "Claim the original account" : "Join VipKorner"}</h2>
-            <p className="login-subtitle">{session.bootstrapRequired ? "You’ll become the first administrator. The existing profile name, username, posts, stories, and media will be preserved." : "Choose the public identity people will see."}</p>
-            {!session.bootstrapRequired && <><label className="login-field"><span>Name</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={50} required /></label><label className="login-field"><span>Username</span><div className="input-prefix"><i>@</i><input value={username} onChange={(event) => setUsername(event.target.value.replace(/\s/g, ""))} minLength={3} maxLength={30} required /></div></label></>}
+            <p className="login-subtitle">{session.bootstrapRequired ? "Review the profile name and username for the first administrator. Existing posts, stories, and media will be preserved." : "Choose the public identity people will see."}</p>
+            <label className="login-field"><span>Name</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={50} autoComplete="name" required /></label>
+            <label className="login-field"><span>Username</span><div className="input-prefix"><i>@</i><input value={username} onChange={(event) => setUsername(event.target.value.replace(/\s/g, "").replace(/[^a-zA-Z0-9._]/g, ""))} minLength={3} maxLength={30} pattern="[A-Za-z0-9._]{3,30}" autoCapitalize="none" autoComplete="username" aria-describedby="username-help" required /></div><small id="username-help" className="login-field-help">At least 3 letters, numbers, dots, or underscores.</small></label>
             {!session.bootstrapRequired && session.inviteRequired && <label className="login-field"><span>Invite code</span><input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase())} required /></label>}
             <div className="age-disclaimer" role="note"><strong>Adults only — 18+</strong><p>VipKorner is strictly for adults age 18 and older.</p></div>
             <label className="age-confirmation"><input type="checkbox" checked={adult} onChange={(event) => setAdult(event.target.checked)} /><span><Check /></span><p>I confirm that I am at least 18 years old and agree to the adults-only access policy.</p></label>

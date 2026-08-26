@@ -575,6 +575,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .login-field > input, .login-field .input-prefix { width: 100%; min-height: 42px; border: 1px solid var(--line); border-radius: 10px; background: white; }
 .login-field > input { padding: 0 12px; }
 .login-field .input-prefix input { background: transparent; }
+.login-field-help { display: block; margin-top: 6px; color: #6f6760; font-size: 12px; line-height: 1.45; }
 .login-submit[href] { text-decoration: none; }
 .login-auth-switch { width: 100%; margin-top: 10px; border: 0; color: var(--accent); background: transparent; font-size: 14px; font-weight: 750; cursor: pointer; }
 

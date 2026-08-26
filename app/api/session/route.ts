@@ -16,13 +16,19 @@ export async function GET() {
   const { DB } = bindings();
   const user = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE email = ?`).bind(identity.email).first();
   const count = await DB.prepare("SELECT COUNT(*) AS total FROM users").first<{ total: number }>();
+  const bootstrapRequired = !count?.total;
+  const legacy = bootstrapRequired
+    ? await DB.prepare("SELECT username, display_name AS displayName FROM profile WHERE id = 'me'").first<{ username: string; displayName: string }>()
+    : null;
   const mode = await DB.prepare("SELECT value FROM app_meta WHERE key = 'registration_mode'").first<{ value: string }>();
   return NextResponse.json({
     authenticated: true,
     authProvider,
     identity: { displayName: identity.displayName },
     user,
-    bootstrapRequired: !count?.total,
+    suggestedUsername: legacy?.username || undefined,
+    suggestedDisplayName: legacy?.displayName || undefined,
+    bootstrapRequired,
     inviteRequired: Boolean(count?.total) && mode?.value !== "open",
     registrationMode: mode?.value || "invite",
     signOutPath: authProvider === "supabase" ? "/api/auth" : chatGPTSignOutPath("/login"),
@@ -35,15 +41,14 @@ export async function POST(request: Request) {
   if (!identity) return NextResponse.json({ error: "Sign in first.", signInPath: supabaseConfigured() ? "/login" : chatGPTSignInPath("/login") }, { status: 401 });
   const input = await request.json() as { username?: string; displayName?: string; inviteCode?: string; adult?: boolean };
   if (!input.adult) return NextResponse.json({ error: "You must confirm that you are at least 18 years old." }, { status: 400 });
-  const username = normalizeUsername(input.username);
-  const displayName = String(input.displayName || identity.displayName).trim().slice(0, 50);
   const { DB } = bindings();
   const count = await DB.prepare("SELECT COUNT(*) AS total FROM users").first<{ total: number }>();
   const firstUser = !count?.total;
-  if (!firstUser && (username.length < 3 || !displayName)) return NextResponse.json({ error: "Choose a username with at least 3 letters, numbers, dots, or underscores." }, { status: 400 });
-  const existing = firstUser
-    ? await DB.prepare("SELECT id FROM users WHERE email = ?").bind(identity.email).first<{ id: string }>()
-    : await DB.prepare("SELECT id FROM users WHERE email = ? OR lower(username) = lower(?)").bind(identity.email, username).first<{ id: string }>();
+  const legacy = firstUser ? await DB.prepare("SELECT * FROM profile WHERE id = 'me'").first<Record<string, unknown>>() : null;
+  const username = normalizeUsername(input.username || legacy?.username);
+  const displayName = String(input.displayName || legacy?.display_name || identity.displayName).trim().slice(0, 50);
+  if (username.length < 3 || !displayName) return NextResponse.json({ error: "Choose a username with at least 3 letters, numbers, dots, or underscores." }, { status: 400 });
+  const existing = await DB.prepare("SELECT id FROM users WHERE email = ? OR lower(username) = lower(?)").bind(identity.email, username).first<{ id: string }>();
   if (existing) return NextResponse.json({ error: "That account or username is already registered." }, { status: 409 });
   let inviteCode: string | null = null;
   if (!firstUser) {
@@ -58,7 +63,6 @@ export async function POST(request: Request) {
 
   const id = crypto.randomUUID();
   const now = Date.now();
-  const legacy = firstUser ? await DB.prepare("SELECT * FROM profile WHERE id = 'me'").first<Record<string, unknown>>() : null;
   if (inviteCode) {
     const claim = await DB.prepare(`UPDATE invites SET claimed_by = ?, claimed_at = ?
       WHERE code = ? AND claimed_by IS NULL AND revoked = 0`).bind(id, now, inviteCode).run();
@@ -70,8 +74,7 @@ export async function POST(request: Request) {
       id, email, username, display_name, bio, website, location, image_key, image_url, role, status,
       is_public, story_replies, high_quality_uploads, adult_confirmed_at, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)`)
-      .bind(id, identity.email, firstUser ? String(legacy?.username || username) : username,
-        firstUser ? String(legacy?.display_name || displayName) : displayName,
+      .bind(id, identity.email, username, displayName,
         firstUser ? String(legacy?.bio || "") : "", firstUser ? String(legacy?.website || "") : "",
         firstUser ? String(legacy?.location || "") : "", firstUser ? legacy?.image_key || null : null,
         firstUser ? legacy?.image_url || null : null, firstUser ? "admin" : "user",
