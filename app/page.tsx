@@ -70,7 +70,6 @@ type Profile = {
   role: "admin" | "user";
   following: number;
   followers: number;
-  identityDisplayName?: string;
 };
 
 type Story = {
@@ -90,6 +89,8 @@ type Story = {
 };
 
 type DiscoveryUser = PublicUser & { following: number | boolean; followsYou: number | boolean; blocked: number | boolean; followers: number; posts: number; role: string; isSelf: number | boolean };
+type ConnectionCounts = { following: number; followers: number };
+type ConnectionUser = PublicUser & { connectedAt: number };
 type Conversation = { id: string; status: "pending" | "accepted"; requestedBy: string; updatedAt: number; otherId: string; username: string; displayName: string; imageKey: string | null; imageUrl: string | null; lastMessage: string | null; unread: number };
 type DirectMessage = { id: string; senderId: string; body: string; createdAt: number };
 
@@ -237,6 +238,17 @@ export default function HomePage() {
     setConversations(data.conversations || []);
   }, []);
 
+  const updateConnectionCounts = useCallback((counts: ConnectionCounts) => {
+    setProfile((current) => current ? { ...current, ...counts } : current);
+  }, []);
+
+  const loadSocialCounts = useCallback(async () => {
+    const response = await fetch("/api/social?counts=1");
+    if (!response.ok) return;
+    const data = await response.json() as { counts?: ConnectionCounts };
+    if (data.counts) updateConnectionCounts(data.counts);
+  }, [updateConnectionCounts]);
+
   useEffect(() => { const readyTimer = window.setTimeout(() => setAccessReady(true), 0); return () => window.clearTimeout(readyTimer); }, []);
 
   useEffect(() => {
@@ -250,6 +262,19 @@ export default function HomePage() {
     window.addEventListener("beforeinstallprompt", onInstall);
     return () => { window.clearTimeout(loadTimer); window.removeEventListener("beforeinstallprompt", onInstall); };
   }, [accessReady, loadFeed]);
+
+  useEffect(() => {
+    if (!accessReady) return;
+    const refresh = () => { if (document.visibilityState === "visible") void loadSocialCounts(); };
+    const interval = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [accessReady, loadSocialCounts]);
 
   useEffect(() => {
     if (!toast) return;
@@ -356,14 +381,14 @@ export default function HomePage() {
         {view === "home" ? (
           <>
             <StoriesTray stories={stories} profile={profile} onAdd={() => setComposer("story")} onOpen={(story) => setActiveStoryId(story.id)} />
-            <div className="feed-title"><div><span className="eyebrow">YOUR FEED</span><h1>Good afternoon, {(profile.identityDisplayName || profile.displayName).split(" ")[0]}</h1></div><button onClick={() => setComposer("post")}><Plus size={17} /> New post</button></div>
+            <div className="feed-title"><div><span className="eyebrow">YOUR FEED</span><h1>Good afternoon, {profile.displayName.split(" ")[0]}</h1></div><button onClick={() => setComposer("post")}><Plus size={17} /> New post</button></div>
             <section className="feed" aria-label="Posts">
               {loading ? <FeedSkeleton /> : filteredPosts.length ? filteredPosts.map((post) => <PostCard key={post.id} post={post} profile={profile} onToggle={togglePost} onComment={addComment} onCaptionUpdate={updateCaption} onDelete={deletePost} />) : <EmptyState searched={Boolean(query)} onCreate={() => setComposer("post")} />}
             </section>
           </>
         ) : view === "profile" ? (
-          <ProfileView posts={posts} profile={profile} onCreate={() => setComposer("post")} onEdit={() => setProfilePanel("edit")} onSettings={() => setProfilePanel("settings")} onActivity={() => setProfilePanel("activity")} onOpenPost={(post) => setActivePostId(post.id)} />
-        ) : view === "explore" ? <ExploreView users={discovery} onRefresh={() => loadDiscovery(query)} onViewSelf={profileNav} onMessage={(conversationId) => { setActiveConversationId(conversationId); setView("messages"); void loadConversations(); }} />
+          <ProfileView posts={posts} profile={profile} onCounts={updateConnectionCounts} onCreate={() => setComposer("post")} onEdit={() => setProfilePanel("edit")} onSettings={() => setProfilePanel("settings")} onActivity={() => setProfilePanel("activity")} onOpenPost={(post) => setActivePostId(post.id)} />
+        ) : view === "explore" ? <ExploreView users={discovery} onRefresh={() => loadDiscovery(query)} onCounts={updateConnectionCounts} onViewSelf={profileNav} onMessage={(conversationId) => { setActiveConversationId(conversationId); setView("messages"); void loadConversations(); }} />
         : <MessagesView key={activeConversationId || "messages"} profile={profile} conversations={conversations} initialConversationId={activeConversationId} onRefresh={loadConversations} />}
       </section>
 
@@ -631,7 +656,7 @@ function StoryViewer({ stories, activeId, onChange, onViewed, onClose, onDelete 
   );
 }
 
-function ExploreView({ users, onRefresh, onMessage, onViewSelf }: { users: DiscoveryUser[]; onRefresh: () => Promise<void>; onMessage: (conversationId: string) => void; onViewSelf: () => void }) {
+function ExploreView({ users, onRefresh, onCounts, onMessage, onViewSelf }: { users: DiscoveryUser[]; onRefresh: () => Promise<void>; onCounts: (counts: ConnectionCounts) => void; onMessage: (conversationId: string) => void; onViewSelf: () => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   async function action(user: DiscoveryUser, name: "follow" | "block" | "message" | "report") {
@@ -646,7 +671,8 @@ function ExploreView({ users, onRefresh, onMessage, onViewSelf }: { users: Disco
       if (name === "report") { reason = window.prompt(`Why are you reporting @${user.username}?`) || ""; if (!reason) return; }
       if (name === "block" && !user.blocked && !window.confirm(`Block @${user.username}? Following relationships will be removed and you won't see or message each other.`)) return;
       const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: name, targetId: user.id, targetType: "profile", reason }) });
-      await readApiResponse(response, "Could not update this profile.");
+      const result = await readApiResponse<{ counts?: ConnectionCounts }>(response, "Could not update this profile.");
+      if (result.counts) onCounts(result.counts);
       setNotice(name === "report" ? "Report sent to the administrator." : "Profile updated.");
       await onRefresh();
     } catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not complete this action."); }
@@ -683,18 +709,37 @@ function InstallGuide({ onClose }: { onClose: () => void }) {
   return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Install VipKorner" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="profile-modal install-guide"><ModalHeader eyebrow="PWA" title="Install VipKorner" onClose={onClose} /><div className="settings-intro"><span><Download /></span><div><strong>Use VipKorner like an app</strong><p>Installation keeps it one tap away and enables a full-screen app experience.</p></div></div><ol><li><strong>iPhone or iPad</strong><span>Open this site in Safari, tap Share, then choose “Add to Home Screen.”</span></li><li><strong>Android</strong><span>Open the browser menu and choose “Install app” or “Add to Home screen.”</span></li><li><strong>Desktop</strong><span>Use the install icon in the address bar, or open the browser menu and choose “Install VipKorner.”</span></li></ol><p className="install-note">If an install option is missing, open VipKorner in Safari or Chrome first.</p></section></div>;
 }
 
-function ProfileView({ posts, profile, onCreate, onEdit, onSettings, onActivity, onOpenPost }: { posts: Post[]; profile: Profile; onCreate: () => void; onEdit: () => void; onSettings: () => void; onActivity: () => void; onOpenPost: (post: Post) => void }) {
+function ProfileView({ posts, profile, onCounts, onCreate, onEdit, onSettings, onActivity, onOpenPost }: { posts: Post[]; profile: Profile; onCounts: (counts: ConnectionCounts) => void; onCreate: () => void; onEdit: () => void; onSettings: () => void; onActivity: () => void; onOpenPost: (post: Post) => void }) {
   const [tab, setTab] = useState<"posts" | "saved">("posts");
+  const [connections, setConnections] = useState<"followers" | "following" | null>(null);
   const ownPosts = posts.filter((post) => post.owned);
   const visiblePosts = tab === "saved" ? posts.filter((post) => Boolean(post.saved)) : ownPosts;
   return (
+    <>
     <section className="profile-page">
-      <header className="profile-hero"><button className="profile-photo-button" onClick={onEdit} aria-label="Update profile photo"><img src={profileImage(profile)} alt={profile.displayName} /><span><ImagePlus /></span></button><div className="profile-info"><div><h1>{profile.username}</h1><button onClick={onEdit}>Edit profile</button><button className="icon-button profile-settings" onClick={onSettings} aria-label="Profile settings"><Settings /></button></div><dl><div><dt>{ownPosts.length}</dt><dd>posts</dd></div><div><dt>{profile.followers}</dt><dd>followers</dd></div><div><dt>{profile.following}</dt><dd>following</dd></div></dl><p><strong>{profile.displayName}</strong><br />{profile.bio}<br />{profile.website && <a href={`https://${profile.website.replace(/^https?:\/\//, "")}`}>{profile.website}</a>}</p></div></header>
+      <header className="profile-hero"><button className="profile-photo-button" onClick={onEdit} aria-label="Update profile photo"><img src={profileImage(profile)} alt={profile.displayName} /><span><ImagePlus /></span></button><div className="profile-info"><div><h1>{profile.username}</h1><button onClick={onEdit}>Edit profile</button><button className="icon-button profile-settings" onClick={onSettings} aria-label="Profile settings"><Settings /></button></div><div className="profile-stats"><span><strong>{ownPosts.length}</strong> posts</span><button onClick={() => setConnections("followers")} aria-label={`View ${profile.followers} followers`}><strong>{profile.followers}</strong> followers</button><button onClick={() => setConnections("following")} aria-label={`View ${profile.following} following`}><strong>{profile.following}</strong> following</button></div><p><strong>{profile.displayName}</strong><br />{profile.bio}<br />{profile.website && <a href={`https://${profile.website.replace(/^https?:\/\//, "")}`}>{profile.website}</a>}</p></div></header>
       <div className="profile-actions" aria-label="Profile actions"><button onClick={onActivity}><Bell /><span><strong>Activity</strong><small>See your latest updates</small></span></button><button onClick={onCreate}><Plus /><span><strong>Create</strong><small>Share a new post</small></span></button></div>
       <div className="profile-tabs" role="tablist" aria-label="Profile posts"><button className={tab === "posts" ? "active" : ""} role="tab" aria-selected={tab === "posts"} onClick={() => setTab("posts")}><ImagePlus size={15} /> POSTS</button><button className={tab === "saved" ? "active" : ""} role="tab" aria-selected={tab === "saved"} onClick={() => setTab("saved")}><Bookmark size={15} /> SAVED</button></div>
       {visiblePosts.length ? <div className="profile-grid">{visiblePosts.map((post) => <button key={post.id} onClick={() => onOpenPost(post)} aria-label={`Open ${post.mediaType}: ${post.caption}`}>{post.mediaType === "video" ? <><video src={imageSource(post)} muted playsInline preload="metadata" aria-label={post.caption} /><i className="video-badge"><Video /></i></> : <img src={imageSource(post)} alt={post.caption} />}<span><Heart fill="currentColor" size={17} /> {post.likes}</span></button>)}{tab === "posts" && <button className="grid-add" onClick={onCreate}><Plus /><span>Add a post</span></button>}</div> : <div className="saved-empty"><span><Bookmark /></span><h3>No saved posts yet</h3><p>Tap the bookmark on a post and it will appear here.</p></div>}
     </section>
+    {connections && <ConnectionListModal kind={connections} total={connections === "followers" ? profile.followers : profile.following} onCounts={onCounts} onClose={() => setConnections(null)} />}
+    </>
   );
+}
+
+function ConnectionListModal({ kind, total, onCounts, onClose }: { kind: "followers" | "following"; total: number; onCounts: (counts: ConnectionCounts) => void; onClose: () => void }) {
+  const [people, setPeople] = useState<ConnectionUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/social?list=${kind}`).then((response) => readApiResponse<{ connections: ConnectionUser[]; counts: ConnectionCounts }>(response, "Could not load this list."))
+      .then((data) => { if (!active) return; setPeople(data.connections || []); onCounts(data.counts); })
+      .catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : "Could not load this list."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [kind, total, onCounts]);
+  return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={kind === "followers" ? "Your followers" : "People you follow"} onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="profile-modal connections-modal"><ModalHeader eyebrow="YOUR PROFILE" title={kind === "followers" ? `Followers · ${total}` : `Following · ${total}`} onClose={onClose} /><div className="connection-list">{loading ? <p className="connection-status">Loading…</p> : error ? <p className="inline-error">{error}</p> : people.length ? people.map((person) => <article key={person.id}><img src={profileImage(person)} alt="" /><div><strong>{person.displayName}</strong><span>@{person.username}</span>{person.bio && <p>{person.bio}</p>}</div></article>) : <p className="connection-status">{kind === "followers" ? "No followers yet." : "You aren’t following anyone yet."}</p>}</div></section></div>;
 }
 
 function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete, onToggle, onComment }: { post: Post; profile: Profile; onClose: () => void; onCaptionUpdate: (postId: string, caption: string) => Promise<void>; onDelete: (postId: string) => Promise<void>; onToggle: (id: string, action: "like" | "save") => Promise<void>; onComment: (postId: string, body: string) => Promise<void> }) {
@@ -870,9 +915,9 @@ function SettingsModal({ profile, installPrompt, onInstallGuide, onClose, onSave
   );
 }
 
-type AdminInvite = { code: string; createdAt: number; claimedAt?: number | null; reservedAt?: number | null; reservedEmail?: string | null; creatorUsername?: string; claimedUsername?: string; revoked: number };
-type AdminData = { invites: AdminInvite[]; reports: { id: string; targetType: string; targetId: string; reason: string; status: string; reporterUsername: string }[]; members: { id: string; username: string; displayName: string; status: string }[] };
-type InviteFilter = "all" | "available" | "reserved" | "claimed" | "revoked";
+type AdminInvite = { code: string; createdAt: number; claimedAt?: number | null; creatorUsername?: string; claimedUsername?: string; revoked: number };
+type AdminData = { registrationMode: string; invites: AdminInvite[]; reports: { id: string; targetType: string; targetId: string; reason: string; status: string; reporterUsername: string }[]; members: { id: string; username: string; displayName: string; status: string }[] };
+type InviteFilter = "all" | "available" | "claimed" | "revoked";
 
 function adminDate(value?: number | null) {
   if (!value) return "Unknown date";
@@ -886,7 +931,7 @@ function AdminControls() {
   const [busyKey, setBusyKey] = useState("");
   const load = useCallback(async () => { const response = await fetch("/api/social"); const result = await readApiResponse<{ admin: AdminData }>(response, "Could not load admin tools."); setData(result.admin); }, []);
   useEffect(() => { fetch("/api/social").then((response) => readApiResponse<{ admin: AdminData }>(response, "Could not load admin tools.")).then((result) => setData(result.admin)).catch((reason) => setNotice(reason instanceof Error ? reason.message : "Could not load admin tools.")); }, []);
-  const visibleInvites = useMemo(() => data?.invites.filter((invite) => inviteFilter === "all" || (inviteFilter === "claimed" ? Boolean(invite.claimedUsername) : inviteFilter === "revoked" ? Boolean(invite.revoked) : inviteFilter === "reserved" ? Boolean(invite.reservedEmail) && !invite.claimedUsername && !invite.revoked : !invite.claimedUsername && !invite.reservedEmail && !invite.revoked)) || [], [data, inviteFilter]);
+  const visibleInvites = useMemo(() => data?.invites.filter((invite) => inviteFilter === "all" || (inviteFilter === "claimed" ? Boolean(invite.claimedUsername) : inviteFilter === "revoked" ? Boolean(invite.revoked) : !invite.claimedUsername && !invite.revoked)) || [], [data, inviteFilter]);
 
   async function act(payload: Record<string, unknown>, key = String(payload.action || "admin")) {
     setNotice(""); setBusyKey(key);
@@ -921,19 +966,18 @@ function AdminControls() {
   if (!data) return <section className="admin-controls"><p>Loading admin tools…</p></section>;
   return <section className="admin-controls">
     <header><div><span>ADMIN</span><h3>Community controls</h3></div><button type="button" disabled={busyKey === "create-invite"} onClick={() => act({ action: "create-invite" })}>{busyKey === "create-invite" ? "Creating…" : "Create invite"}</button></header>
-    <div className="setting-row admin-registration-status"><div><strong>Invitation-only registration</strong><p>Every new member needs an active, unused invite code.</p></div><span>Required</span></div>
+    <SettingRow title="Open registration" description="Allow adults to join without an invite code." checked={data.registrationMode === "open"} onChange={() => act({ action: "registration-mode", mode: data.registrationMode === "open" ? "invite" : "open" })} />
     {notice && <p className="panel-notice" aria-live="polite">{notice}</p>}
     <details open>
       <summary>Invite codes ({data.invites.length})</summary>
-      <div className="invite-toolbar" aria-label="Filter invite codes">{(["all", "available", "reserved", "claimed", "revoked"] as InviteFilter[]).map((filter) => <button type="button" className={inviteFilter === filter ? "active" : ""} key={filter} onClick={() => setInviteFilter(filter)}>{filter[0].toUpperCase() + filter.slice(1)}</button>)}</div>
+      <div className="invite-toolbar" aria-label="Filter invite codes">{(["all", "available", "claimed", "revoked"] as InviteFilter[]).map((filter) => <button type="button" className={inviteFilter === filter ? "active" : ""} key={filter} onClick={() => setInviteFilter(filter)}>{filter[0].toUpperCase() + filter.slice(1)}</button>)}</div>
       <div className="invite-list">
         {visibleInvites.map((invite) => {
-          const status = invite.claimedUsername ? "claimed" : invite.revoked ? "revoked" : invite.reservedEmail ? "reserved" : "available";
+          const status = invite.claimedUsername ? "claimed" : invite.revoked ? "revoked" : "available";
           return <article className="invite-row" key={invite.code}>
             <div className="invite-code-line"><code>{invite.code}</code><span className={`invite-status ${status}`}>{status}</span></div>
             <p className="invite-meta">Created {adminDate(invite.createdAt)} by @{invite.creatorUsername || "admin"}</p>
             {invite.claimedUsername && <p className="invite-meta">Claimed {adminDate(invite.claimedAt)} by @{invite.claimedUsername}</p>}
-            {invite.reservedEmail && !invite.claimedUsername && <p className="invite-meta">Reserved {adminDate(invite.reservedAt)} for {invite.reservedEmail}</p>}
             <div className="invite-actions"><button type="button" onClick={() => copyInvite(invite.code)}>Copy</button>{!invite.claimedUsername && <button type="button" disabled={busyKey === `invite-${invite.code}`} onClick={() => changeInvite(invite)}>{busyKey === `invite-${invite.code}` ? "Updating…" : invite.revoked ? "Reactivate" : "Deactivate"}</button>}</div>
           </article>;
         })}

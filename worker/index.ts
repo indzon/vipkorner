@@ -30,6 +30,30 @@ const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
+    if (url.hostname === "www.vipkorner.app") {
+      url.hostname = "vipkorner.app";
+      return Response.redirect(url, 308);
+    }
+
+    if (url.hostname === "vipkorner.com" || url.hostname === "www.vipkorner.com") {
+      if (url.hostname === "www.vipkorner.com") {
+        url.hostname = "vipkorner.com";
+        return Response.redirect(url, 308);
+      }
+
+      if (url.pathname === "/open" || url.pathname === "/app") {
+        return Response.redirect("https://vipkorner.app", 302);
+      }
+
+      if (url.pathname === "/" || url.pathname === "/marketing.html") {
+        return env.ASSETS.fetch(new Request(new URL("/marketing.html", request.url).toString()));
+      }
+
+      const assetResponse = await env.ASSETS.fetch(request);
+      if (assetResponse.status !== 404) return assetResponse;
+      return Response.redirect("https://vipkorner.com", 302);
+    }
+
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {

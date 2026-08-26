@@ -76,7 +76,12 @@ export async function ensureSchema() {
     )`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS invites (
       code TEXT PRIMARY KEY, created_by TEXT NOT NULL, claimed_by TEXT, created_at INTEGER NOT NULL,
-      claimed_at INTEGER, reserved_email TEXT, reserved_at INTEGER, revoked INTEGER NOT NULL DEFAULT 0
+      claimed_at INTEGER, revoked INTEGER NOT NULL DEFAULT 0
+    )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS pending_registrations (
+      auth_user_id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, username TEXT NOT NULL UNIQUE,
+      display_name TEXT NOT NULL, invite_code TEXT UNIQUE, adult_confirmed_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
     )`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS follows (
       follower_id TEXT NOT NULL, followed_id TEXT NOT NULL, created_at INTEGER NOT NULL,
@@ -118,6 +123,7 @@ export async function ensureSchema() {
     DB.prepare("CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, created_at DESC)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages (conversation_id, created_at)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status, created_at DESC)"),
+    DB.prepare("CREATE INDEX IF NOT EXISTS pending_registrations_created_idx ON pending_registrations (created_at)"),
   ]);
 
   const postColumns = await DB.prepare("PRAGMA table_info(posts)").all<{ name: string }>();
@@ -156,14 +162,6 @@ export async function ensureSchema() {
   }
   if (!profileColumns.results.some((column) => column.name === "image_url")) {
     await DB.prepare("ALTER TABLE profile ADD COLUMN image_url TEXT").run();
-  }
-
-  const inviteColumns = await DB.prepare("PRAGMA table_info(invites)").all<{ name: string }>();
-  if (!inviteColumns.results.some((column) => column.name === "reserved_email")) {
-    await DB.prepare("ALTER TABLE invites ADD COLUMN reserved_email TEXT").run();
-  }
-  if (!inviteColumns.results.some((column) => column.name === "reserved_at")) {
-    await DB.prepare("ALTER TABLE invites ADD COLUMN reserved_at INTEGER").run();
   }
 
   await DB.prepare(`INSERT OR IGNORE INTO profile (

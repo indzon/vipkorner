@@ -1,4 +1,3 @@
-import { chatGPTSignInPath, getChatGPTUser } from "@/app/chatgpt-auth";
 import { bindings, ensureSchema } from "@/db/storage";
 import { supabaseConfigured, supabaseServerClient } from "@/lib/supabase-server";
 
@@ -18,7 +17,6 @@ export type AppUser = {
   storyReplies: number | boolean;
   highQualityUploads: number | boolean;
   createdAt: number;
-  identityDisplayName?: string;
 };
 
 const USER_SELECT = `id, email, username, display_name AS displayName, bio, website, location,
@@ -30,11 +28,13 @@ export async function identityEmail() {
     const client = await supabaseServerClient();
     const { data } = await client!.auth.getUser();
     const user = data.user;
-    if (user?.email) return { email: user.email.toLowerCase(), displayName: String(user.user_metadata?.display_name || user.email) };
+    if (user?.email) return {
+      email: user.email.toLowerCase(),
+      displayName: String(user.user_metadata?.display_name || user.email),
+      inviteCode: String(user.user_metadata?.invite_code || "").trim().toUpperCase(),
+    };
   }
-  const identity = await getChatGPTUser();
-  if (identity?.email) return { email: identity.email.toLowerCase(), displayName: identity.fullName || identity.displayName };
-  if (process.env.NODE_ENV === "development") return { email: "local-admin@vipkorner.test", displayName: "Local Admin" };
+  if (process.env.NODE_ENV === "development") return { email: "local-admin@vipkorner.test", displayName: "Local Admin", inviteCode: "" };
   return null;
 }
 
@@ -42,8 +42,7 @@ export async function currentUser(): Promise<AppUser | null> {
   await ensureSchema();
   const identity = await identityEmail();
   if (!identity) return null;
-  const user = await bindings().DB.prepare(`SELECT ${USER_SELECT} FROM users WHERE email = ?`).bind(identity.email).first<AppUser>();
-  return user ? { ...user, identityDisplayName: identity.displayName } : null;
+  return bindings().DB.prepare(`SELECT ${USER_SELECT} FROM users WHERE email = ?`).bind(identity.email).first<AppUser>();
 }
 
 export async function requireUser(): Promise<AppUser> {
@@ -59,7 +58,7 @@ export class AuthError extends Error {
 
 export function authErrorResponse(error: unknown) {
   if (!(error instanceof AuthError)) return null;
-  return Response.json({ error: error.message, signInPath: supabaseConfigured() ? "/login" : chatGPTSignInPath("/login") }, { status: error.status });
+  return Response.json({ error: error.message, signInPath: "/login" }, { status: error.status });
 }
 
 export async function blockedBetween(firstId: string, secondId: string) {

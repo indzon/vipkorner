@@ -92,9 +92,21 @@ export const invites = sqliteTable("invites", {
   claimedBy: text("claimed_by"),
   createdAt: integer("created_at").notNull(),
   claimedAt: integer("claimed_at"),
+  // Retained for migration compatibility with the original invite reservation flow.
+  // New registrations are reserved in pending_registrations instead.
   reservedEmail: text("reserved_email"),
   reservedAt: integer("reserved_at"),
   revoked: integer("revoked", { mode: "boolean" }).notNull().default(false),
+});
+
+export const pendingRegistrations = sqliteTable("pending_registrations", {
+  authUserId: text("auth_user_id").primaryKey(),
+  email: text("email").notNull().unique(),
+  username: text("username").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  inviteCode: text("invite_code").unique(),
+  adultConfirmedAt: integer("adult_confirmed_at").notNull(),
+  createdAt: integer("created_at").notNull(),
 });
 
 export const follows = sqliteTable("follows", {

@@ -1,26 +1,40 @@
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { supabaseConfigured, supabaseServerClient } from "@/lib/supabase-server";
+import { finalizePendingRegistration } from "@/lib/registration";
+import { supabaseServerClient } from "@/lib/supabase-server";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
-  const loginUrl = new URL("/login", requestUrl.origin);
   const code = requestUrl.searchParams.get("code");
+  const tokenHash = requestUrl.searchParams.get("token_hash");
+  const type = requestUrl.searchParams.get("type") as EmailOtpType | null;
+  const client = await supabaseServerClient();
 
-  if (!supabaseConfigured() || !code) {
-    loginUrl.searchParams.set("confirmation_error", "1");
-    return NextResponse.redirect(loginUrl);
+  if (client && code) {
+    const { data, error } = await client.auth.exchangeCodeForSession(code);
+    if (!error && data.user?.email) {
+      try {
+        await finalizePendingRegistration(data.user.id, data.user.email);
+        return NextResponse.redirect(new URL("/", requestUrl.origin));
+      } catch (reason) {
+        console.error("Could not finalize confirmed VipKorner account", reason);
+      }
+    }
   }
 
-  try {
-    const client = await supabaseServerClient();
-    const { error } = client
-      ? await client.auth.exchangeCodeForSession(code)
-      : { error: new Error("Supabase is unavailable") };
-
-    loginUrl.searchParams.set(error ? "confirmation_error" : "confirmed", "1");
-    return NextResponse.redirect(loginUrl);
-  } catch {
-    loginUrl.searchParams.set("confirmation_error", "1");
-    return NextResponse.redirect(loginUrl);
+  if (client && tokenHash && type) {
+    const { data, error } = await client.auth.verifyOtp({ type, token_hash: tokenHash });
+    if (!error && data.user?.email) {
+      try {
+        await finalizePendingRegistration(data.user.id, data.user.email);
+        return NextResponse.redirect(new URL("/", requestUrl.origin));
+      } catch (reason) {
+        console.error("Could not finalize confirmed VipKorner account", reason);
+      }
+    }
   }
+
+  const loginUrl = new URL("/login", requestUrl.origin);
+  loginUrl.searchParams.set("confirmation", "failed");
+  return NextResponse.redirect(loginUrl);
 }

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#56204f" />
+    <title>VipKorner — Your people, your moments</title>
+    <meta name="description" content="An invite-only social space for real people, real moments, and private conversations." />
+    <meta property="og:title" content="VipKorner — Your people, your moments" />
+    <meta property="og:description" content="Share what feels like you in an invite-only community for adults." />
+    <meta property="og:image" content="https://vipkorner.com/og-vipkorner.png" />
+    <link rel="icon" href="/icon-192.png" />
+    <style>
+      :root { color-scheme: light; --ink:#201c1a; --muted:#756d68; --paper:#fffaf6; --line:#eadfd7; --rose:#ed4f74; --plum:#54204f; }
+      * { box-sizing:border-box; }
+      html { scroll-behavior:smooth; }
+      body { margin:0; min-height:100vh; color:var(--ink); background:var(--paper); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+      a { color:inherit; }
+      .shell { overflow:hidden; }
+      .nav { width:min(1180px,calc(100% - 40px)); margin:0 auto; min-height:88px; display:flex; align-items:center; justify-content:space-between; gap:24px; }
+      .brand { display:flex; align-items:center; gap:12px; text-decoration:none; font:600 28px/1 Georgia,serif; }
+      .mark { width:42px; height:42px; display:grid; place-items:center; border-radius:13px; color:#fff; font:italic 700 29px/1 Georgia,serif; background:linear-gradient(145deg,#7a2b68,#ef5174 70%,#ffb074); box-shadow:0 10px 26px #df577d38; }
+      .button { min-height:48px; display:inline-flex; align-items:center; justify-content:center; gap:10px; padding:0 22px; border:1px solid var(--ink); border-radius:999px; background:var(--ink); color:#fff; text-decoration:none; font-weight:750; }
+      .button.alt { background:transparent; color:var(--ink); border-color:var(--line); }
+      .hero { position:relative; isolation:isolate; color:#fff; background:linear-gradient(125deg,#3c193a 0%,#742d62 48%,#dc5475 100%); }
+      .hero::before,.hero::after { content:""; position:absolute; z-index:-1; border:1px solid #ffffff2e; border-radius:50%; }
+      .hero::before { width:700px; height:700px; right:-210px; top:-360px; }
+      .hero::after { width:470px; height:470px; right:10%; bottom:-350px; }
+      .hero-inner { width:min(1180px,calc(100% - 40px)); min-height:650px; margin:auto; padding:88px 0 92px; display:grid; grid-template-columns:minmax(0,1.1fr) minmax(320px,.7fr); gap:80px; align-items:center; }
+      .kicker { display:flex; align-items:center; gap:10px; font-size:13px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:#f9dce6; }
+      h1,h2 { font-family:Georgia,"Times New Roman",serif; font-weight:500; letter-spacing:-.045em; }
+      h1 { max-width:780px; margin:22px 0; font-size:clamp(58px,7.5vw,102px); line-height:.94; }
+      .lead { max-width:680px; margin:0; color:#f6e9ef; font-size:clamp(18px,2vw,22px); line-height:1.65; }
+      .hero-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:36px; }
+      .hero-actions .button { background:#fff; border-color:#fff; color:var(--plum); }
+      .hero-actions .button.alt { background:#ffffff0b; color:#fff; border-color:#ffffff59; }
+      .phone { width:min(100%,380px); justify-self:center; padding:18px; border:1px solid #ffffff42; border-radius:42px; background:#ffffff16; box-shadow:0 38px 90px #1d071b6e; backdrop-filter:blur(14px); }
+      .phone-screen { min-height:470px; padding:28px; display:flex; flex-direction:column; border-radius:28px; background:#fffaf7; color:var(--ink); }
+      .phone-top { display:flex; align-items:center; justify-content:space-between; padding-bottom:24px; border-bottom:1px solid var(--line); }
+      .mini-brand { display:flex; align-items:center; gap:9px; font:600 19px Georgia,serif; }
+      .mini-brand .mark { width:32px; height:32px; border-radius:10px; font-size:21px; }
+      .story-row { display:flex; gap:12px; margin:24px 0; }
+      .story { width:54px; height:54px; border-radius:50%; padding:3px; background:linear-gradient(135deg,#ed4f74,#7a2b68,#f5ae71); }
+      .story span { height:100%; display:grid; place-items:center; border:3px solid #fffaf7; border-radius:50%; background:#f0dbdf; color:var(--plum); font-weight:850; }
+      .moment { flex:1; min-height:235px; display:flex; flex-direction:column; justify-content:flex-end; padding:24px; border-radius:24px; color:#fff; background:linear-gradient(155deg,#7c4c68,#34162f); }
+      .moment small { color:#f2cddb; text-transform:uppercase; letter-spacing:.12em; font-weight:800; }
+      .moment strong { margin-top:9px; font:500 29px/1.08 Georgia,serif; }
+      .moment p { margin:12px 0 0; color:#efdfe7; font-size:14px; line-height:1.55; }
+      .section { width:min(1100px,calc(100% - 40px)); margin:auto; padding:105px 0; }
+      .section-heading { max-width:720px; margin-bottom:54px; }
+      .section-heading h2 { margin:12px 0 16px; font-size:clamp(42px,5vw,64px); line-height:1; }
+      .section-heading p { margin:0; color:var(--muted); font-size:18px; line-height:1.7; }
+      .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+      .card { min-height:240px; padding:30px; border:1px solid var(--line); border-radius:26px; background:#fff; box-shadow:0 18px 55px #5937290a; }
+      .card b { width:48px; height:48px; display:grid; place-items:center; border-radius:15px; background:#fff0f3; color:var(--rose); font-size:20px; }
+      .card h3 { margin:30px 0 10px; font:500 28px/1.1 Georgia,serif; }
+      .card p { margin:0; color:var(--muted); line-height:1.65; }
+      .cta { width:min(1100px,calc(100% - 40px)); margin:0 auto 90px; padding:62px; display:flex; align-items:center; justify-content:space-between; gap:40px; border-radius:34px; color:#fff; background:linear-gradient(130deg,#54204f,#bc476c); }
+      .cta h2 { margin:0 0 12px; font-size:clamp(40px,5vw,62px); line-height:1; }
+      .cta p { margin:0; color:#f7e5ec; line-height:1.6; }
+      .cta .button { flex:none; background:#fff; color:var(--plum); border-color:#fff; }
+      footer { width:min(1100px,calc(100% - 40px)); margin:auto; padding:30px 0 48px; display:flex; justify-content:space-between; gap:30px; color:var(--muted); border-top:1px solid var(--line); font-size:14px; }
+      footer nav { display:flex; flex-wrap:wrap; gap:20px; }
+      @media (max-width:850px) { .hero-inner { grid-template-columns:1fr; gap:60px; } .phone { display:none; } .grid { grid-template-columns:1fr; } .cta { align-items:flex-start; flex-direction:column; padding:42px 30px; } }
+      @media (max-width:560px) { .nav { min-height:76px; } .brand { font-size:24px; } .nav .button { padding:0 16px; min-height:44px; } .hero-inner { min-height:0; padding:72px 0 76px; } h1 { font-size:54px; } .lead { font-size:17px; } .hero-actions { display:grid; } .section { padding:78px 0; } footer { flex-direction:column; } }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="nav"><a class="brand" href="/"><span class="mark">V</span><span>VipKorner</span></a><a class="button" href="https://vipkorner.app">Open app <span aria-hidden="true">→</span></a></header>
+      <main>
+        <section class="hero"><div class="hero-inner"><div><div class="kicker"><span aria-hidden="true">✦</span> Real people, real moments</div><h1>Your people.<br />Your moments.<br />Your korner.</h1><p class="lead">An invite-only social space for adults to share photos, videos, 24-hour stories, and private conversations with the people who matter.</p><div class="hero-actions"><a class="button" href="https://vipkorner.app">Open VipKorner <span aria-hidden="true">→</span></a><a class="button alt" href="#inside">See what’s inside</a></div></div><div class="phone" aria-hidden="true"><div class="phone-screen"><div class="phone-top"><div class="mini-brand"><span class="mark">V</span>VipKorner</div><span>•••</span></div><div class="story-row"><div class="story"><span>EW</span></div><div class="story"><span>AT</span></div><div class="story"><span>+</span></div></div><div class="moment"><small>Your feed</small><strong>Share what feels like you.</strong><p>Real moments, kept close to your community.</p></div></div></div></div></section>
+        <section class="section" id="inside"><div class="section-heading"><span class="kicker" style="color:var(--rose)">Built for your circle</span><h2>Social, without the noise.</h2><p>VipKorner brings the essential ways people connect into a focused, invite-only community.</p></div><div class="grid"><article class="card"><b>01</b><h3>Share moments</h3><p>Post photos and videos with captions, or create stories that disappear automatically after 24 hours.</p></article><article class="card"><b>02</b><h3>Find your people</h3><p>Discover public profiles, follow people you know, and control your space with blocking and privacy tools.</p></article><article class="card"><b>03</b><h3>Talk privately</h3><p>Keep conversations personal with direct, text-only messaging between community members.</p></article></div></section>
+        <section class="cta"><div><h2>Your invitation opens the door.</h2><p>VipKorner is currently an invite-only community for adults age 18 and older.</p></div><a class="button" href="https://vipkorner.app">Open the app <span aria-hidden="true">→</span></a></section>
+      </main>
+      <footer><span>© 2026 VipKorner. Adults only — 18+.</span><nav><a href="https://vipkorner.app">Open app</a><a href="mailto:hello@vipkorner.com">Contact</a></nav></footer>
+    </div>
+  </body>
+</html>

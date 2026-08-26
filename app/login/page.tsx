@@ -1,28 +1,24 @@
 "use client";
 
-import { ArrowRight, Check, LockKeyhole, ShieldCheck, Sparkles, UserPlus } from "lucide-react";
+import { ArrowRight, LockKeyhole, ShieldCheck, Sparkles, UserPlus } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
 type SessionState = {
   authenticated: boolean;
-  authProvider?: "supabase" | "chatgpt";
   signInPath?: string;
   signOutPath?: string;
-  identity?: { displayName: string };
+  identity?: { displayName: string; inviteCode?: string };
   user?: { username: string; status: string } | null;
-  suggestedUsername?: string;
-  suggestedDisplayName?: string;
   bootstrapRequired?: boolean;
   inviteRequired?: boolean;
-  inviteReserved?: boolean;
 };
 
 export default function LoginPage() {
   const [session, setSession] = useState<SessionState | null>(null);
-  const [adult, setAdult] = useState(false);
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [authAction, setAuthAction] = useState<"sign-in" | "sign-up">("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,25 +27,11 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (params.has("code")) {
-      location.replace(`/auth/confirm?${params.toString()}`);
-      return;
-    }
-    const confirmationNotice = params.get("confirmed") === "1"
-      ? "Email confirmed. You can now sign in to VipKorner."
-      : "";
-    const confirmationError = params.get("confirmation_error") === "1"
-      ? "Your email link could not create a session. If your email was verified, sign in below; otherwise request a new confirmation email."
-      : "";
-
     fetch("/api/session").then(async (response) => {
       const data = await response.json() as SessionState;
       setSession(data);
-      setDisplayName(data.suggestedDisplayName || data.identity?.displayName || "");
-      setUsername(data.suggestedUsername || (data.identity?.displayName || "").trim().replace(/\s+/g, ".").replace(/[^a-zA-Z0-9._]/g, "").slice(0, 30));
-      if (confirmationNotice) setAuthNotice(confirmationNotice);
-      if (confirmationError) setError(confirmationError);
+      setDisplayName(data.identity?.displayName || "");
+      setInviteCode(data.identity?.inviteCode || "");
       if (data.user?.status === "active") location.replace("/");
     }).catch(() => setError("VipKorner could not verify this session. Try refreshing."));
   }, []);
@@ -57,10 +39,10 @@ export default function LoginPage() {
   async function authenticate(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(""); setAuthNotice("");
     try {
-      const response = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: authAction, email, password, displayName, inviteCode, adult }) });
+      const response = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: authAction, email, password, displayName, username, inviteCode, birthDate }) });
       const data = await response.json() as { error?: string; confirmationRequired?: boolean };
       if (!response.ok) throw new Error(data.error || "Could not authenticate.");
-      if (data.confirmationRequired) { setAuthNotice("Check your email to confirm your account, then return here to sign in."); setBusy(false); return; }
+      if (data.confirmationRequired) { setAuthNotice("Check your email. After you confirm, you’ll be signed in and taken directly to VipKorner."); setBusy(false); return; }
       location.reload();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not authenticate."); setBusy(false); }
   }
@@ -68,10 +50,9 @@ export default function LoginPage() {
   async function createAccount(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError("");
     try {
-      const response = await fetch("/api/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, displayName, inviteCode, adult }) });
+      const response = await fetch("/api/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, displayName, inviteCode, birthDate }) });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "Could not create your account.");
-      localStorage.setItem("vipkorner-adult-access", String(Date.now()));
       location.href = "/";
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not create your account."); setBusy(false); }
   }
@@ -85,45 +66,33 @@ export default function LoginPage() {
       </section>
 
       <section className="login-panel">
-        {!session ? <div className="login-card login-loading"><span className="login-lock"><LockKeyhole /></span><h2>Checking access…</h2></div> : !session.authenticated && session.authProvider === "supabase" ? (
+        {!session ? <div className="login-card login-loading"><span className="login-lock"><LockKeyhole /></span><h2>Checking access…</h2></div> : !session.authenticated ? (
           <form className="login-card" onSubmit={authenticate}>
-            <span className="login-lock"><LockKeyhole /></span><span className="eyebrow">WELCOME TO VIPKORNER</span><h2>{authAction === "sign-in" ? "Sign in securely" : "Create your login"}</h2>
-            <p className="login-subtitle">{authAction === "sign-in" ? "Use your email and password to continue." : "Enter your invite first, then create your secure login and public profile."}</p>
-            {authAction === "sign-up" && <label className="login-field"><span>Name</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={50} required /></label>}
-            {authAction === "sign-up" && session.inviteRequired && <label className="login-field"><span>Invite code</span><input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase().replace(/\s/g, ""))} autoCapitalize="characters" autoComplete="one-time-code" required /></label>}
+            <span className="login-lock"><LockKeyhole /></span><span className="eyebrow">WELCOME TO VIPKORNER</span><h2>{authAction === "sign-in" ? "Sign in" : "Create your account"}</h2>
+            <p className="login-subtitle">{authAction === "sign-in" ? "Enter your email and password to continue." : "Enter your email and active invitation code to join VipKorner."}</p>
+            {authAction === "sign-up" && <><label className="login-field"><span>Name</span><input autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={50} required /></label><label className="login-field"><span>Username</span><div className="input-prefix"><i>@</i><input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value.replace(/\s/g, ""))} minLength={3} maxLength={30} required /></div></label></>}
             <label className="login-field"><span>Email</span><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+            {authAction === "sign-up" && session.inviteRequired && <label className="login-field"><span>Invite code</span><input autoComplete="one-time-code" value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase().replace(/\s/g, ""))} maxLength={32} required /></label>}
             <label className="login-field"><span>Password</span><input type="password" autoComplete={authAction === "sign-in" ? "current-password" : "new-password"} minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
-            <div className="age-disclaimer" role="note"><strong>Adults only — 18+</strong><p>Anyone under 18 is prohibited from accessing, registering for, or using VipKorner.</p></div>
-            {authAction === "sign-up" && <label className="age-confirmation"><input type="checkbox" checked={adult} onChange={(event) => setAdult(event.target.checked)} /><span><Check /></span><p>I confirm that I am at least 18 years old and agree to the adults-only access policy.</p></label>}
+            {authAction === "sign-up" && <label className="login-field"><span>Date of birth</span><input type="date" autoComplete="bday" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} required /><small>Used only to verify eligibility. Your birth date is not stored.</small></label>}
             {authNotice && <p className="panel-notice" role="status">{authNotice}</p>}
             {error && <p className="login-error" role="alert">{error}</p>}
-            <button className="login-submit" disabled={busy || (authAction === "sign-up" && !adult)}>{busy ? "Please wait…" : authAction === "sign-in" ? "Sign in" : "Create login"} <ArrowRight /></button>
-            <button className="login-auth-switch" type="button" onClick={() => { setAuthAction((current) => current === "sign-in" ? "sign-up" : "sign-in"); setError(""); setAuthNotice(""); }}>{authAction === "sign-in" ? "New to VipKorner? Create a login" : "Already have a login? Sign in"}</button>
+            <button className="login-submit" disabled={busy || (authAction === "sign-up" && (!displayName.trim() || username.length < 3 || !birthDate || (session.inviteRequired && !inviteCode.trim())))}>{busy ? "Please wait…" : authAction === "sign-in" ? "Sign in" : "Create account"} <ArrowRight /></button>
+            <button className="login-auth-switch" type="button" onClick={() => { setAuthAction((current) => current === "sign-in" ? "sign-up" : "sign-in"); setError(""); setAuthNotice(""); }}>{authAction === "sign-in" ? "Have an invitation? Create an account" : "Already a member? Sign in"}</button>
             <small className="login-footnote">VipKorner never stores your password in its application database.</small>
           </form>
-        ) : !session.authenticated ? (
-          <div className="login-card">
-            <span className="login-lock"><LockKeyhole /></span><span className="eyebrow">WELCOME TO VIPKORNER</span><h2>Sign in securely</h2>
-            <p className="login-subtitle">Use your ChatGPT identity to access VipKorner during the hosting transition. Your VipKorner username and profile stay separate.</p>
-            <div className="age-disclaimer" role="note"><strong>Adults only — 18+</strong><p>Anyone under 18 is prohibited from accessing, registering for, or using VipKorner.</p></div>
-            <a className="login-submit" href={session.signInPath || "/signin-with-chatgpt?return_to=%2Flogin"}>Sign in with ChatGPT <ArrowRight /></a>
-            <small className="login-footnote">Authentication is handled securely by ChatGPT. VipKorner does not store a password.</small>
-          </div>
         ) : session.user?.status === "suspended" ? (
           <div className="login-card"><span className="login-lock"><LockKeyhole /></span><h2>Account suspended</h2><p className="login-subtitle">This VipKorner account is unavailable. Contact the administrator if you believe this is a mistake.</p><a className="login-submit" href={session.signOutPath}>Sign out</a></div>
         ) : (
           <form className="login-card" onSubmit={createAccount}>
             <span className="login-lock"><UserPlus /></span><span className="eyebrow">{session.bootstrapRequired ? "ADMIN SETUP" : "CREATE YOUR PROFILE"}</span>
             <h2>{session.bootstrapRequired ? "Claim the original account" : "Join VipKorner"}</h2>
-            <p className="login-subtitle">{session.bootstrapRequired ? "Review the profile name and username for the first administrator. Existing posts, stories, and media will be preserved." : "Choose the public identity people will see."}</p>
-            <label className="login-field"><span>Name</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={50} autoComplete="name" required /></label>
-            <label className="login-field"><span>Username</span><div className="input-prefix"><i>@</i><input value={username} onChange={(event) => setUsername(event.target.value.replace(/\s/g, "").replace(/[^a-zA-Z0-9._]/g, ""))} minLength={3} maxLength={30} pattern="[A-Za-z0-9._]{3,30}" autoCapitalize="none" autoComplete="username" aria-describedby="username-help" required /></div><small id="username-help" className="login-field-help">At least 3 letters, numbers, dots, or underscores.</small></label>
-            {!session.bootstrapRequired && session.inviteRequired && !session.inviteReserved && <label className="login-field"><span>Invite code</span><input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase().replace(/\s/g, ""))} autoCapitalize="characters" autoComplete="one-time-code" required /></label>}
-            {!session.bootstrapRequired && session.inviteReserved && <p className="panel-notice" role="status">Invitation accepted for this email address.</p>}
-            <div className="age-disclaimer" role="note"><strong>Adults only — 18+</strong><p>VipKorner is strictly for adults age 18 and older.</p></div>
-            <label className="age-confirmation"><input type="checkbox" checked={adult} onChange={(event) => setAdult(event.target.checked)} /><span><Check /></span><p>I confirm that I am at least 18 years old and agree to the adults-only access policy.</p></label>
+            <p className="login-subtitle">{session.bootstrapRequired ? "You’ll become the first administrator. The existing profile name, username, posts, stories, and media will be preserved." : "Choose the public identity people will see."}</p>
+            <><label className="login-field"><span>Name</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={50} required /></label><label className="login-field"><span>Username</span><div className="input-prefix"><i>@</i><input value={username} onChange={(event) => setUsername(event.target.value.replace(/\s/g, ""))} minLength={3} maxLength={30} required /></div></label></>
+            {!session.bootstrapRequired && session.inviteRequired && <label className="login-field"><span>Invite code</span><input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase())} required /></label>}
+            <label className="login-field"><span>Date of birth</span><input type="date" autoComplete="bday" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} required /><small>Used only to verify eligibility. Your birth date is not stored.</small></label>
             {error && <p className="login-error" role="alert">{error}</p>}
-            <button className="login-submit" disabled={busy || !adult}>{busy ? "Creating account…" : session.bootstrapRequired ? "Claim admin account" : "Create account"} <ArrowRight /></button>
+            <button className="login-submit" disabled={busy || !displayName.trim() || username.length < 3 || !birthDate}>{busy ? "Creating account…" : session.bootstrapRequired ? "Claim admin account" : "Create account"} <ArrowRight /></button>
           </form>
         )}
       </section>

@@ -1,36 +1,55 @@
 # VipKorner
 
-VipKorner is an adults-only social PWA with public profiles, posts, 24-hour
-stories, text messaging, following, blocking, and community administration.
+VipKorner is an invitation-only, multi-user progressive web app for adults. It combines public profiles, photo and video posts, 24-hour stories, follows, private text messaging, moderation, and installable PWA behavior.
+
+- App: [vipkorner.app](https://vipkorner.app)
+- Marketing site: [vipkorner.com](https://vipkorner.com)
+- Repository: [indzon/vipkorner](https://github.com/indzon/vipkorner)
+
+## Product behavior
+
+- New members register with an active, unused invitation code.
+- Date of birth is checked server-side; under-18 registration is rejected and the date itself is not stored.
+- Email confirmation completes the pending profile, claims the invitation, establishes the session, and redirects into the app.
+- Profiles are public by default unless the member enables the private-account setting.
+- A signed-in member can open their own follower and following lists. Other members only see aggregate counts.
+- Follow counts refresh immediately after follow/block actions, when the app regains focus, and periodically while it is visible.
+- Stories expire after 24 hours. Posts and stories support images and videos.
+- Direct messages are text-only and subject to follow/block privacy controls.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system details and [docs/OPERATIONS.md](docs/OPERATIONS.md) for deployment and configuration.
 
 ## Local development
 
-Requirements: Node.js 22.13 or newer and pnpm 11.
+Prerequisites: Node.js `>=22.13.0` and pnpm.
 
 ```bash
-cp .env.example .env.local
-pnpm install --frozen-lockfile
-pnpm dev
+pnpm install
+pnpm run dev
 ```
 
-Set the Supabase project URL and publishable key in `.env.local` to enable
-public email/password authentication. The publishable key is intentionally safe
-for browser use; never expose a Supabase secret or service-role key.
+The local runtime uses the bindings declared in `.openai/hosting.json` and configured through `vite.config.ts`.
 
-## Production deployment
+## Verification
 
-The manual GitHub Actions workflow builds and deploys the Cloudflare Worker.
-Before running it, configure these repository secrets:
+```bash
+pnpm exec tsc --noEmit
+pnpm run lint
+pnpm test
+pnpm run build
+```
 
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
+Use `pnpm run db:generate` after changing `db/schema.ts`. Review every generated migration before deployment.
 
-The workflow uses the `vipkorner-db` D1 database and `vipkorner-media` R2
-bucket. Its non-secret D1 resource ID and the Supabase public connection values
-are included at build time.
+## Data and security
 
-## Useful commands
+- Supabase Auth owns credentials and authenticated sessions.
+- Cloudflare D1 stores application records and social relationships.
+- Cloudflare R2 stores uploaded media.
+- The Worker revalidates authentication and authorization for every protected API operation.
+- Follower/following list endpoints are self-scoped; no request parameter can select another member’s private list.
+- Secrets belong in Cloudflare Worker secrets and must never be committed.
 
-- `pnpm dev` starts local development.
-- `pnpm build` creates the Cloudflare Worker build.
-- `pnpm lint` checks the application source.
+## License
+
+Private project. All rights reserved.

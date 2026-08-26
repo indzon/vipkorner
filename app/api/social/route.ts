@@ -2,10 +2,34 @@ import { NextResponse } from "next/server";
 import { bindings, ensureSchema } from "@/db/storage";
 import { authErrorResponse, blockedBetween, requireUser } from "@/lib/current-user";
 
+async function connectionCounts(DB: D1Database, userId: string) {
+  const [following, followers] = await Promise.all([
+    DB.prepare("SELECT COUNT(*) AS total FROM follows WHERE follower_id = ?").bind(userId).first<{ total: number }>(),
+    DB.prepare("SELECT COUNT(*) AS total FROM follows WHERE followed_id = ?").bind(userId).first<{ total: number }>(),
+  ]);
+  return { following: following?.total || 0, followers: followers?.total || 0 };
+}
+
 export async function GET(request: Request) {
   try {
     await ensureSchema(); const viewer = await requireUser(); const { DB } = bindings();
-    const query = new URL(request.url).searchParams.get("q")?.trim().slice(0, 60) || "";
+    const params = new URL(request.url).searchParams;
+    if (params.get("counts") === "1") {
+      return NextResponse.json({ counts: await connectionCounts(DB, viewer.id) });
+    }
+    const list = params.get("list");
+    if (list === "followers" || list === "following") {
+      const join = list === "followers" ? "f.follower_id = u.id" : "f.followed_id = u.id";
+      const owner = list === "followers" ? "f.followed_id" : "f.follower_id";
+      const connections = await DB.prepare(`SELECT u.id, u.username, u.display_name AS displayName,
+        u.bio, u.location, u.image_key AS imageKey, u.image_url AS imageUrl,
+        f.created_at AS connectedAt
+        FROM follows f JOIN users u ON ${join}
+        WHERE ${owner} = ? AND u.status = 'active'
+        ORDER BY f.created_at DESC`).bind(viewer.id).all();
+      return NextResponse.json({ connections: connections.results, counts: await connectionCounts(DB, viewer.id) });
+    }
+    const query = params.get("q")?.trim().slice(0, 60) || "";
     const users = await DB.prepare(`SELECT u.id, u.username, u.display_name AS displayName, u.bio, u.location,
       u.image_key AS imageKey, u.image_url AS imageUrl, u.role, u.is_public AS isPublic,
       EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = u.id) AS following,
@@ -24,8 +48,7 @@ export async function GET(request: Request) {
       .bind(viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, query, `%${query}%`, `%${query}%`).all();
     const unread = await DB.prepare("SELECT COUNT(*) AS total FROM notifications WHERE user_id = ? AND read_at IS NULL").bind(viewer.id).first<{ total: number }>();
     const admin = viewer.role === "admin" ? {
-      invites: (await DB.prepare(`SELECT i.code, i.created_at AS createdAt, i.claimed_at AS claimedAt,
-        i.reserved_email AS reservedEmail, i.reserved_at AS reservedAt, i.revoked,
+      invites: (await DB.prepare(`SELECT i.code, i.created_at AS createdAt, i.claimed_at AS claimedAt, i.revoked,
         claimed.username AS claimedUsername, creator.username AS creatorUsername FROM invites i
         LEFT JOIN users claimed ON claimed.id = i.claimed_by
         LEFT JOIN users creator ON creator.id = i.created_by
@@ -34,6 +57,7 @@ export async function GET(request: Request) {
         r.created_at AS createdAt, u.username AS reporterUsername FROM reports r JOIN users u ON u.id = r.reporter_id
         ORDER BY CASE r.status WHEN 'open' THEN 0 ELSE 1 END, r.created_at DESC LIMIT 50`).all()).results,
       members: (await DB.prepare("SELECT id, username, display_name AS displayName, status FROM users WHERE role != 'admin' ORDER BY created_at DESC LIMIT 100").all()).results,
+      registrationMode: (await DB.prepare("SELECT value FROM app_meta WHERE key = 'registration_mode'").first<{ value: string }>())?.value || "invite",
     } : null;
     return NextResponse.json({ users: users.results, unread: unread?.total || 0, admin });
   } catch (error) { return authErrorResponse(error) || NextResponse.json({ error: "Could not load people." }, { status: 500 }); }
@@ -42,7 +66,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     await ensureSchema(); const viewer = await requireUser(); const { DB } = bindings();
-    const input = await request.json() as { action?: string; targetId?: string; targetType?: string; reason?: string; reportId?: string; code?: string };
+    const input = await request.json() as { action?: string; targetId?: string; targetType?: string; reason?: string; mode?: string; reportId?: string; code?: string };
     const targetId = String(input.targetId || ""); const now = Date.now();
     if (input.action === "follow") {
       if (!targetId || targetId === viewer.id || await blockedBetween(viewer.id, targetId)) return NextResponse.json({ error: "This profile cannot be followed." }, { status: 403 });
@@ -53,7 +77,7 @@ export async function POST(request: Request) {
         await DB.prepare("INSERT INTO notifications (id, user_id, actor_id, type, entity_id, message, created_at) VALUES (?, ?, ?, 'follow', ?, ?, ?)")
           .bind(crypto.randomUUID(), targetId, viewer.id, viewer.id, `@${viewer.username} followed you.`, now).run();
       }
-      return NextResponse.json({ following: !exists });
+      return NextResponse.json({ following: !exists, counts: await connectionCounts(DB, viewer.id) });
     }
     if (input.action === "block") {
       if (!targetId || targetId === viewer.id) return NextResponse.json({ error: "Choose another profile." }, { status: 400 });
@@ -63,7 +87,7 @@ export async function POST(request: Request) {
         DB.prepare("INSERT INTO blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)").bind(viewer.id, targetId, now),
         DB.prepare("DELETE FROM follows WHERE (follower_id = ? AND followed_id = ?) OR (follower_id = ? AND followed_id = ?)").bind(viewer.id, targetId, targetId, viewer.id),
       ]);
-      return NextResponse.json({ blocked: !exists });
+      return NextResponse.json({ blocked: !exists, counts: await connectionCounts(DB, viewer.id) });
     }
     if (input.action === "report") {
       if (!targetId || !["post", "profile"].includes(input.targetType || "")) return NextResponse.json({ error: "Choose something to report." }, { status: 400 });
@@ -89,11 +113,13 @@ export async function POST(request: Request) {
       if (!invite) return NextResponse.json({ error: "Invite code not found." }, { status: 404 });
       if (invite.claimedBy) return NextResponse.json({ error: "A claimed invite cannot be changed." }, { status: 409 });
       const revoked = input.action === "revoke-invite" ? 1 : 0;
-      await DB.prepare(`UPDATE invites SET revoked = ?,
-        reserved_email = CASE WHEN ? = 1 THEN NULL ELSE reserved_email END,
-        reserved_at = CASE WHEN ? = 1 THEN NULL ELSE reserved_at END
-        WHERE code = ? AND claimed_by IS NULL`).bind(revoked, revoked, revoked, code).run();
+      await DB.prepare("UPDATE invites SET revoked = ? WHERE code = ? AND claimed_by IS NULL").bind(revoked, code).run();
       return NextResponse.json({ code, revoked: Boolean(revoked) });
+    }
+    if (input.action === "registration-mode") {
+      const mode = input.mode === "open" ? "open" : "invite";
+      await DB.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('registration_mode', ?)").bind(mode).run();
+      return NextResponse.json({ registrationMode: mode });
     }
     if (input.action === "suspend") {
       const target = await DB.prepare("SELECT role, status FROM users WHERE id = ?").bind(targetId).first<{ role: string; status: string }>();
