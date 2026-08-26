@@ -44,3 +44,5 @@ Do not put secret values in this repository, build logs, screenshots, or issue d
 Follow and block responses include the signed-in member’s current counts. The UI applies those counts immediately, then continues lightweight polling every 15 seconds while visible. Opening the owner-only follower/following modal revalidates both the list and counts.
 
 Profile navigation from a connection or activity item requests only the selected member’s public summary and aggregate counts. Verify that these links open the correct profile and that no follower/following list is exposed for another member.
+
+For member-profile releases, verify Explore identity copy remains left-aligned, open another member’s profile, select the accessible message icon, and confirm the correct private conversation opens in Messages.

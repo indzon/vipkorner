@@ -32,7 +32,7 @@ The app stays invitation-only while `app_meta.registration_mode` is `invite`.
 - Follow and block mutations return refreshed counts for immediate UI updates.
 - The client refreshes counts every 15 seconds while visible and whenever the window regains focus.
 
-Connection rows, notification actors, and Explore identities all use the same member-profile navigation path. Activity payloads include the actor’s public avatar fields so the UI does not substitute a generic activity icon.
+Connection rows, notification actors, and Explore identities all use the same member-profile navigation path. Activity payloads include the actor’s public avatar fields so the UI does not substitute a generic activity icon. From another member’s profile, the message action posts `{ action: "start", targetId }` to `/api/messages`, then opens the returned conversation in the Messages view.
 
 ## Main application routes
 

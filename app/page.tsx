@@ -241,6 +241,23 @@ export default function HomePage() {
     setConversations(data.conversations || []);
   }, []);
 
+  const startMemberConversation = useCallback(async (userId: string) => {
+    try {
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start", targetId: userId }),
+      });
+      const data = await readApiResponse<{ id: string }>(response, "Could not start a conversation.");
+      setActiveConversationId(data.id);
+      setView("messages");
+      setSearchOpen(false);
+      await loadConversations();
+    } catch (reason) {
+      setToast(reason instanceof Error ? reason.message : "Could not start a conversation.");
+    }
+  }, [loadConversations]);
+
   const updateConnectionCounts = useCallback((counts: ConnectionCounts) => {
     setProfile((current) => current ? { ...current, ...counts } : current);
   }, []);
@@ -408,7 +425,7 @@ export default function HomePage() {
           </>
         ) : view === "profile" ? (
           <ProfileView posts={posts} profile={profile} onCounts={updateConnectionCounts} onViewProfile={openMemberProfile} onCreate={() => setComposer("post")} onEdit={() => setProfilePanel("edit")} onSettings={() => setProfilePanel("settings")} onActivity={() => setProfilePanel("activity")} onOpenPost={(post) => setActivePostId(post.id)} />
-        ) : view === "member" ? <MemberProfileView member={memberProfile} error={memberProfileError} posts={posts} onBack={exploreNav} onOpenPost={(post) => setActivePostId(post.id)} />
+        ) : view === "member" ? <MemberProfileView member={memberProfile} error={memberProfileError} posts={posts} onBack={exploreNav} onMessage={startMemberConversation} onOpenPost={(post) => setActivePostId(post.id)} />
         : view === "explore" ? <ExploreView users={discovery} onRefresh={() => loadDiscovery(query)} onCounts={updateConnectionCounts} onViewProfile={openMemberProfile} onViewSelf={profileNav} onMessage={(conversationId) => { setActiveConversationId(conversationId); setView("messages"); void loadConversations(); }} />
         : <MessagesView key={activeConversationId || "messages"} profile={profile} conversations={conversations} initialConversationId={activeConversationId} onRefresh={loadConversations} />}
       </section>
@@ -677,13 +694,13 @@ function StoryViewer({ stories, activeId, onChange, onViewed, onClose, onDelete 
   );
 }
 
-function MemberProfileView({ member, error, posts, onBack, onOpenPost }: { member: MemberProfile | null; error: string; posts: Post[]; onBack: () => void; onOpenPost: (post: Post) => void }) {
+function MemberProfileView({ member, error, posts, onBack, onMessage, onOpenPost }: { member: MemberProfile | null; error: string; posts: Post[]; onBack: () => void; onMessage: (userId: string) => Promise<void>; onOpenPost: (post: Post) => void }) {
   if (error) return <section className="member-profile-state"><span><UserRound /></span><h1>Profile unavailable</h1><p>{error}</p><button onClick={onBack}>Back to Explore</button></section>;
   if (!member) return <section className="member-profile-state" role="status"><span><UserRound /></span><h1>Loading profile…</h1></section>;
   const visiblePosts = posts.filter((post) => post.userId === member.id);
   return <section className="profile-page member-profile-page">
     <button className="member-back" onClick={onBack}><ChevronLeft /> Explore</button>
-    <header className="profile-hero"><img className="member-profile-photo" src={profileImage(member)} alt={member.displayName} /><div className="profile-info"><div><h1>{member.username}</h1></div><div className="profile-stats"><span><strong>{member.posts}</strong> posts</span><span><strong>{member.followers}</strong> followers</span><span><strong>{member.followingCount}</strong> following</span></div><p><strong>{member.displayName}</strong><br />{member.bio || "New to VipKorner."}<br />{member.website && <a href={`https://${member.website.replace(/^https?:\/\//, "")}`}>{member.website}</a>}</p></div></header>
+    <header className="profile-hero"><img className="member-profile-photo" src={profileImage(member)} alt={member.displayName} /><div className="profile-info"><div><h1>{member.username}</h1><button type="button" className="icon-button member-message-button" onClick={() => void onMessage(member.id)} aria-label={`Message @${member.username}`}><Mail /></button></div><div className="profile-stats"><span><strong>{member.posts}</strong> posts</span><span><strong>{member.followers}</strong> followers</span><span><strong>{member.followingCount}</strong> following</span></div><p><strong>{member.displayName}</strong><br />{member.bio || "New to VipKorner."}<br />{member.website && <a href={`https://${member.website.replace(/^https?:\/\//, "")}`}>{member.website}</a>}</p></div></header>
     <div className="member-profile-note">{member.isPublic || member.following ? "Public profile" : "Private profile · Follow this member to see their posts."}</div>
     {visiblePosts.length ? <div className="profile-grid">{visiblePosts.map((post) => <button key={post.id} onClick={() => onOpenPost(post)} aria-label={`Open ${post.mediaType}: ${post.caption}`}>{post.mediaType === "video" ? <><video src={imageSource(post)} muted playsInline preload="metadata" aria-label={post.caption} /><i className="video-badge"><Video /></i></> : <img src={imageSource(post)} alt={post.caption} />}<span><Heart fill="currentColor" size={17} /> {post.likes}</span></button>)}</div> : <div className="saved-empty"><span><ImagePlus /></span><h3>No posts to show</h3><p>{member.isPublic || member.following ? "This member hasn’t shared a post yet." : "This member’s posts are private."}</p></div>}
   </section>;

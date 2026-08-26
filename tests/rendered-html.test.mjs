@@ -35,7 +35,12 @@ test("member identity surfaces open profiles with activity avatars", async () =>
   assert.match(page, /onViewProfile\(activity\.actorId\)/);
   assert.match(page, /className="activity-avatar"/);
   assert.match(page, /className="person-identity"/);
+  assert.match(page, /startMemberConversation/);
+  assert.match(page, /onMessage\(member\.id\)/);
+  assert.match(page, /aria-label={`Message @\$\{member\.username\}`}/);
   assert.match(css, /\.profile-stats \{ display: flex; align-items: center;/);
+  assert.match(css, /\.person-identity \{[^}]*align-items: flex-start;[^}]*text-align: left;/);
+  assert.match(css, /\.member-message-button/);
   assert.match(feedRoute, /n\.actor_id AS actorId/);
   assert.match(feedRoute, /u\.display_name AS actorDisplayName/);
   assert.match(socialRoute, /params\.get\("profile"\)/);

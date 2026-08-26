@@ -516,7 +516,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .person-card { display: grid; grid-template-columns: 66px 1fr; gap: 14px; padding: 17px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.82); box-shadow: 0 8px 30px rgba(71,48,39,.04); }
 .person-avatar-button { width: 66px; height: 66px; align-self: center; padding: 0; overflow: hidden; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
 .person-avatar-button img { width: 100%; height: 100%; display: block; object-fit: cover; }
-.person-identity { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; border: 0; color: inherit; text-align: center; background: transparent; cursor: pointer; }
+.person-identity { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: 0; border: 0; color: inherit; text-align: left; background: transparent; cursor: pointer; }
 .person-card h2 { margin: 2px 0; font-family: Georgia, serif; font-size: 18px; font-weight: 500; }
 .person-card strong { font-size: 11px; }
 .person-card p { margin: 7px 0 5px; color: #534b46; font-size: 11px; }
@@ -543,6 +543,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .member-back { display: inline-flex; align-items: center; gap: 5px; margin: 14px 0 18px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 10px; background: white; cursor: pointer; }
 .member-back svg { width: 16px; }
 .member-profile-photo { width: 148px; height: 148px; border-radius: 50%; object-fit: cover; box-shadow: 0 8px 35px rgba(70,37,49,.13); }
+.member-message-button { width: 36px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 50%; color: var(--ink); background: white; }
+.member-message-button:hover { color: var(--accent); border-color: #efb6c2; background: #fff6f7; }
+.member-message-button svg { width: 16px; height: 16px; }
 .member-profile-note { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); text-align: center; background: rgba(255,255,255,.72); font-size: 11px; }
 .member-profile-state { min-height: 460px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .member-profile-state > span { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; color: var(--accent); background: #fff0f4; }
