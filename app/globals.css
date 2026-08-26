@@ -296,6 +296,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .toggle.on span { transform: translateX(16px); }
 .settings-install { width: 100%; margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 11px; background: var(--ink); color: white; padding: 11px; font-size: 12px; cursor: pointer; }
 .settings-install svg { width: 15px; }
+.admin-registration-status > span { flex: 0 0 auto; border-radius: 999px; padding: 6px 9px; color: #23643b; background: #e9f7ee; font-size: 12px; font-weight: 750; }
 .activity-modal { min-height: 355px; }
 .activity-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 58px 25px; text-align: center; }
 .activity-empty > span { width: 58px; height: 58px; display: grid; place-items: center; color: var(--accent); background: #fff0f1; border-radius: 50%; }

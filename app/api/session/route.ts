@@ -20,7 +20,6 @@ export async function GET() {
   const legacy = bootstrapRequired
     ? await DB.prepare("SELECT username, display_name AS displayName FROM profile WHERE id = 'me'").first<{ username: string; displayName: string }>()
     : null;
-  const mode = await DB.prepare("SELECT value FROM app_meta WHERE key = 'registration_mode'").first<{ value: string }>();
   return NextResponse.json({
     authenticated: true,
     authProvider,
@@ -29,8 +28,7 @@ export async function GET() {
     suggestedUsername: legacy?.username || undefined,
     suggestedDisplayName: legacy?.displayName || undefined,
     bootstrapRequired,
-    inviteRequired: Boolean(count?.total) && mode?.value !== "open",
-    registrationMode: mode?.value || "invite",
+    inviteRequired: Boolean(count?.total),
     signOutPath: authProvider === "supabase" ? "/api/auth" : chatGPTSignOutPath("/login"),
   });
 }
@@ -52,13 +50,10 @@ export async function POST(request: Request) {
   if (existing) return NextResponse.json({ error: "That account or username is already registered." }, { status: 409 });
   let inviteCode: string | null = null;
   if (!firstUser) {
-    const mode = await DB.prepare("SELECT value FROM app_meta WHERE key = 'registration_mode'").first<{ value: string }>();
-    if (mode?.value !== "open") {
-      const code = String(input.inviteCode || "").trim().toUpperCase();
-      const invite = await DB.prepare("SELECT code FROM invites WHERE code = ? AND claimed_by IS NULL AND revoked = 0").bind(code).first<{ code: string }>();
-      if (!invite) return NextResponse.json({ error: "Enter a valid, unused invite code." }, { status: 403 });
-      inviteCode = invite.code;
-    }
+    const code = String(input.inviteCode || "").trim().toUpperCase();
+    const invite = await DB.prepare("SELECT code FROM invites WHERE code = ? AND claimed_by IS NULL AND revoked = 0").bind(code).first<{ code: string }>();
+    if (!invite) return NextResponse.json({ error: "Enter a valid, active, unused invite code." }, { status: 403 });
+    inviteCode = invite.code;
   }
 
   const id = crypto.randomUUID();

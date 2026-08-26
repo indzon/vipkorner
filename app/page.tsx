@@ -871,7 +871,7 @@ function SettingsModal({ profile, installPrompt, onInstallGuide, onClose, onSave
 }
 
 type AdminInvite = { code: string; createdAt: number; claimedAt?: number | null; creatorUsername?: string; claimedUsername?: string; revoked: number };
-type AdminData = { registrationMode: string; invites: AdminInvite[]; reports: { id: string; targetType: string; targetId: string; reason: string; status: string; reporterUsername: string }[]; members: { id: string; username: string; displayName: string; status: string }[] };
+type AdminData = { invites: AdminInvite[]; reports: { id: string; targetType: string; targetId: string; reason: string; status: string; reporterUsername: string }[]; members: { id: string; username: string; displayName: string; status: string }[] };
 type InviteFilter = "all" | "available" | "claimed" | "revoked";
 
 function adminDate(value?: number | null) {
@@ -921,7 +921,7 @@ function AdminControls() {
   if (!data) return <section className="admin-controls"><p>Loading admin tools…</p></section>;
   return <section className="admin-controls">
     <header><div><span>ADMIN</span><h3>Community controls</h3></div><button type="button" disabled={busyKey === "create-invite"} onClick={() => act({ action: "create-invite" })}>{busyKey === "create-invite" ? "Creating…" : "Create invite"}</button></header>
-    <SettingRow title="Open registration" description="Allow adults to join without an invite code." checked={data.registrationMode === "open"} onChange={() => act({ action: "registration-mode", mode: data.registrationMode === "open" ? "invite" : "open" })} />
+    <div className="setting-row admin-registration-status"><div><strong>Invitation-only registration</strong><p>Every new member needs an active, unused invite code.</p></div><span>Required</span></div>
     {notice && <p className="panel-notice" aria-live="polite">{notice}</p>}
     <details open>
       <summary>Invite codes ({data.invites.length})</summary>

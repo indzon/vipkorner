@@ -33,7 +33,6 @@ export async function GET(request: Request) {
         r.created_at AS createdAt, u.username AS reporterUsername FROM reports r JOIN users u ON u.id = r.reporter_id
         ORDER BY CASE r.status WHEN 'open' THEN 0 ELSE 1 END, r.created_at DESC LIMIT 50`).all()).results,
       members: (await DB.prepare("SELECT id, username, display_name AS displayName, status FROM users WHERE role != 'admin' ORDER BY created_at DESC LIMIT 100").all()).results,
-      registrationMode: (await DB.prepare("SELECT value FROM app_meta WHERE key = 'registration_mode'").first<{ value: string }>())?.value || "invite",
     } : null;
     return NextResponse.json({ users: users.results, unread: unread?.total || 0, admin });
   } catch (error) { return authErrorResponse(error) || NextResponse.json({ error: "Could not load people." }, { status: 500 }); }
@@ -42,7 +41,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     await ensureSchema(); const viewer = await requireUser(); const { DB } = bindings();
-    const input = await request.json() as { action?: string; targetId?: string; targetType?: string; reason?: string; mode?: string; reportId?: string; code?: string };
+    const input = await request.json() as { action?: string; targetId?: string; targetType?: string; reason?: string; reportId?: string; code?: string };
     const targetId = String(input.targetId || ""); const now = Date.now();
     if (input.action === "follow") {
       if (!targetId || targetId === viewer.id || await blockedBetween(viewer.id, targetId)) return NextResponse.json({ error: "This profile cannot be followed." }, { status: 403 });
@@ -91,11 +90,6 @@ export async function POST(request: Request) {
       const revoked = input.action === "revoke-invite" ? 1 : 0;
       await DB.prepare("UPDATE invites SET revoked = ? WHERE code = ? AND claimed_by IS NULL").bind(revoked, code).run();
       return NextResponse.json({ code, revoked: Boolean(revoked) });
-    }
-    if (input.action === "registration-mode") {
-      const mode = input.mode === "open" ? "open" : "invite";
-      await DB.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('registration_mode', ?)").bind(mode).run();
-      return NextResponse.json({ registrationMode: mode });
     }
     if (input.action === "suspend") {
       const target = await DB.prepare("SELECT role, status FROM users WHERE id = ?").bind(targetId).first<{ role: string; status: string }>();
