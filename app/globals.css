@@ -600,6 +600,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .invite-code-line code { font-size: 12px; font-weight: 800; letter-spacing: .08em; }
 .invite-status { padding: 3px 6px; border-radius: 999px; font-size: 12px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
 .invite-status.available { color: #28734f; background: #e7f6ee; }
+.invite-status.reserved { color: #7a591b; background: #fff2cf; }
 .invite-status.claimed { color: #3b5f94; background: #eaf1fb; }
 .invite-status.revoked { color: #9d3b48; background: #fbe9ec; }
 .admin-controls .invite-row .invite-meta { margin: 0; font-size: 12px; line-height: 1.45; }

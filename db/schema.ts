@@ -92,6 +92,8 @@ export const invites = sqliteTable("invites", {
   claimedBy: text("claimed_by"),
   createdAt: integer("created_at").notNull(),
   claimedAt: integer("claimed_at"),
+  reservedEmail: text("reserved_email"),
+  reservedAt: integer("reserved_at"),
   revoked: integer("revoked", { mode: "boolean" }).notNull().default(false),
 });
 

@@ -870,9 +870,9 @@ function SettingsModal({ profile, installPrompt, onInstallGuide, onClose, onSave
   );
 }
 
-type AdminInvite = { code: string; createdAt: number; claimedAt?: number | null; creatorUsername?: string; claimedUsername?: string; revoked: number };
+type AdminInvite = { code: string; createdAt: number; claimedAt?: number | null; reservedAt?: number | null; reservedEmail?: string | null; creatorUsername?: string; claimedUsername?: string; revoked: number };
 type AdminData = { invites: AdminInvite[]; reports: { id: string; targetType: string; targetId: string; reason: string; status: string; reporterUsername: string }[]; members: { id: string; username: string; displayName: string; status: string }[] };
-type InviteFilter = "all" | "available" | "claimed" | "revoked";
+type InviteFilter = "all" | "available" | "reserved" | "claimed" | "revoked";
 
 function adminDate(value?: number | null) {
   if (!value) return "Unknown date";
@@ -886,7 +886,7 @@ function AdminControls() {
   const [busyKey, setBusyKey] = useState("");
   const load = useCallback(async () => { const response = await fetch("/api/social"); const result = await readApiResponse<{ admin: AdminData }>(response, "Could not load admin tools."); setData(result.admin); }, []);
   useEffect(() => { fetch("/api/social").then((response) => readApiResponse<{ admin: AdminData }>(response, "Could not load admin tools.")).then((result) => setData(result.admin)).catch((reason) => setNotice(reason instanceof Error ? reason.message : "Could not load admin tools.")); }, []);
-  const visibleInvites = useMemo(() => data?.invites.filter((invite) => inviteFilter === "all" || (inviteFilter === "claimed" ? Boolean(invite.claimedUsername) : inviteFilter === "revoked" ? Boolean(invite.revoked) : !invite.claimedUsername && !invite.revoked)) || [], [data, inviteFilter]);
+  const visibleInvites = useMemo(() => data?.invites.filter((invite) => inviteFilter === "all" || (inviteFilter === "claimed" ? Boolean(invite.claimedUsername) : inviteFilter === "revoked" ? Boolean(invite.revoked) : inviteFilter === "reserved" ? Boolean(invite.reservedEmail) && !invite.claimedUsername && !invite.revoked : !invite.claimedUsername && !invite.reservedEmail && !invite.revoked)) || [], [data, inviteFilter]);
 
   async function act(payload: Record<string, unknown>, key = String(payload.action || "admin")) {
     setNotice(""); setBusyKey(key);
@@ -925,14 +925,15 @@ function AdminControls() {
     {notice && <p className="panel-notice" aria-live="polite">{notice}</p>}
     <details open>
       <summary>Invite codes ({data.invites.length})</summary>
-      <div className="invite-toolbar" aria-label="Filter invite codes">{(["all", "available", "claimed", "revoked"] as InviteFilter[]).map((filter) => <button type="button" className={inviteFilter === filter ? "active" : ""} key={filter} onClick={() => setInviteFilter(filter)}>{filter[0].toUpperCase() + filter.slice(1)}</button>)}</div>
+      <div className="invite-toolbar" aria-label="Filter invite codes">{(["all", "available", "reserved", "claimed", "revoked"] as InviteFilter[]).map((filter) => <button type="button" className={inviteFilter === filter ? "active" : ""} key={filter} onClick={() => setInviteFilter(filter)}>{filter[0].toUpperCase() + filter.slice(1)}</button>)}</div>
       <div className="invite-list">
         {visibleInvites.map((invite) => {
-          const status = invite.claimedUsername ? "claimed" : invite.revoked ? "revoked" : "available";
+          const status = invite.claimedUsername ? "claimed" : invite.revoked ? "revoked" : invite.reservedEmail ? "reserved" : "available";
           return <article className="invite-row" key={invite.code}>
             <div className="invite-code-line"><code>{invite.code}</code><span className={`invite-status ${status}`}>{status}</span></div>
             <p className="invite-meta">Created {adminDate(invite.createdAt)} by @{invite.creatorUsername || "admin"}</p>
             {invite.claimedUsername && <p className="invite-meta">Claimed {adminDate(invite.claimedAt)} by @{invite.claimedUsername}</p>}
+            {invite.reservedEmail && !invite.claimedUsername && <p className="invite-meta">Reserved {adminDate(invite.reservedAt)} for {invite.reservedEmail}</p>}
             <div className="invite-actions"><button type="button" onClick={() => copyInvite(invite.code)}>Copy</button>{!invite.claimedUsername && <button type="button" disabled={busyKey === `invite-${invite.code}`} onClick={() => changeInvite(invite)}>{busyKey === `invite-${invite.code}` ? "Updating…" : invite.revoked ? "Reactivate" : "Deactivate"}</button>}</div>
           </article>;
         })}

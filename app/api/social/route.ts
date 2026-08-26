@@ -24,7 +24,8 @@ export async function GET(request: Request) {
       .bind(viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, query, `%${query}%`, `%${query}%`).all();
     const unread = await DB.prepare("SELECT COUNT(*) AS total FROM notifications WHERE user_id = ? AND read_at IS NULL").bind(viewer.id).first<{ total: number }>();
     const admin = viewer.role === "admin" ? {
-      invites: (await DB.prepare(`SELECT i.code, i.created_at AS createdAt, i.claimed_at AS claimedAt, i.revoked,
+      invites: (await DB.prepare(`SELECT i.code, i.created_at AS createdAt, i.claimed_at AS claimedAt,
+        i.reserved_email AS reservedEmail, i.reserved_at AS reservedAt, i.revoked,
         claimed.username AS claimedUsername, creator.username AS creatorUsername FROM invites i
         LEFT JOIN users claimed ON claimed.id = i.claimed_by
         LEFT JOIN users creator ON creator.id = i.created_by
@@ -88,7 +89,10 @@ export async function POST(request: Request) {
       if (!invite) return NextResponse.json({ error: "Invite code not found." }, { status: 404 });
       if (invite.claimedBy) return NextResponse.json({ error: "A claimed invite cannot be changed." }, { status: 409 });
       const revoked = input.action === "revoke-invite" ? 1 : 0;
-      await DB.prepare("UPDATE invites SET revoked = ? WHERE code = ? AND claimed_by IS NULL").bind(revoked, code).run();
+      await DB.prepare(`UPDATE invites SET revoked = ?,
+        reserved_email = CASE WHEN ? = 1 THEN NULL ELSE reserved_email END,
+        reserved_at = CASE WHEN ? = 1 THEN NULL ELSE reserved_at END
+        WHERE code = ? AND claimed_by IS NULL`).bind(revoked, revoked, revoked, code).run();
       return NextResponse.json({ code, revoked: Boolean(revoked) });
     }
     if (input.action === "suspend") {

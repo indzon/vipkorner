@@ -10,13 +10,23 @@ function normalizeUsername(input: unknown) {
 
 export async function GET() {
   await ensureSchema();
-  const identity = await identityEmail();
-  const authProvider = supabaseConfigured() ? "supabase" : "chatgpt";
-  if (!identity) return NextResponse.json({ authenticated: false, authProvider, signInPath: authProvider === "supabase" ? "/login" : chatGPTSignInPath("/login") });
   const { DB } = bindings();
-  const user = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE email = ?`).bind(identity.email).first();
   const count = await DB.prepare("SELECT COUNT(*) AS total FROM users").first<{ total: number }>();
   const bootstrapRequired = !count?.total;
+  const identity = await identityEmail();
+  const authProvider = supabaseConfigured() ? "supabase" : "chatgpt";
+  if (!identity) return NextResponse.json({
+    authenticated: false,
+    authProvider,
+    bootstrapRequired,
+    inviteRequired: !bootstrapRequired,
+    signInPath: authProvider === "supabase" ? "/login" : chatGPTSignInPath("/login"),
+  });
+  const user = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE email = ?`).bind(identity.email).first();
+  const reservedInvite = !bootstrapRequired && !user
+    ? await DB.prepare(`SELECT code FROM invites WHERE lower(reserved_email) = lower(?)
+      AND claimed_by IS NULL AND revoked = 0 LIMIT 1`).bind(identity.email).first<{ code: string }>()
+    : null;
   const legacy = bootstrapRequired
     ? await DB.prepare("SELECT username, display_name AS displayName FROM profile WHERE id = 'me'").first<{ username: string; displayName: string }>()
     : null;
@@ -29,6 +39,7 @@ export async function GET() {
     suggestedDisplayName: legacy?.displayName || undefined,
     bootstrapRequired,
     inviteRequired: Boolean(count?.total),
+    inviteReserved: Boolean(reservedInvite),
     signOutPath: authProvider === "supabase" ? "/api/auth" : chatGPTSignOutPath("/login"),
   });
 }
@@ -49,18 +60,25 @@ export async function POST(request: Request) {
   const existing = await DB.prepare("SELECT id FROM users WHERE email = ? OR lower(username) = lower(?)").bind(identity.email, username).first<{ id: string }>();
   if (existing) return NextResponse.json({ error: "That account or username is already registered." }, { status: 409 });
   let inviteCode: string | null = null;
+  let inviteWasReserved = false;
   if (!firstUser) {
     const code = String(input.inviteCode || "").trim().toUpperCase();
-    const invite = await DB.prepare("SELECT code FROM invites WHERE code = ? AND claimed_by IS NULL AND revoked = 0").bind(code).first<{ code: string }>();
+    const invite = await DB.prepare(`SELECT code, reserved_email AS reservedEmail FROM invites
+      WHERE claimed_by IS NULL AND revoked = 0
+      AND ((lower(reserved_email) = lower(?)) OR (code = ? AND reserved_email IS NULL))
+      ORDER BY CASE WHEN lower(reserved_email) = lower(?) THEN 0 ELSE 1 END LIMIT 1`)
+      .bind(identity.email, code, identity.email).first<{ code: string; reservedEmail: string | null }>();
     if (!invite) return NextResponse.json({ error: "Enter a valid, active, unused invite code." }, { status: 403 });
     inviteCode = invite.code;
+    inviteWasReserved = Boolean(invite.reservedEmail);
   }
 
   const id = crypto.randomUUID();
   const now = Date.now();
   if (inviteCode) {
-    const claim = await DB.prepare(`UPDATE invites SET claimed_by = ?, claimed_at = ?
-      WHERE code = ? AND claimed_by IS NULL AND revoked = 0`).bind(id, now, inviteCode).run();
+    const claim = await DB.prepare(`UPDATE invites SET claimed_by = ?, claimed_at = ?, reserved_email = NULL, reserved_at = NULL
+      WHERE code = ? AND claimed_by IS NULL AND revoked = 0
+      AND (reserved_email IS NULL OR lower(reserved_email) = lower(?))`).bind(id, now, inviteCode, identity.email).run();
     const changed = Number((claim.meta as { changes?: number } | undefined)?.changes || 0);
     if (!claim.success || changed !== 1) return NextResponse.json({ error: "That invite code was just claimed or deactivated. Ask an administrator for another code." }, { status: 409 });
   }
@@ -75,7 +93,9 @@ export async function POST(request: Request) {
         firstUser ? legacy?.image_url || null : null, firstUser ? "admin" : "user",
         Number(firstUser ? legacy?.story_replies ?? 1 : 1), Number(firstUser ? legacy?.high_quality_uploads ?? 1 : 1), now, now).run();
   } catch (error) {
-    if (inviteCode) await DB.prepare("UPDATE invites SET claimed_by = NULL, claimed_at = NULL WHERE code = ? AND claimed_by = ?").bind(inviteCode, id).run();
+    if (inviteCode) await DB.prepare(`UPDATE invites SET claimed_by = NULL, claimed_at = NULL,
+      reserved_email = ?, reserved_at = ? WHERE code = ? AND claimed_by = ?`)
+      .bind(inviteWasReserved ? identity.email : null, inviteWasReserved ? now : null, inviteCode, id).run();
     throw error;
   }
   if (firstUser) {

@@ -14,6 +14,7 @@ type SessionState = {
   suggestedDisplayName?: string;
   bootstrapRequired?: boolean;
   inviteRequired?: boolean;
+  inviteReserved?: boolean;
 };
 
 export default function LoginPage() {
@@ -56,7 +57,7 @@ export default function LoginPage() {
   async function authenticate(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(""); setAuthNotice("");
     try {
-      const response = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: authAction, email, password, displayName }) });
+      const response = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: authAction, email, password, displayName, inviteCode, adult }) });
       const data = await response.json() as { error?: string; confirmationRequired?: boolean };
       if (!response.ok) throw new Error(data.error || "Could not authenticate.");
       if (data.confirmationRequired) { setAuthNotice("Check your email to confirm your account, then return here to sign in."); setBusy(false); return; }
@@ -87,8 +88,9 @@ export default function LoginPage() {
         {!session ? <div className="login-card login-loading"><span className="login-lock"><LockKeyhole /></span><h2>Checking access…</h2></div> : !session.authenticated && session.authProvider === "supabase" ? (
           <form className="login-card" onSubmit={authenticate}>
             <span className="login-lock"><LockKeyhole /></span><span className="eyebrow">WELCOME TO VIPKORNER</span><h2>{authAction === "sign-in" ? "Sign in securely" : "Create your login"}</h2>
-            <p className="login-subtitle">{authAction === "sign-in" ? "Use your email and password to continue." : "Create a secure login first. You’ll choose your public profile and enter an invite code next."}</p>
+            <p className="login-subtitle">{authAction === "sign-in" ? "Use your email and password to continue." : "Enter your invite first, then create your secure login and public profile."}</p>
             {authAction === "sign-up" && <label className="login-field"><span>Name</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={50} required /></label>}
+            {authAction === "sign-up" && session.inviteRequired && <label className="login-field"><span>Invite code</span><input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase().replace(/\s/g, ""))} autoCapitalize="characters" autoComplete="one-time-code" required /></label>}
             <label className="login-field"><span>Email</span><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
             <label className="login-field"><span>Password</span><input type="password" autoComplete={authAction === "sign-in" ? "current-password" : "new-password"} minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
             <div className="age-disclaimer" role="note"><strong>Adults only — 18+</strong><p>Anyone under 18 is prohibited from accessing, registering for, or using VipKorner.</p></div>
@@ -116,7 +118,8 @@ export default function LoginPage() {
             <p className="login-subtitle">{session.bootstrapRequired ? "Review the profile name and username for the first administrator. Existing posts, stories, and media will be preserved." : "Choose the public identity people will see."}</p>
             <label className="login-field"><span>Name</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={50} autoComplete="name" required /></label>
             <label className="login-field"><span>Username</span><div className="input-prefix"><i>@</i><input value={username} onChange={(event) => setUsername(event.target.value.replace(/\s/g, "").replace(/[^a-zA-Z0-9._]/g, ""))} minLength={3} maxLength={30} pattern="[A-Za-z0-9._]{3,30}" autoCapitalize="none" autoComplete="username" aria-describedby="username-help" required /></div><small id="username-help" className="login-field-help">At least 3 letters, numbers, dots, or underscores.</small></label>
-            {!session.bootstrapRequired && session.inviteRequired && <label className="login-field"><span>Invite code</span><input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase())} required /></label>}
+            {!session.bootstrapRequired && session.inviteRequired && !session.inviteReserved && <label className="login-field"><span>Invite code</span><input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase().replace(/\s/g, ""))} autoCapitalize="characters" autoComplete="one-time-code" required /></label>}
+            {!session.bootstrapRequired && session.inviteReserved && <p className="panel-notice" role="status">Invitation accepted for this email address.</p>}
             <div className="age-disclaimer" role="note"><strong>Adults only — 18+</strong><p>VipKorner is strictly for adults age 18 and older.</p></div>
             <label className="age-confirmation"><input type="checkbox" checked={adult} onChange={(event) => setAdult(event.target.checked)} /><span><Check /></span><p>I confirm that I am at least 18 years old and agree to the adults-only access policy.</p></label>
             {error && <p className="login-error" role="alert">{error}</p>}

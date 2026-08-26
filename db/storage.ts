@@ -76,7 +76,7 @@ export async function ensureSchema() {
     )`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS invites (
       code TEXT PRIMARY KEY, created_by TEXT NOT NULL, claimed_by TEXT, created_at INTEGER NOT NULL,
-      claimed_at INTEGER, revoked INTEGER NOT NULL DEFAULT 0
+      claimed_at INTEGER, reserved_email TEXT, reserved_at INTEGER, revoked INTEGER NOT NULL DEFAULT 0
     )`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS follows (
       follower_id TEXT NOT NULL, followed_id TEXT NOT NULL, created_at INTEGER NOT NULL,
@@ -156,6 +156,14 @@ export async function ensureSchema() {
   }
   if (!profileColumns.results.some((column) => column.name === "image_url")) {
     await DB.prepare("ALTER TABLE profile ADD COLUMN image_url TEXT").run();
+  }
+
+  const inviteColumns = await DB.prepare("PRAGMA table_info(invites)").all<{ name: string }>();
+  if (!inviteColumns.results.some((column) => column.name === "reserved_email")) {
+    await DB.prepare("ALTER TABLE invites ADD COLUMN reserved_email TEXT").run();
+  }
+  if (!inviteColumns.results.some((column) => column.name === "reserved_at")) {
+    await DB.prepare("ALTER TABLE invites ADD COLUMN reserved_at INTEGER").run();
   }
 
   await DB.prepare(`INSERT OR IGNORE INTO profile (
