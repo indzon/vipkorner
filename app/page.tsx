@@ -70,6 +70,7 @@ type Profile = {
   role: "admin" | "user";
   following: number;
   followers: number;
+  identityDisplayName?: string;
 };
 
 type Story = {
@@ -355,7 +356,7 @@ export default function HomePage() {
         {view === "home" ? (
           <>
             <StoriesTray stories={stories} profile={profile} onAdd={() => setComposer("story")} onOpen={(story) => setActiveStoryId(story.id)} />
-            <div className="feed-title"><div><span className="eyebrow">YOUR FEED</span><h1>Good afternoon, {profile.displayName.split(" ")[0]}</h1></div><button onClick={() => setComposer("post")}><Plus size={17} /> New post</button></div>
+            <div className="feed-title"><div><span className="eyebrow">YOUR FEED</span><h1>Good afternoon, {(profile.identityDisplayName || profile.displayName).split(" ")[0]}</h1></div><button onClick={() => setComposer("post")}><Plus size={17} /> New post</button></div>
             <section className="feed" aria-label="Posts">
               {loading ? <FeedSkeleton /> : filteredPosts.length ? filteredPosts.map((post) => <PostCard key={post.id} post={post} profile={profile} onToggle={togglePost} onComment={addComment} onCaptionUpdate={updateCaption} onDelete={deletePost} />) : <EmptyState searched={Boolean(query)} onCreate={() => setComposer("post")} />}
             </section>

@@ -18,6 +18,7 @@ export type AppUser = {
   storyReplies: number | boolean;
   highQualityUploads: number | boolean;
   createdAt: number;
+  identityDisplayName?: string;
 };
 
 const USER_SELECT = `id, email, username, display_name AS displayName, bio, website, location,
@@ -41,7 +42,8 @@ export async function currentUser(): Promise<AppUser | null> {
   await ensureSchema();
   const identity = await identityEmail();
   if (!identity) return null;
-  return bindings().DB.prepare(`SELECT ${USER_SELECT} FROM users WHERE email = ?`).bind(identity.email).first<AppUser>();
+  const user = await bindings().DB.prepare(`SELECT ${USER_SELECT} FROM users WHERE email = ?`).bind(identity.email).first<AppUser>();
+  return user ? { ...user, identityDisplayName: identity.displayName } : null;
 }
 
 export async function requireUser(): Promise<AppUser> {
