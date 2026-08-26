@@ -1,0 +1,352 @@
+/* ============================================================================
+   VipKorner Design System — Token Layer
+   Direction: Midnight Marquee
+   Version:   1.0.0
+
+   Drop-in. Import this BEFORE vipkorner-theme.css and before any component
+   styles. It defines primitives (--vk-*-NNN) and semantic aliases (--vk-role).
+
+   RULES
+   1. Components reference SEMANTIC tokens only. Never a primitive, never a
+      raw hex. If a component needs a colour with no semantic name, the
+      colour is missing from the system — add it here, don't inline it.
+   2. Primitives are a closed set. Adding a new hex to this file is a design
+      decision and needs a contrast check (see the ratios noted inline).
+   3. The legacy variables at the bottom keep the current app rendering while
+      it migrates. They are a bridge, not part of the system. Delete them
+      once no selector references --ink / --accent / --plum etc.
+
+   CONTRAST
+   Every ratio noted below was computed against the surface named. AA needs
+   4.5:1 for body text, 3:1 for large text (>=24px, or >=18.66px bold) and
+   for meaningful non-text boundaries (WCAG 1.4.11).
+   ========================================================================= */
+
+:root {
+
+  /* ==========================================================================
+     1. PRIMITIVES — NEUTRAL RAMP
+     A slightly cool near-black so warm photography reads warm against it.
+     ========================================================================= */
+  --vk-ink-000: #08080A;   /* app canvas — the darkest surface           */
+  --vk-ink-050: #0E0E11;   /* nav bars, translucent chrome base          */
+  --vk-ink-100: #121216;   /* default surface: cards, panels             */
+  --vk-ink-150: #17171C;   /* hover fill on surface                      */
+  --vk-ink-200: #1C1C22;   /* raised: menus, inputs, media letterbox     */
+  --vk-ink-300: #24242B;   /* overlay: modals above a scrim              */
+  --vk-ink-400: #33333C;   /* pressed fill, skeleton base                */
+  --vk-ink-500: #4A4A54;   /* disabled fill                              */
+  --vk-ink-600: #6B6B76;   /* strong border  — 3.22:1 on ink-200         */
+  --vk-ink-700: #948E87;   /* subtle text    — 4.76:1 on ink-300         */
+  --vk-ink-800: #A9A39C;   /* muted text     — 6.17:1 on ink-300         */
+  --vk-ink-900: #F6F3EF;   /* primary text   — 13.94:1 on ink-300        */
+
+  /* Alpha neutrals — for hairlines and fills that must sit on ANY surface
+     (including over photography, where an opaque grey would band). */
+  --vk-alpha-04: rgba(255, 255, 255, .04);
+  --vk-alpha-07: rgba(255, 255, 255, .07);
+  --vk-alpha-10: rgba(255, 255, 255, .10);
+  --vk-alpha-14: rgba(255, 255, 255, .14);
+  --vk-alpha-18: rgba(255, 255, 255, .18);
+  --vk-alpha-28: rgba(255, 255, 255, .28);
+  --vk-alpha-40: rgba(255, 255, 255, .40);
+
+  /* ==========================================================================
+     2. PRIMITIVES — BRAND
+     Gold is the metal: identity, primary action, focus. It replaces the
+     retired --plum entirely. Rose is reserved for affection and alerts —
+     likes, unread counts — so it never competes with a primary action.
+     ========================================================================= */
+  --vk-gold-100: #FBEFD6;
+  --vk-gold-300: #F3D08A;  /* focus ring   — 12.64:1 on ink-100 */
+  --vk-gold-500: #E8B455;  /* brand        —  9.87:1 on ink-100 */
+  --vk-gold-700: #B8853A;
+  --vk-gold-900: #7A5722;
+
+  --vk-rose-100: #FBD9E1;
+  --vk-rose-300: #F49BAF;  /* rose text on raised surfaces — 8.20:1 */
+  --vk-rose-500: #E9506F;  /* like / active — 5.20:1 on ink-100 */
+  --vk-rose-700: #C22C4C;  /* badge FILL: white on this = 5.59:1 */
+  --vk-rose-900: #7C1A2E;
+
+  --vk-ember-300: #F7A98D;
+  --vk-ember-500: #F0704A;  /* gradient partner only, never a lone signal */
+  --vk-ember-700: #C1502E;
+
+  /* ==========================================================================
+     3. PRIMITIVES — STATUS
+     No purple, no teal. Success is a warm-leaning green (hue 126), never a
+     mint or a teal. Info has no blue: gold carries informational weight.
+     ========================================================================= */
+  --vk-green-300: #A5D2A8;
+  --vk-green-500: #6FB574;  /* 7.60:1 on ink-100 */
+  --vk-green-700: #3F7C46;
+
+  --vk-red-300: #F09189;    /* 8.11:1 on ink-100 — danger TEXT */
+  --vk-red-500: #E5544A;    /* 5.07:1 on ink-100 */
+  --vk-red-700: #C4362C;    /* danger FILL: white on this = 5.37:1 */
+
+  /* ==========================================================================
+     4. SEMANTIC — SURFACE
+     ========================================================================= */
+  --vk-bg:                 var(--vk-ink-000);
+  --vk-bg-gradient:        radial-gradient(120% 90% at 50% -10%, #16161B 0%, #0C0C0F 46%, var(--vk-ink-000) 100%);
+  --vk-surface:            var(--vk-ink-100);
+  --vk-surface-hover:      var(--vk-ink-150);
+  --vk-surface-raised:     var(--vk-ink-200);
+  --vk-surface-overlay:    var(--vk-ink-300);
+  --vk-surface-pressed:    var(--vk-ink-400);
+  --vk-surface-disabled:   var(--vk-ink-500);
+  --vk-surface-chrome:     rgba(14, 14, 17, .78);  /* + backdrop-filter */
+  --vk-surface-translucent: var(--vk-alpha-07);
+
+  /* ==========================================================================
+     5. SEMANTIC — TEXT
+     ========================================================================= */
+  --vk-text:            var(--vk-ink-900);
+  --vk-text-muted:      var(--vk-ink-800);
+  --vk-text-subtle:     var(--vk-ink-700);   /* floor: never below this */
+  --vk-text-disabled:   var(--vk-ink-600);   /* non-informational only  */
+  --vk-text-on-brand:   #12100B;             /* on gold — 10.04:1 */
+  --vk-text-on-accent:  #FFFFFF;             /* on rose-700 — 5.59:1 */
+  --vk-text-on-danger:  #FFFFFF;             /* on red-700 — 5.37:1 */
+  --vk-text-on-media:   #FFFFFF;             /* always over a scrim */
+
+  /* ==========================================================================
+     6. SEMANTIC — BORDER
+     border-subtle is DECORATIVE. If a border is the only thing telling a
+     user where a control is, use border-strong (>=3:1).
+     ========================================================================= */
+  --vk-border-subtle:   var(--vk-alpha-10);
+  --vk-border:          var(--vk-alpha-14);
+  --vk-border-strong:   var(--vk-ink-600);
+  --vk-border-brand:    var(--vk-gold-500);
+  --vk-border-danger:   var(--vk-red-500);
+  --vk-focus-ring:      var(--vk-gold-300);
+  --vk-focus-width:     2px;
+  --vk-focus-offset:    2px;
+
+  /* ==========================================================================
+     7. SEMANTIC — INTERACTIVE
+     ========================================================================= */
+  --vk-brand:              var(--vk-gold-500);
+  --vk-brand-hover:        var(--vk-gold-300);
+  --vk-brand-active:       var(--vk-gold-700);
+  --vk-brand-subtle:       rgba(232, 180, 85, .14);
+  --vk-brand-gradient:     linear-gradient(140deg, var(--vk-gold-500), var(--vk-gold-300) 55%, var(--vk-ember-500));
+
+  --vk-accent:             var(--vk-rose-500);   /* likes, active story */
+  --vk-accent-fill:        var(--vk-rose-700);   /* badges — carries white */
+  --vk-accent-subtle:      rgba(233, 80, 111, .14);
+
+  --vk-danger:             var(--vk-red-500);
+  --vk-danger-fill:        var(--vk-red-700);
+  --vk-danger-subtle:      rgba(229, 84, 74, .12);
+  --vk-success:            var(--vk-green-500);
+  --vk-success-subtle:     rgba(111, 181, 116, .13);
+  --vk-warning:            var(--vk-gold-500);
+  --vk-warning-subtle:     var(--vk-brand-subtle);
+
+  /* ==========================================================================
+     8. SEMANTIC — MEDIA
+     The dark-canvas problem: a photo with dark edges dissolves into the
+     background. Every media surface gets an inset hairline and a letterbox
+     colour that is lighter than the canvas, never black.
+     ========================================================================= */
+  --vk-media-bg:        var(--vk-ink-200);
+  --vk-media-hairline:  inset 0 0 0 1px rgba(255, 255, 255, .06);
+  --vk-media-radius:    var(--vk-radius-lg);
+  --vk-scrim-bottom:    linear-gradient(to top, rgba(8,8,10,.92) 0%, rgba(8,8,10,.72) 28%, transparent 78%);
+  --vk-scrim-top:       linear-gradient(to bottom, rgba(8,8,10,.66), transparent 62%);
+  --vk-scrim-full:      rgba(6, 6, 8, .82);   /* modal backdrop */
+  --vk-grain:           url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+
+  /* ==========================================================================
+     9. TYPOGRAPHY
+     Two families. The serif is for editorial voice — headlines, the brand,
+     story titles. Everything functional is the sans.
+
+     MINIMUM SIZE IS 11px, AND ONLY FOR UPPERCASE TRACKED LABELS.
+     Anything a user must read to operate the app is 12px or larger.
+     ========================================================================= */
+  /* NOTE the fallback inside var(). --font-geist is injected by next/font at
+     runtime. Written as `var(--font-geist)` with no fallback, a missing value
+     makes the WHOLE font-family declaration invalid at computed-value time and
+     every element in the app silently falls back to the browser default serif.
+     The second argument is what makes this safe outside a Next render. */
+  --vk-font-sans:  var(--font-geist, system-ui), -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, sans-serif;
+  --vk-font-serif: "New York", Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --vk-font-mono:  ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  --vk-size-micro:   11px;   /* uppercase + .16em tracking + 700 ONLY */
+  --vk-size-xs:      12px;   /* timestamps, counts, secondary meta     */
+  --vk-size-sm:      13px;   /* dense UI, captions in cards            */
+  --vk-size-base:    15px;   /* body                                   */
+  --vk-size-md:      17px;   /* lead paragraphs, section titles        */
+  --vk-size-lg:      20px;
+  --vk-size-xl:      24px;
+  --vk-size-2xl:     30px;
+  --vk-size-3xl:     clamp(28px, 3.4vw, 38px);
+  --vk-size-display: clamp(38px, 5.6vw, 62px);
+
+  --vk-weight-regular:  400;
+  --vk-weight-medium:   500;
+  --vk-weight-semibold: 600;
+  --vk-weight-bold:     700;
+  --vk-weight-heavy:    800;
+
+  --vk-leading-tight:   1.08;
+  --vk-leading-snug:    1.25;
+  --vk-leading-normal:  1.5;
+  --vk-leading-relaxed: 1.65;
+
+  --vk-tracking-display: -.035em;
+  --vk-tracking-tight:   -.02em;
+  --vk-tracking-normal:  0;
+  --vk-tracking-wide:    .06em;
+  --vk-tracking-micro:   .16em;
+
+  /* ==========================================================================
+     10. SPACE — 4px base. No value outside this scale ships.
+     ========================================================================= */
+  --vk-space-0:  0;
+  --vk-space-1:  4px;
+  --vk-space-2:  8px;
+  --vk-space-3:  12px;
+  --vk-space-4:  16px;
+  --vk-space-5:  20px;
+  --vk-space-6:  24px;
+  --vk-space-7:  32px;
+  --vk-space-8:  40px;
+  --vk-space-9:  48px;
+  --vk-space-10: 64px;
+  --vk-space-11: 80px;
+
+  /* ==========================================================================
+     11. RADIUS
+     ========================================================================= */
+  --vk-radius-xs:     6px;
+  --vk-radius-sm:     9px;
+  --vk-radius-md:     12px;
+  --vk-radius-lg:     16px;
+  --vk-radius-xl:     20px;
+  --vk-radius-2xl:    28px;
+  --vk-radius-sheet:  22px 22px 0 0;   /* mobile bottom sheets */
+  --vk-radius-pill:   999px;
+  --vk-radius-circle: 50%;
+
+  /* ==========================================================================
+     12. ELEVATION
+     On a dark canvas a drop shadow alone is nearly invisible. Every raised
+     surface pairs a shadow with a 1px light hairline — the hairline does
+     the separating, the shadow does the depth.
+     ========================================================================= */
+  --vk-elev-0: none;
+  --vk-elev-1: 0 1px 2px rgba(0,0,0,.45),  0 0 0 1px var(--vk-alpha-07);
+  --vk-elev-2: 0 6px 18px rgba(0,0,0,.48), 0 0 0 1px var(--vk-alpha-07);
+  --vk-elev-3: 0 14px 40px rgba(0,0,0,.55), 0 0 0 1px var(--vk-alpha-10);
+  --vk-elev-4: 0 28px 70px rgba(0,0,0,.62), 0 0 0 1px var(--vk-alpha-10);
+  --vk-glow-brand:  0 6px 18px rgba(232, 180, 85, .26);
+  --vk-glow-accent: 0 4px 14px rgba(194, 44, 76, .34);
+
+  /* ==========================================================================
+     13. MOTION
+     Every duration/easing pair is named for the gesture it serves.
+     All of it collapses under prefers-reduced-motion (see theme file).
+     ========================================================================= */
+  --vk-dur-instant: 90ms;
+  --vk-dur-fast:    140ms;
+  --vk-dur-base:    200ms;
+  --vk-dur-slow:    300ms;
+  --vk-dur-slower:  440ms;
+
+  --vk-ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --vk-ease-entrance: cubic-bezier(0, 0, 0, 1);
+  --vk-ease-exit:     cubic-bezier(.3, 0, 1, 1);
+  --vk-ease-spring:   cubic-bezier(.34, 1.4, .64, 1);
+
+  --vk-transition-control: background var(--vk-dur-fast) var(--vk-ease-standard),
+                           color var(--vk-dur-fast) var(--vk-ease-standard),
+                           border-color var(--vk-dur-fast) var(--vk-ease-standard),
+                           transform var(--vk-dur-fast) var(--vk-ease-standard);
+
+  /* ==========================================================================
+     14. Z-INDEX — replaces the 13 ad-hoc values currently in globals.css.
+     Nothing gets a raw z-index. Layers are 10 apart so one-off stacking
+     inside a layer never leaks into the next.
+     ========================================================================= */
+  --vk-z-base:     0;
+  --vk-z-raised:   10;   /* scrims, play indicators, media overlays */
+  --vk-z-dropdown: 20;   /* post menu, search results               */
+  --vk-z-sticky:   30;   /* mobile header, sticky search            */
+  --vk-z-nav:      40;   /* mobile tab bar                          */
+  --vk-z-backdrop: 100;  /* modal scrim                             */
+  --vk-z-modal:    110;  /* composer, settings, viewer              */
+  --vk-z-story:    140;  /* full-screen story player                */
+  --vk-z-toast:    150;  /* always on top                           */
+
+  /* ==========================================================================
+     15. LAYOUT
+     ========================================================================= */
+  --vk-shell-nav:      230px;
+  --vk-shell-feed-min: 500px;
+  --vk-shell-feed-max: 630px;
+  --vk-shell-rail:     280px;
+  --vk-shell-gap:      var(--vk-space-11);
+
+  --vk-header-height:  59px;
+  --vk-tabbar-height:  62px;
+  /* Two target sizes, and only two.
+     tap-target  44px — the default for every standalone control. Meets WCAG
+                        2.5.5 (AAA) and is the platform touch convention.
+     tap-compact 38px — dense inline rows only (card action pairs, viewer
+                        toolbars, modal header buttons). Well above the 24px
+                        WCAG 2.5.8 (AA) floor, and never used for a control
+                        that stands alone.
+     Nothing between them, and nothing below them. The current stylesheet has
+     controls at 30, 32, 34 and 36px; those all resolve to tap-compact. */
+  --vk-tap-target:     44px;
+  --vk-tap-compact:    38px;
+  --vk-content-max:    var(--vk-shell-feed-max);
+
+  --vk-safe-top:    env(safe-area-inset-top, 0px);
+  --vk-safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Breakpoints are documented here but CSS custom properties cannot be used
+     in media queries. Keep these in sync with the theme file by hand:
+       --vk-bp-rail:    1180px   right rail narrows / nav collapses to icons
+       --vk-bp-desktop:  930px   right rail drops
+       --vk-bp-mobile:   720px   single column + bottom tab bar
+     ========================================================================= */
+}
+
+/* ============================================================================
+   16. LEGACY BRIDGE — delete when migration completes
+   Maps the nine variables globals.css uses today onto the new system so the
+   existing stylesheet renders on the dark canvas without being rewritten
+   first. --plum is deliberately mapped to gold: nothing purple ships.
+   ========================================================================= */
+:root {
+  --ink:    var(--vk-text);
+  --muted:  var(--vk-text-muted);
+  --line:   var(--vk-border-subtle);
+  --paper:  var(--vk-surface);
+  --cream:  var(--vk-bg);
+  --accent: var(--vk-accent);
+  --coral:  var(--vk-ember-500);
+  --plum:   var(--vk-brand);
+  --shadow: var(--vk-elev-2);
+}
+
+/* ============================================================================
+   17. FORCED COLORS / HIGH CONTRAST
+   Windows high-contrast mode strips backgrounds. Keep boundaries visible.
+   ========================================================================= */
+@media (forced-colors: active) {
+  :root {
+    --vk-border-subtle: CanvasText;
+    --vk-border:        CanvasText;
+    --vk-border-strong: CanvasText;
+    --vk-focus-ring:    Highlight;
+  }
+}

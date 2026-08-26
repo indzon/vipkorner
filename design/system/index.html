@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VipKorner Design System — Midnight Marquee</title>
+
+<!-- The specimens below are rendered by the SHIPPED stylesheets, not a copy.
+     If a component looks wrong here, it is wrong in the app. -->
+<link rel="stylesheet" href="vipkorner-tokens.css" />
+<link rel="stylesheet" href="vipkorner-theme.css" />
+
+<style>
+/* Documentation chrome only. Every rule is .doc-* prefixed so it can never
+   collide with a production class. */
+.doc-layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:var(--vk-space-10);width:min(1500px,calc(100% - 56px));margin:0 auto;align-items:start;}
+.doc-side{position:sticky;top:0;height:100dvh;overflow-y:auto;padding:var(--vk-space-8) 0;border-right:1px solid var(--vk-border-subtle);}
+.doc-side h4{margin:var(--vk-space-6) 0 var(--vk-space-2);font-size:var(--vk-size-micro);letter-spacing:var(--vk-tracking-micro);text-transform:uppercase;color:var(--vk-text-subtle);font-weight:var(--vk-weight-bold);}
+.doc-side a{display:block;padding:6px 0;color:var(--vk-text-muted);font-size:var(--vk-size-sm);text-decoration:none;}
+.doc-side a:hover{color:var(--vk-text);}
+.doc-main{padding:var(--vk-space-8) 0 var(--vk-space-11);min-width:0;}
+.doc-hero{padding-bottom:var(--vk-space-8);border-bottom:1px solid var(--vk-border-subtle);}
+.doc-hero h1{margin:var(--vk-space-4) 0 var(--vk-space-4);font-family:var(--vk-font-serif);font-weight:var(--vk-weight-medium);font-size:var(--vk-size-display);line-height:var(--vk-leading-tight);letter-spacing:var(--vk-tracking-display);}
+.doc-hero p{color:var(--vk-text-muted);font-size:var(--vk-size-md);line-height:var(--vk-leading-relaxed);max-width:68ch;}
+.doc-meta{display:flex;flex-wrap:wrap;gap:var(--vk-space-2);margin-top:var(--vk-space-6);}
+.doc-pill{border:1px solid var(--vk-border-subtle);border-radius:var(--vk-radius-pill);padding:6px var(--vk-space-3);font-size:var(--vk-size-xs);color:var(--vk-text-muted);}
+.doc-pill b{color:var(--vk-text);font-weight:var(--vk-weight-semibold);}
+section[id]{scroll-margin-top:var(--vk-space-5);padding:var(--vk-space-10) 0 0;}
+.doc-h2{display:flex;align-items:baseline;gap:var(--vk-space-4);margin-bottom:var(--vk-space-3);flex-wrap:wrap;}
+.doc-h2 h2{margin:0;font-family:var(--vk-font-serif);font-weight:var(--vk-weight-medium);font-size:var(--vk-size-2xl);letter-spacing:var(--vk-tracking-display);}
+.doc-h2 span{color:var(--vk-text-subtle);font-size:var(--vk-size-micro);letter-spacing:var(--vk-tracking-micro);text-transform:uppercase;font-weight:var(--vk-weight-bold);}
+.doc-lede{color:var(--vk-text-muted);font-size:var(--vk-size-base);line-height:var(--vk-leading-relaxed);max-width:74ch;margin-bottom:var(--vk-space-6);}
+.doc-h3{margin:var(--vk-space-8) 0 var(--vk-space-3);font-size:var(--vk-size-md);font-weight:var(--vk-weight-semibold);letter-spacing:var(--vk-tracking-tight);}
+.doc-p{color:var(--vk-text-muted);font-size:var(--vk-size-sm);line-height:var(--vk-leading-relaxed);max-width:74ch;margin:0 0 var(--vk-space-4);}
+.doc-p + .doc-p{margin-top:calc(-1 * var(--vk-space-2));}
+
+.doc-demo{padding:var(--vk-space-6);border:1px solid var(--vk-border-subtle);border-radius:var(--vk-radius-lg);background:var(--vk-bg);margin-bottom:var(--vk-space-4);position:relative;}
+.doc-demo.on-surface{background:var(--vk-surface);}
+.doc-demo-label{position:absolute;top:var(--vk-space-2);right:var(--vk-space-3);font-size:var(--vk-size-micro);letter-spacing:var(--vk-tracking-micro);text-transform:uppercase;color:var(--vk-text-subtle);font-weight:var(--vk-weight-bold);}
+.doc-row{display:flex;flex-wrap:wrap;gap:var(--vk-space-4);align-items:center;}
+.doc-stack{display:flex;flex-direction:column;gap:var(--vk-space-4);}
+.doc-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--vk-space-4);}
+.doc-narrow{max-width:520px;}
+
+table.doc-t{width:100%;border-collapse:collapse;font-size:var(--vk-size-sm);margin-bottom:var(--vk-space-5);}
+table.doc-t th,table.doc-t td{text-align:left;padding:var(--vk-space-3);border-bottom:1px solid var(--vk-border-subtle);vertical-align:top;line-height:var(--vk-leading-normal);}
+table.doc-t th{font-size:var(--vk-size-micro);letter-spacing:var(--vk-tracking-micro);text-transform:uppercase;color:var(--vk-text-subtle);font-weight:var(--vk-weight-bold);border-bottom-color:var(--vk-border);}
+table.doc-t td:first-child{color:var(--vk-text);font-weight:var(--vk-weight-medium);white-space:nowrap;}
+table.doc-t code,.doc-code{font-family:var(--vk-font-mono);font-size:12px;color:var(--vk-brand);background:var(--vk-brand-subtle);padding:1px 5px;border-radius:var(--vk-radius-xs);}
+.doc-num{font-variant-numeric:tabular-nums;}
+.doc-pass{color:var(--vk-success);font-weight:var(--vk-weight-semibold);}
+.doc-fail{color:var(--vk-red-300);font-weight:var(--vk-weight-semibold);}
+
+.doc-swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:var(--vk-space-2);}
+.doc-sw{border:1px solid var(--vk-border-subtle);border-radius:var(--vk-radius-md);overflow:hidden;background:var(--vk-surface);}
+.doc-sw i{display:block;height:64px;}
+.doc-sw div{padding:var(--vk-space-2) var(--vk-space-3) var(--vk-space-3);}
+.doc-sw strong{display:block;font-size:var(--vk-size-xs);font-weight:var(--vk-weight-semibold);}
+.doc-sw span{display:block;margin-top:2px;font-family:var(--vk-font-mono);font-size:11px;color:var(--vk-text-subtle);}
+.doc-sw em{display:block;margin-top:4px;font-style:normal;font-size:11px;color:var(--vk-text-muted);}
+
+.doc-rule{padding:var(--vk-space-4) var(--vk-space-5);border-left:2px solid var(--vk-brand);background:var(--vk-brand-subtle);border-radius:0 var(--vk-radius-md) var(--vk-radius-md) 0;color:var(--vk-text);font-size:var(--vk-size-sm);line-height:var(--vk-leading-relaxed);margin:0 0 var(--vk-space-5);max-width:74ch;}
+.doc-warn{border-left-color:var(--vk-red-500);background:var(--vk-danger-subtle);}
+.doc-ok{border-left-color:var(--vk-success);background:var(--vk-success-subtle);}
+.doc-rule b{font-weight:var(--vk-weight-bold);}
+
+.doc-do{display:grid;grid-template-columns:1fr 1fr;gap:var(--vk-space-4);margin-bottom:var(--vk-space-5);}
+.doc-do > div{padding:var(--vk-space-4);border-radius:var(--vk-radius-md);border:1px solid var(--vk-border-subtle);font-size:var(--vk-size-sm);line-height:var(--vk-leading-relaxed);color:var(--vk-text-muted);}
+.doc-do h5{margin:0 0 var(--vk-space-2);font-size:var(--vk-size-micro);letter-spacing:var(--vk-tracking-micro);text-transform:uppercase;font-weight:var(--vk-weight-bold);}
+.doc-do .yes h5{color:var(--vk-success);}
+.doc-do .no h5{color:var(--vk-red-300);}
+
+pre.doc-pre{margin:0 0 var(--vk-space-5);padding:var(--vk-space-4);border:1px solid var(--vk-border-subtle);border-radius:var(--vk-radius-md);background:var(--vk-surface-raised);overflow-x:auto;font-family:var(--vk-font-mono);font-size:12.5px;line-height:1.7;color:var(--vk-ink-800);}
+pre.doc-pre b{color:var(--vk-brand);font-weight:400;}
+pre.doc-pre i{color:var(--vk-text-subtle);font-style:normal;}
+
+/* Media stand-ins so the page is self-contained. */
+img.doc-m{background-size:cover;}
+img.doc-a1{background:linear-gradient(150deg,#8A4B34,#2B1811);}
+img.doc-a2{background:linear-gradient(150deg,#6B4A24,#241A11);}
+img.doc-a3{background:linear-gradient(150deg,#7A3140,#2A171C);}
+img.doc-a4{background:linear-gradient(150deg,#4C5A3A,#1A1D14);}
+img.doc-g1{background:linear-gradient(155deg,#8A4B34,#2B1811);}
+img.doc-g2{background:linear-gradient(155deg,#6B4A24,#241A11);}
+img.doc-g3{background:linear-gradient(155deg,#7A3140,#2A171C);}
+.doc-scale-row{display:flex;align-items:baseline;gap:var(--vk-space-5);padding:var(--vk-space-3) 0;border-bottom:1px solid var(--vk-border-subtle);}
+.doc-scale-row > span:first-child{flex:0 0 108px;font-family:var(--vk-font-mono);font-size:11px;color:var(--vk-text-subtle);}
+.doc-scale-row > span:last-child{margin-left:auto;flex:0 0 92px;text-align:right;font-family:var(--vk-font-mono);font-size:11px;color:var(--vk-text-subtle);}
+.doc-space-bar{background:var(--vk-brand);height:14px;border-radius:2px;}
+.doc-radius-box{width:74px;height:74px;background:var(--vk-surface-raised);border:1px solid var(--vk-border);display:grid;place-items:center;font-family:var(--vk-font-mono);font-size:10px;color:var(--vk-text-subtle);}
+.doc-elev-box{width:118px;height:82px;border-radius:var(--vk-radius-md);background:var(--vk-surface);display:grid;place-items:center;font-family:var(--vk-font-mono);font-size:10px;color:var(--vk-text-subtle);}
+.doc-z{display:flex;flex-direction:column-reverse;gap:2px;}
+.doc-z div{padding:var(--vk-space-2) var(--vk-space-3);border-radius:var(--vk-radius-xs);background:var(--vk-surface-raised);border:1px solid var(--vk-border-subtle);font-size:var(--vk-size-xs);display:flex;justify-content:space-between;gap:var(--vk-space-4);}
+.doc-z div span{font-family:var(--vk-font-mono);color:var(--vk-text-subtle);}
+.doc-phase{display:grid;grid-template-columns:auto 1fr;gap:var(--vk-space-4);align-items:start;padding:var(--vk-space-4) 0;border-bottom:1px solid var(--vk-border-subtle);}
+.doc-phase b{width:30px;height:30px;display:grid;place-items:center;border-radius:var(--vk-radius-circle);background:var(--vk-brand-subtle);color:var(--vk-brand);font-size:var(--vk-size-xs);font-weight:var(--vk-weight-bold);}
+.doc-phase h5{margin:4px 0 var(--vk-space-2);font-size:var(--vk-size-sm);font-weight:var(--vk-weight-semibold);}
+.doc-phase p{margin:0;color:var(--vk-text-muted);font-size:var(--vk-size-sm);line-height:var(--vk-leading-relaxed);}
+.doc-foot{margin-top:var(--vk-space-10);padding-top:var(--vk-space-6);border-top:1px solid var(--vk-border-subtle);color:var(--vk-text-subtle);font-size:var(--vk-size-xs);line-height:var(--vk-leading-relaxed);}
+ul.doc-list{margin:0 0 var(--vk-space-5);padding-left:var(--vk-space-5);color:var(--vk-text-muted);font-size:var(--vk-size-sm);line-height:var(--vk-leading-relaxed);max-width:74ch;}
+ul.doc-list li{margin-bottom:var(--vk-space-2);}
+ul.doc-list strong{color:var(--vk-text);font-weight:var(--vk-weight-semibold);}
+
+@media (max-width:980px){
+  .doc-layout{grid-template-columns:1fr;gap:var(--vk-space-6);width:calc(100% - 32px);}
+  .doc-side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--vk-border-subtle);}
+  .doc-do{grid-template-columns:1fr;}
+  /* Wide content scrolls inside its own container — the page body never
+     scrolls horizontally. Same rule the app's tables should follow. */
+  table.doc-t{display:block;overflow-x:auto;max-width:100%;}
+  table.doc-t td:first-child{white-space:normal;}
+  .doc-demo{padding:var(--vk-space-4);}
+  .doc-scale-row{flex-wrap:wrap;gap:var(--vk-space-2);}
+  .doc-scale-row > span:first-child{flex:0 0 auto;}
+  .doc-scale-row > span:last-child{flex:0 0 auto;margin-left:0;text-align:left;}
+  .doc-hero h1{font-size:38px;}
+}
+</style>
+</head>
+<body>
+<div class="doc-layout">
+
+  <!-- ==================== SIDEBAR ==================== -->
+  <nav class="doc-side">
+    <div class="brand" style="cursor:default"><span class="brand-mark">V</span>VipKorner</div>
+    <h4>Start</h4>
+    <a href="#overview">Overview</a>
+    <a href="#audit">What it replaces</a>
+    <a href="#install">Installation</a>
+    <h4>Foundations</h4>
+    <a href="#color">Color</a>
+    <a href="#contrast">Contrast</a>
+    <a href="#media">Media on dark</a>
+    <a href="#type">Typography</a>
+    <a href="#space">Space &amp; radius</a>
+    <a href="#elevation">Elevation</a>
+    <a href="#motion">Motion</a>
+    <a href="#layers">Layers &amp; layout</a>
+    <h4>Components</h4>
+    <a href="#buttons">Buttons</a>
+    <a href="#nav">Navigation</a>
+    <a href="#stories">Stories</a>
+    <a href="#marquee">Marquee</a>
+    <a href="#post">Post card</a>
+    <a href="#forms">Forms</a>
+    <a href="#people">People &amp; explore</a>
+    <a href="#messages">Messages</a>
+    <a href="#modals">Modals</a>
+    <a href="#feedback">Feedback states</a>
+    <a href="#invites">Invitations</a>
+    <h4>Practice</h4>
+    <a href="#a11y">Accessibility</a>
+    <a href="#adoption">Adoption plan</a>
+    <a href="#governance">Governance</a>
+    <a href="#scope">Out of scope</a>
+  </nav>
+
+  <!-- ==================== MAIN ==================== -->
+  <main class="doc-main">
+
+    <header class="doc-hero">
+      <div class="eyebrow">✦ VipKorner Design System · v1.0.0</div>
+      <h1>Midnight Marquee</h1>
+      <p>A production design system for vipkorner.app: a token layer, a theme layer keyed to the class names the app already uses, and the rules that keep them coherent. Content is the only bright thing on screen. Gold is the metal. Everything else recedes.</p>
+      <div class="doc-meta">
+        <span class="doc-pill"><b>210 / 210</b> classes in globals.css covered</span>
+        <span class="doc-pill"><b>175 / 175</b> classNames in page.tsx covered</span>
+        <span class="doc-pill"><b>0</b> raw hex outside gradient stops</span>
+        <span class="doc-pill"><b>No</b> purple · <b>No</b> teal</span>
+        <span class="doc-pill"><b>Drop-in</b> — no markup changes</span>
+      </div>
+    </header>
+
+    <!-- ============ OVERVIEW ============ -->
+    <section id="overview">
+      <div class="doc-h2"><h2>Overview</h2><span>Three files</span></div>
+      <p class="doc-lede">The system ships as three files plus this page. Nothing in <code class="doc-code">app/</code>, <code class="doc-code">lib/</code>, <code class="doc-code">worker/</code> or <code class="doc-code">db/</code> is modified by adopting it — the theme targets the selectors that are already there.</p>
+      <table class="doc-t">
+        <thead><tr><th>File</th><th>What it is</th><th>When you touch it</th></tr></thead>
+        <tbody>
+          <tr><td><code class="doc-code">vipkorner-tokens.css</code></td><td>Primitives and semantic aliases. The only place a colour, size, duration or z-index is invented.</td><td>Adding or retiring a design decision. Rare, and reviewed.</td></tr>
+          <tr><td><code class="doc-code">vipkorner-theme.css</code></td><td>Every component in the app, styled entirely from tokens. Same selectors as today's <code class="doc-code">globals.css</code>.</td><td>Building or changing a component.</td></tr>
+          <tr><td><code class="doc-code">tokens.json</code></td><td>The same tokens, machine-readable — for a Tailwind theme extension, a Figma sync, or a lint rule.</td><td>Wiring tooling.</td></tr>
+          <tr><td><code class="doc-code">index.html</code></td><td>This page. Its specimens are rendered by the two stylesheets above, not by copies.</td><td>Reviewing. If a specimen looks wrong here, it is wrong in the app.</td></tr>
+        </tbody>
+      </table>
+      <p class="doc-rule"><b>The one rule that matters.</b> Components reference semantic tokens. Semantic tokens reference primitives. Primitives are the only literals. If a component needs a colour that has no semantic name, the colour is missing from the system — add it to the token file, don't inline it.</p>
+    </section>
+
+    <!-- ============ AUDIT ============ -->
+    <section id="audit">
+      <div class="doc-h2"><h2>What it replaces</h2><span>Measured, not estimated</span></div>
+      <p class="doc-lede">These counts come from the current <code class="doc-code">app/globals.css</code> (672 lines) and <code class="doc-code">app/page.tsx</code> (1,108 lines). They are the argument for the system: the app already has a design language, it just isn't written down anywhere a second person could follow.</p>
+      <table class="doc-t">
+        <thead><tr><th>Decision</th><th>Today</th><th>Under the system</th><th>Why it matters</th></tr></thead>
+        <tbody>
+          <tr><td>Colour</td><td class="doc-num">155 distinct literals, 202 uses, against 9 variables</td><td class="doc-num">24 primitives → 38 semantic roles</td><td>A rebrand today is 202 find-and-replaces. It becomes one file.</td></tr>
+          <tr><td>Type size</td><td class="doc-num">26 distinct values, incl. 7px, 8px, 9px×24, 10px×34</td><td class="doc-num">10 steps, 11px floor</td><td>Roughly a third of the app's text currently sits below a comfortable reading size.</td></tr>
+          <tr><td>Spacing</td><td class="doc-num">110 distinct px values</td><td class="doc-num">12-step 4px scale</td><td>Rhythm becomes a decision instead of an accident.</td></tr>
+          <tr><td>Radius</td><td class="doc-num">22 distinct values</td><td class="doc-num">9 tokens</td><td>9px, 10px, 11px, 12px and 13px all appear. Nobody can tell them apart; everybody has to choose between them.</td></tr>
+          <tr><td>Elevation</td><td class="doc-num">18 distinct shadows</td><td class="doc-num">4 levels + 2 glows</td><td>Depth stops being per-component improvisation.</td></tr>
+          <tr><td>Motion</td><td class="doc-num">10 duration/easing combinations</td><td class="doc-num">5 durations × 4 easings, named</td><td>Interactions start to feel like one hand made them.</td></tr>
+          <tr><td>Layering</td><td class="doc-num">13 ad-hoc z-index values (1 → 150)</td><td class="doc-num">9-step named scale</td><td>The next modal-behind-the-nav bug is prevented rather than debugged.</td></tr>
+        </tbody>
+      </table>
+      <p class="doc-rule doc-warn"><b>Two findings worth acting on independently of this system.</b> First: three classes — <code class="doc-code">.add-story</code>, <code class="doc-code">.login-loading</code>, <code class="doc-code">.member-profile-page</code> — are applied in <code class="doc-code">page.tsx</code> but have no rule anywhere in <code class="doc-code">globals.css</code>. They render unstyled today. The theme defines them; audit whether they're dead markup instead. Second: <code class="doc-code">app/page.tsx</code> holds all five views in one 1,108-line file. Split it before a redesign lands on top of it, not after.</p>
+    </section>
+
+    <!-- ============ INSTALL ============ -->
+    <section id="install">
+      <div class="doc-h2"><h2>Installation</h2><span>Import order is load-bearing</span></div>
+<pre class="doc-pre"><i>/* app/globals.css */</i>
+@import "tailwindcss";
+@import "../design/system/vipkorner-tokens.css";   <i>/* primitives + semantics */</i>
+@import "../design/system/vipkorner-theme.css";    <i>/* components            */</i>
+
+<i>/* Nothing else. Any rule that survives below this line is a migration
+   leftover — track it down and delete it. */</i></pre>
+      <p class="doc-p">Tokens must load before the theme, and the theme must load after Tailwind's preflight so the base resets don't win. The token file ends with a <b>legacy bridge</b> that maps the nine variables the current stylesheet uses (<code class="doc-code">--ink</code>, <code class="doc-code">--accent</code>, <code class="doc-code">--plum</code>…) onto the new system — so the existing <code class="doc-code">globals.css</code> renders correctly on the dark canvas from the first commit, before a single component is migrated. Delete the bridge when nothing references those names.</p>
+      <p class="doc-p"><code class="doc-code">--plum</code> is deliberately bridged to gold. If any purple appears after installation, something is bypassing the token layer.</p>
+      <p class="doc-rule doc-warn"><b>One gotcha found while building this.</b> The current stylesheet writes <code class="doc-code">font-family: var(--font-geist), Arial, sans-serif</code>. <code class="doc-code">--font-geist</code> is injected by <code class="doc-code">next/font</code> at runtime — and if it is ever absent (a static export, a stylesheet loaded outside a Next render, a font-loading failure), <code class="doc-code">var()</code> with no fallback makes the <em>entire</em> declaration invalid at computed-value time and every element in the app silently reverts to the browser's default serif. The token file writes <code class="doc-code">var(--font-geist, system-ui)</code> instead. Worth fixing in <code class="doc-code">globals.css</code> today regardless of whether this system ships.</p>
+    </section>
+
+    <!-- ============ COLOR ============ -->
+    <section id="color">
+      <div class="doc-h2"><h2>Color</h2><span>Foundations</span></div>
+      <p class="doc-lede">A slightly cool near-black canvas, so warm photography reads warm against it. Gold carries identity and action. Rose carries affection and alerts — likes, unread counts — so it never competes with a primary button. Nothing in the palette falls in the purple (255–330°) or teal (155–205°) hue bands.</p>
+
+      <h3 class="doc-h3">Neutral ramp</h3>
+      <div class="doc-swatches">
+        <div class="doc-sw"><i style="background:#08080A"></i><div><strong>ink-000</strong><span>#08080A</span><em>App canvas</em></div></div>
+        <div class="doc-sw"><i style="background:#0E0E11"></i><div><strong>ink-050</strong><span>#0E0E11</span><em>Chrome base</em></div></div>
+        <div class="doc-sw"><i style="background:#121216"></i><div><strong>ink-100</strong><span>#121216</span><em>Surface</em></div></div>
+        <div class="doc-sw"><i style="background:#17171C"></i><div><strong>ink-150</strong><span>#17171C</span><em>Hover</em></div></div>
+        <div class="doc-sw"><i style="background:#1C1C22"></i><div><strong>ink-200</strong><span>#1C1C22</span><em>Raised</em></div></div>
+        <div class="doc-sw"><i style="background:#24242B"></i><div><strong>ink-300</strong><span>#24242B</span><em>Overlay</em></div></div>
+        <div class="doc-sw"><i style="background:#33333C"></i><div><strong>ink-400</strong><span>#33333C</span><em>Pressed</em></div></div>
+        <div class="doc-sw"><i style="background:#4A4A54"></i><div><strong>ink-500</strong><span>#4A4A54</span><em>Disabled fill</em></div></div>
+        <div class="doc-sw"><i style="background:#6B6B76"></i><div><strong>ink-600</strong><span>#6B6B76</span><em>Strong border</em></div></div>
+        <div class="doc-sw"><i style="background:#948E87"></i><div><strong>ink-700</strong><span>#948E87</span><em>Subtle text</em></div></div>
+        <div class="doc-sw"><i style="background:#A9A39C"></i><div><strong>ink-800</strong><span>#A9A39C</span><em>Muted text</em></div></div>
+        <div class="doc-sw"><i style="background:#F6F3EF"></i><div><strong>ink-900</strong><span>#F6F3EF</span><em>Text</em></div></div>
+      </div>
+
+      <h3 class="doc-h3">Brand and accent</h3>
+      <div class="doc-swatches">
+        <div class="doc-sw"><i style="background:#FBEFD6"></i><div><strong>gold-100</strong><span>#FBEFD6</span></div></div>
+        <div class="doc-sw"><i style="background:#F3D08A"></i><div><strong>gold-300</strong><span>#F3D08A</span><em>Focus ring, hover</em></div></div>
+        <div class="doc-sw"><i style="background:#E8B455"></i><div><strong>gold-500</strong><span>#E8B455</span><em>Brand, primary</em></div></div>
+        <div class="doc-sw"><i style="background:#B8853A"></i><div><strong>gold-700</strong><span>#B8853A</span><em>Pressed</em></div></div>
+        <div class="doc-sw"><i style="background:#F49BAF"></i><div><strong>rose-300</strong><span>#F49BAF</span></div></div>
+        <div class="doc-sw"><i style="background:#E9506F"></i><div><strong>rose-500</strong><span>#E9506F</span><em>Like, active story</em></div></div>
+        <div class="doc-sw"><i style="background:#C22C4C"></i><div><strong>rose-700</strong><span>#C22C4C</span><em>Badge fill</em></div></div>
+        <div class="doc-sw"><i style="background:#F0704A"></i><div><strong>ember-500</strong><span>#F0704A</span><em>Gradient partner</em></div></div>
+        <div class="doc-sw"><i style="background:#6FB574"></i><div><strong>green-500</strong><span>#6FB574</span><em>Success</em></div></div>
+        <div class="doc-sw"><i style="background:#F09189"></i><div><strong>red-300</strong><span>#F09189</span><em>Danger text</em></div></div>
+        <div class="doc-sw"><i style="background:#C4362C"></i><div><strong>red-700</strong><span>#C4362C</span><em>Danger fill</em></div></div>
+      </div>
+
+      <div class="doc-do">
+        <div class="yes"><h5>Do</h5>Use gold for the one action you want taken on a screen. Use rose only where the app is expressing feeling or urgency — a like, an unread count, an active story ring. Use ember only as the far stop of a gradient it shares with gold.</div>
+        <div class="no"><h5>Don't</h5>Put gold and rose in the same button row as two competing primaries. Use ember as a standalone signal — at 6.34:1 it reads as "warning" to people who can't distinguish it from gold. Introduce a fourth hue without retiring one.</div>
+      </div>
+
+      <p class="doc-rule"><b>Why no blue for "info".</b> Adding a cool hue to a warm palette on a near-black canvas costs more than it returns — it reads as a system alert from a different product. Informational states use gold at low opacity (<code class="doc-code">--vk-brand-subtle</code>). Teal is excluded by constraint; purple is retired with <code class="doc-code">--plum</code>.</p>
+    </section>
+
+    <!-- ============ CONTRAST ============ -->
+    <section id="contrast">
+      <div class="doc-h2"><h2>Contrast</h2><span>Computed, not eyeballed</span></div>
+      <p class="doc-lede">Every ratio below is computed against the named surface. AA requires 4.5:1 for body text, 3:1 for large text (≥24px, or ≥18.66px bold) and for non-text boundaries that carry meaning (WCAG 1.4.11). The <em>lowest</em> value in each row is what governs whether the token is safe.</p>
+      <table class="doc-t">
+        <thead><tr><th>Foreground</th><th>on ink-000</th><th>on surface</th><th>on raised</th><th>on overlay</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td>text <code class="doc-code">#F6F3EF</code></td><td class="doc-num">18.09</td><td class="doc-num">16.89</td><td class="doc-num">15.33</td><td class="doc-num">13.94</td><td class="doc-pass">AAA everywhere</td></tr>
+          <tr><td>text-muted <code class="doc-code">#A9A39C</code></td><td class="doc-num">8.01</td><td class="doc-num">7.48</td><td class="doc-num">6.79</td><td class="doc-num">6.17</td><td class="doc-pass">AA everywhere</td></tr>
+          <tr><td>text-subtle <code class="doc-code">#948E87</code></td><td class="doc-num">6.17</td><td class="doc-num">5.76</td><td class="doc-num">5.23</td><td class="doc-num">4.76</td><td class="doc-pass">AA everywhere</td></tr>
+          <tr><td>brand <code class="doc-code">#E8B455</code></td><td class="doc-num">10.57</td><td class="doc-num">9.87</td><td class="doc-num">8.95</td><td class="doc-num">8.14</td><td class="doc-pass">AA everywhere</td></tr>
+          <tr><td>accent <code class="doc-code">#E9506F</code></td><td class="doc-num">5.57</td><td class="doc-num">5.20</td><td class="doc-num">4.72</td><td class="doc-num">4.29</td><td class="doc-fail">Not on overlay</td></tr>
+          <tr><td>success <code class="doc-code">#6FB574</code></td><td class="doc-num">8.14</td><td class="doc-num">7.60</td><td class="doc-num">6.89</td><td class="doc-num">6.27</td><td class="doc-pass">AA everywhere</td></tr>
+          <tr><td>danger text <code class="doc-code">#F09189</code></td><td class="doc-num">8.69</td><td class="doc-num">8.11</td><td class="doc-num">7.36</td><td class="doc-num">6.69</td><td class="doc-pass">AA everywhere</td></tr>
+          <tr><td>ember <code class="doc-code">#F0704A</code></td><td class="doc-num">6.79</td><td class="doc-num">6.34</td><td class="doc-num">5.75</td><td class="doc-num">5.23</td><td class="doc-pass">AA, but see note</td></tr>
+        </tbody>
+      </table>
+      <p class="doc-rule doc-warn"><b>Two rules fall out of this table.</b> Rose <code class="doc-code">#E9506F</code> reaches only 4.29:1 on the modal overlay — inside a modal, rose text steps up to <code class="doc-code">rose-300 #F49BAF</code> (7.45:1). And <b>white never sits on rose-500</b> (3.59:1, fails). Notification badges use <code class="doc-code">rose-700 #C22C4C</code>, where white reaches 5.59:1. The current app puts 9px white numerals on <code class="doc-code">#e95072</code>; that combination fails twice over — colour and size.</p>
+      <table class="doc-t">
+        <thead><tr><th>Filled control</th><th>Text colour</th><th>Ratio</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td>Primary — gold-500</td><td>ink <code class="doc-code">#12100B</code></td><td class="doc-num">10.04</td><td class="doc-pass">AAA</td></tr>
+          <tr><td>Badge — rose-700</td><td>white</td><td class="doc-num">5.59</td><td class="doc-pass">AA</td></tr>
+          <tr><td>Danger — red-700</td><td>white</td><td class="doc-num">5.37</td><td class="doc-pass">AA</td></tr>
+          <tr><td>Focus ring — gold-300 on surface</td><td>—</td><td class="doc-num">12.64</td><td class="doc-pass">Far above the 3:1 floor</td></tr>
+          <tr><td>border-subtle <code class="doc-code">rgba(255,255,255,.10)</code></td><td>—</td><td class="doc-num">1.19</td><td class="doc-fail">Decorative only</td></tr>
+          <tr><td>border-strong <code class="doc-code">#6B6B76</code></td><td>—</td><td class="doc-num">3.22</td><td class="doc-pass">Meaningful boundaries</td></tr>
+        </tbody>
+      </table>
+      <p class="doc-p">The border distinction is the one most easily got wrong. A hairline that merely separates two stacked cards can sit at 1.19:1 — it is decoration. A border that is the <em>only</em> thing telling someone where an input begins must be <code class="doc-code">--vk-border-strong</code>.</p>
+    </section>
+
+    <!-- ============ MEDIA ============ -->
+    <section id="media">
+      <div class="doc-h2"><h2>Media on a dark canvas</h2><span>The problem this direction creates</span></div>
+      <p class="doc-lede">VipKorner is a photo and video product, and its users control the content. On a light canvas a dark photo has an edge. On near-black, a photo with dark corners dissolves into the page — the card loses its shape, and a portrait shot at night looks like a rendering bug. Three rules handle it.</p>
+      <div class="doc-cols">
+        <div class="doc-demo">
+          <span class="doc-demo-label">1 · Hairline</span>
+          <div style="height:120px;border-radius:var(--vk-radius-md);background:linear-gradient(160deg,#241318,#0A0809);box-shadow:var(--vk-media-hairline);"></div>
+          <p class="doc-p" style="margin:var(--vk-space-3) 0 0;">Every media surface carries <code class="doc-code">--vk-media-hairline</code>: a 6%-white inset ring. It costs nothing on a bright photo and rescues a dark one.</p>
+        </div>
+        <div class="doc-demo">
+          <span class="doc-demo-label">2 · Letterbox</span>
+          <div style="height:120px;border-radius:var(--vk-radius-md);background:var(--vk-media-bg);display:grid;place-items:center;"><div style="width:56%;height:100%;background:linear-gradient(155deg,#8A4B34,#2B1811);"></div></div>
+          <p class="doc-p" style="margin:var(--vk-space-3) 0 0;">Letterbox bars use <code class="doc-code">--vk-media-bg #1C1C22</code>, never black. Black bars read as broken; a lighter well reads as a frame.</p>
+        </div>
+        <div class="doc-demo">
+          <span class="doc-demo-label">3 · Scrim</span>
+          <div style="position:relative;height:120px;border-radius:var(--vk-radius-md);overflow:hidden;background:linear-gradient(160deg,#5A2229,#160F11);">
+            <div style="position:absolute;inset:auto 0 0;height:70%;background:var(--vk-scrim-bottom);"></div>
+            <span style="position:absolute;left:12px;bottom:10px;color:#fff;font-size:var(--vk-size-sm);font-weight:600;">Text over media</span>
+          </div>
+          <p class="doc-p" style="margin:var(--vk-space-3) 0 0;">Text over media <em>always</em> sits on <code class="doc-code">--vk-scrim-bottom</code> or <code class="doc-code">--vk-scrim-top</code>. Contrast against an unknown photo can't be computed, so it's guaranteed structurally instead.</p>
+        </div>
+      </div>
+      <p class="doc-rule doc-warn"><b>Test with real uploads before shipping.</b> A dark-canvas redesign roughly doubles the visual QA surface for user media: night photography, screenshots with white backgrounds, portrait video with black bars, and transparent PNGs all behave differently than they do today. This is the single largest risk in Option A, and it is not a risk the token layer can retire on its own.</p>
+    </section>
+
+    <!-- ============ TYPE ============ -->
+    <section id="type">
+      <div class="doc-h2"><h2>Typography</h2><span>Two families, ten steps</span></div>
+      <p class="doc-lede">The serif carries editorial voice — the brand, headlines, story titles, section headings. Everything functional is the sans. There is no third family.</p>
+
+      <div class="doc-demo">
+        <div style="font-family:var(--vk-font-serif);font-weight:500;font-size:44px;line-height:1.05;letter-spacing:-.035em;">Your people. Your moments.</div>
+        <div style="margin-top:var(--vk-space-3);color:var(--vk-text-muted);font-size:var(--vk-size-sm);">Serif · New York / Georgia · weight 500 · tracking −3.5%</div>
+        <hr style="border:0;border-top:1px solid var(--vk-border-subtle);margin:var(--vk-space-5) 0;">
+        <div style="font-size:20px;font-weight:600;letter-spacing:-.02em;">Follow · Message · Share to your korner</div>
+        <div style="margin-top:var(--vk-space-3);color:var(--vk-text-muted);font-size:var(--vk-size-sm);">Sans · system stack · weight 600 for labels · tabular numerals for counts</div>
+      </div>
+
+      <h3 class="doc-h3">The scale</h3>
+      <div class="doc-demo">
+        <div class="doc-scale-row"><span>display</span><span style="font-family:var(--vk-font-serif);font-weight:500;font-size:48px;letter-spacing:-.035em;line-height:1;">Korner</span><span>clamp 38–62</span></div>
+        <div class="doc-scale-row"><span>3xl</span><span style="font-family:var(--vk-font-serif);font-weight:500;font-size:34px;letter-spacing:-.035em;">Korner</span><span>clamp 28–38</span></div>
+        <div class="doc-scale-row"><span>2xl</span><span style="font-family:var(--vk-font-serif);font-weight:500;font-size:30px;letter-spacing:-.035em;">Korner</span><span>30px</span></div>
+        <div class="doc-scale-row"><span>xl</span><span style="font-size:24px;font-weight:600;letter-spacing:-.02em;">Korner</span><span>24px</span></div>
+        <div class="doc-scale-row"><span>lg</span><span style="font-size:20px;font-weight:600;">Korner</span><span>20px</span></div>
+        <div class="doc-scale-row"><span>md</span><span style="font-size:17px;">Lead paragraph size</span><span>17px</span></div>
+        <div class="doc-scale-row"><span>base</span><span style="font-size:15px;">Body copy, captions in the composer</span><span>15px</span></div>
+        <div class="doc-scale-row"><span>sm</span><span style="font-size:13px;">Dense UI, post captions, list rows</span><span>13px</span></div>
+        <div class="doc-scale-row"><span>xs</span><span style="font-size:12px;color:var(--vk-text-muted);">Timestamps, counts, secondary meta</span><span>12px</span></div>
+        <div class="doc-scale-row"><span>micro</span><span class="eyebrow" style="color:var(--vk-text-subtle)">Uppercase labels only</span><span>11px</span></div>
+      </div>
+
+      <p class="doc-rule doc-warn"><b>The 11px floor, and why it moved.</b> The current stylesheet uses 9px 24 times, 10px 34 times, 8px five times and 7px once — meaning a large share of the interface sits below comfortable reading size, including timestamps, comment counts and menu items people are expected to act on. Under this system <b>11px exists only for uppercase, 700-weight, .16em-tracked labels</b> — a shape you read as a marker, not as a sentence. Anything a person must read to operate the app is 12px or larger. This is the change that will require the most edits, and the one users will feel most.</p>
+
+      <table class="doc-t">
+        <thead><tr><th>Role</th><th>Token</th><th>Family / weight</th><th>Where</th></tr></thead>
+        <tbody>
+          <tr><td>Display</td><td><code class="doc-code">--vk-size-display</code></td><td>serif 500 / −3.5%</td><td>Login story, marketing hero</td></tr>
+          <tr><td>Page title</td><td><code class="doc-code">--vk-size-3xl</code></td><td>serif 500</td><td><code class="doc-code">.feed-title h1</code></td></tr>
+          <tr><td>Section title</td><td><code class="doc-code">--vk-size-2xl</code></td><td>serif 500</td><td><code class="doc-code">.section-heading h1</code>, <code class="doc-code">.profile-info h1</code></td></tr>
+          <tr><td>Modal title</td><td><code class="doc-code">--vk-size-lg</code></td><td>serif 500</td><td><code class="doc-code">.modal-header h2</code></td></tr>
+          <tr><td>Body</td><td><code class="doc-code">--vk-size-base</code></td><td>sans 400 / 1.5</td><td>Composer, message bubbles</td></tr>
+          <tr><td>UI label</td><td><code class="doc-code">--vk-size-sm</code></td><td>sans 600</td><td>Buttons, nav, list rows</td></tr>
+          <tr><td>Meta</td><td><code class="doc-code">--vk-size-xs</code></td><td>sans 400</td><td>Timestamps, counts</td></tr>
+          <tr><td>Micro label</td><td><code class="doc-code">--vk-size-micro</code></td><td>sans 700 / uppercase / .16em</td><td><code class="doc-code">.eyebrow</code>, tab labels, statuses</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ SPACE ============ -->
+    <section id="space">
+      <div class="doc-h2"><h2>Space &amp; radius</h2><span>4px base</span></div>
+      <p class="doc-lede">Twelve steps replace 110 ad-hoc pixel values. If a layout needs something between two steps, the layout is wrong — not the scale.</p>
+      <div class="doc-demo doc-stack">
+        <div class="doc-scale-row"><span>space-1</span><div class="doc-space-bar" style="width:4px"></div><span>4px</span></div>
+        <div class="doc-scale-row"><span>space-2</span><div class="doc-space-bar" style="width:8px"></div><span>8px</span></div>
+        <div class="doc-scale-row"><span>space-3</span><div class="doc-space-bar" style="width:12px"></div><span>12px</span></div>
+        <div class="doc-scale-row"><span>space-4</span><div class="doc-space-bar" style="width:16px"></div><span>16px</span></div>
+        <div class="doc-scale-row"><span>space-5</span><div class="doc-space-bar" style="width:20px"></div><span>20px</span></div>
+        <div class="doc-scale-row"><span>space-6</span><div class="doc-space-bar" style="width:24px"></div><span>24px</span></div>
+        <div class="doc-scale-row"><span>space-7</span><div class="doc-space-bar" style="width:32px"></div><span>32px</span></div>
+        <div class="doc-scale-row"><span>space-8</span><div class="doc-space-bar" style="width:40px"></div><span>40px</span></div>
+        <div class="doc-scale-row"><span>space-9</span><div class="doc-space-bar" style="width:48px"></div><span>48px</span></div>
+        <div class="doc-scale-row"><span>space-10</span><div class="doc-space-bar" style="width:64px"></div><span>64px</span></div>
+        <div class="doc-scale-row"><span>space-11</span><div class="doc-space-bar" style="width:80px"></div><span>80px</span></div>
+      </div>
+      <h3 class="doc-h3">Radius</h3>
+      <div class="doc-demo doc-row">
+        <div class="doc-radius-box" style="border-radius:var(--vk-radius-xs)">xs 6</div>
+        <div class="doc-radius-box" style="border-radius:var(--vk-radius-sm)">sm 9</div>
+        <div class="doc-radius-box" style="border-radius:var(--vk-radius-md)">md 12</div>
+        <div class="doc-radius-box" style="border-radius:var(--vk-radius-lg)">lg 16</div>
+        <div class="doc-radius-box" style="border-radius:var(--vk-radius-xl)">xl 20</div>
+        <div class="doc-radius-box" style="border-radius:var(--vk-radius-2xl)">2xl 28</div>
+        <div class="doc-radius-box" style="border-radius:var(--vk-radius-pill)">pill</div>
+        <div class="doc-radius-box" style="border-radius:var(--vk-radius-circle)">circle</div>
+      </div>
+      <table class="doc-t">
+        <thead><tr><th>Token</th><th>Applies to</th></tr></thead>
+        <tbody>
+          <tr><td>xs 6px</td><td>Profile grid tiles, inline code, focus ring rounding</td></tr>
+          <tr><td>sm 9px</td><td>Brand mark, small chips</td></tr>
+          <tr><td>md 12px</td><td>Inputs, nav buttons, dropdown menus, toasts</td></tr>
+          <tr><td>lg 16px</td><td>Panels, person cards, message bubbles, media frames</td></tr>
+          <tr><td>xl 20px</td><td>Post card, marquee, empty states</td></tr>
+          <tr><td>2xl 28px</td><td>Modals</td></tr>
+          <tr><td>pill / circle</td><td>Buttons, badges, avatars, story rings, toggles</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ ELEVATION ============ -->
+    <section id="elevation">
+      <div class="doc-h2"><h2>Elevation</h2><span>Shadow plus hairline, always</span></div>
+      <p class="doc-lede">On a near-black canvas a drop shadow is nearly invisible — there is no light to occlude. Every level therefore pairs a shadow with a 1px light ring: the ring does the separating, the shadow does the depth. Shipping one without the other is the most common dark-mode mistake.</p>
+      <div class="doc-demo doc-row" style="gap:var(--vk-space-6)">
+        <div class="doc-elev-box" style="box-shadow:var(--vk-elev-1)">elev-1</div>
+        <div class="doc-elev-box" style="box-shadow:var(--vk-elev-2)">elev-2</div>
+        <div class="doc-elev-box" style="box-shadow:var(--vk-elev-3)">elev-3</div>
+        <div class="doc-elev-box" style="box-shadow:var(--vk-elev-4)">elev-4</div>
+        <div class="doc-elev-box" style="box-shadow:var(--vk-glow-brand);background:var(--vk-brand);color:var(--vk-text-on-brand)">glow-brand</div>
+      </div>
+      <table class="doc-t">
+        <thead><tr><th>Level</th><th>Used by</th></tr></thead>
+        <tbody>
+          <tr><td>elev-1</td><td>Active nav button, person card at rest, active conversation</td></tr>
+          <tr><td>elev-2</td><td>Post card, audio toggle, play indicator</td></tr>
+          <tr><td>elev-3</td><td>Post menu, toast, marquee, media viewer card</td></tr>
+          <tr><td>elev-4</td><td>Modals and the story frame — anything over a backdrop</td></tr>
+          <tr><td>glow-brand / glow-accent</td><td>Brand mark, mobile create button, notification badge. Never on a large surface.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ MOTION ============ -->
+    <section id="motion">
+      <div class="doc-h2"><h2>Motion</h2><span>Named for the gesture</span></div>
+      <p class="doc-lede">Five durations, four easings. A transition names the gesture it serves rather than a number, so the same interaction feels the same everywhere in the app.</p>
+      <table class="doc-t">
+        <thead><tr><th>Token</th><th>Value</th><th>Use</th></tr></thead>
+        <tbody>
+          <tr><td><code class="doc-code">dur-instant</code></td><td>90ms</td><td>Colour-only state change — hover on a text button</td></tr>
+          <tr><td><code class="doc-code">dur-fast</code></td><td>140ms</td><td>Control feedback: buttons, toggles, icon hovers</td></tr>
+          <tr><td><code class="doc-code">dur-base</code></td><td>200ms</td><td>Dropdowns, backdrop fade, toggle knob travel</td></tr>
+          <tr><td><code class="doc-code">dur-slow</code></td><td>300ms</td><td>Modal entrance, toast, like animation</td></tr>
+          <tr><td><code class="doc-code">dur-slower</code></td><td>440ms</td><td>Full-screen transitions — story viewer open</td></tr>
+          <tr><td><code class="doc-code">ease-standard</code></td><td>cubic-bezier(.2,0,0,1)</td><td>Default for anything already on screen</td></tr>
+          <tr><td><code class="doc-code">ease-entrance</code></td><td>cubic-bezier(0,0,0,1)</td><td>Things arriving — decelerate in</td></tr>
+          <tr><td><code class="doc-code">ease-exit</code></td><td>cubic-bezier(.3,0,1,1)</td><td>Things leaving — accelerate out</td></tr>
+          <tr><td><code class="doc-code">ease-spring</code></td><td>cubic-bezier(.34,1.4,.64,1)</td><td>Affective only: the like pop, the toggle knob, the toast</td></tr>
+        </tbody>
+      </table>
+      <p class="doc-rule"><b>Reduced motion is not a null case.</b> Under <code class="doc-code">prefers-reduced-motion</code> everything collapses to 0.01ms — but the story progress bar is a <em>timer</em>, not decoration. It snaps to full instead of vanishing, so a person who can't see the animation still knows where they are in the sequence. Auto-advance keeps working.</p>
+    </section>
+
+    <!-- ============ LAYERS ============ -->
+    <section id="layers">
+      <div class="doc-h2"><h2>Layers &amp; layout</h2><span>Nine layers, three breakpoints</span></div>
+      <p class="doc-lede">Thirteen ad-hoc z-index values become nine named layers, spaced ten apart so local stacking inside a layer never leaks into the next.</p>
+      <div class="doc-demo doc-z">
+        <div><b>base</b><span>0</span></div>
+        <div><b>raised</b> — scrims, play indicators<span>10</span></div>
+        <div><b>dropdown</b> — post menu, search results<span>20</span></div>
+        <div><b>sticky</b> — mobile header, sticky search<span>30</span></div>
+        <div><b>nav</b> — mobile tab bar<span>40</span></div>
+        <div><b>backdrop</b> — modal scrim<span>100</span></div>
+        <div><b>modal</b> — composer, settings, viewer<span>110</span></div>
+        <div><b>story</b> — full-screen story player<span>140</span></div>
+        <div><b>toast</b> — always on top<span>150</span></div>
+      </div>
+      <table class="doc-t">
+        <thead><tr><th>Breakpoint</th><th>Shell</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr><td>&gt; 1180px</td><td>230 / 500–630 / 280</td><td>Full three-column shell, labelled nav</td></tr>
+          <tr><td>≤ 1180px</td><td>82 / 500–630 / 250</td><td>Nav collapses to icons, badges move to the corner</td></tr>
+          <tr><td>≤ 930px</td><td>76 / 480–630</td><td>Right rail drops; viewer and messages go single-column</td></tr>
+          <tr><td>≤ 720px</td><td>single column</td><td>Sticky header, fixed bottom tab bar, edge-to-edge post cards, modals become bottom sheets</td></tr>
+        </tbody>
+      </table>
+      <p class="doc-p">PWA specifics are tokenised too: <code class="doc-code">--vk-safe-top</code> / <code class="doc-code">--vk-safe-bottom</code> wrap <code class="doc-code">env(safe-area-inset-*)</code>, and the mobile tab bar and content padding both consume them so the installed app doesn't collide with the home indicator.</p>
+    </section>
+
+    <!-- ============ BUTTONS ============ -->
+    <section id="buttons">
+      <div class="doc-h2"><h2>Buttons</h2><span>Components</span></div>
+      <p class="doc-lede">One primary per screen. Everything below is rendered by <code class="doc-code">vipkorner-theme.css</code> — these are the real controls.</p>
+      <div class="doc-demo">
+        <span class="doc-demo-label">Live</span>
+        <div class="doc-row">
+          <button class="login-submit" style="padding:0 var(--vk-space-5)">Primary action</button>
+          <button class="member-back">Secondary</button>
+          <button class="settings-signout" style="margin:0;padding:0 var(--vk-space-5)">Destructive</button>
+          <button class="login-submit" disabled style="padding:0 var(--vk-space-5)">Disabled</button>
+          <button class="icon-button" aria-label="More"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+        </div>
+      </div>
+      <table class="doc-t">
+        <thead><tr><th>Variant</th><th>Fill / text</th><th>Height</th><th>Rule</th></tr></thead>
+        <tbody>
+          <tr><td>Primary</td><td>gold-500 / ink — 10.04:1</td><td>tap-target 44</td><td>One per screen. It is the thing you came to do.</td></tr>
+          <tr><td>Secondary</td><td>transparent / text, 1px border</td><td>tap-compact 38</td><td>Any number. Never two side by side that do opposite things.</td></tr>
+          <tr><td>Destructive</td><td>red-700 fill or red-300 text + red border</td><td>tap-target 44</td><td>Filled only inside a confirmation. Elsewhere it is outlined.</td></tr>
+          <tr><td>Icon</td><td>transparent, hover fill</td><td>44 × 44px</td><td>Always <code class="doc-code">aria-label</code>. The 44px box may be larger than the glyph.</td></tr>
+          <tr><td>Disabled</td><td>ink-500 fill / ink-600 text</td><td>—</td><td>Never the only signal — pair with an explanation.</td></tr>
+        </tbody>
+      </table>
+      <p class="doc-rule"><b>Tap targets — two sizes, and only two.</b> <code class="doc-code">--vk-tap-target: 44px</code> is the default for every standalone control (WCAG 2.5.5 AAA, and the platform touch convention). <code class="doc-code">--vk-tap-compact: 38px</code> is permitted <em>only</em> in dense inline rows — card action pairs, viewer toolbars, modal header buttons — and is still well above the 24px WCAG 2.5.8 (AA) floor. The current stylesheet has controls at 30, 32, 34 and 36px; all of them resolve to one of these two. Nothing lives between them.</p>
+      <p class="doc-p">Where a control must <em>look</em> small — the settings toggle is 46 × 27px — the hit area is expanded with a pseudo-element (<code class="doc-code">.toggle::after { inset: -9px -4px }</code>) rather than the target being shrunk to match the drawing. Use that technique anywhere else the same tension appears.</p>
+    </section>
+
+    <!-- ============ NAV ============ -->
+    <section id="nav">
+      <div class="doc-h2"><h2>Navigation</h2><span>Components</span></div>
+      <div class="doc-demo" style="max-width:300px">
+        <span class="doc-demo-label">Live</span>
+        <div class="brand" style="cursor:default;margin-bottom:var(--vk-space-6)"><span class="brand-mark">V</span>VipKorner</div>
+        <nav style="display:flex;flex-direction:column;gap:var(--vk-space-1)">
+          <button class="nav-button active"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l8-6 8 6v9a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"/></svg><span>Home</span></button>
+          <button class="nav-button"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-2 5-5 2 2-5z"/></svg><span>Explore</span></button>
+          <button class="nav-button"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M4 6l8 6 8-6"/></svg><span>Messages</span><i class="nav-badge">3</i></button>
+          <button class="nav-button"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20a7.5 7.5 0 0115 0"/></svg><span>Profile</span></button>
+        </nav>
+        <div style="margin-top:var(--vk-space-6)"><button class="install-button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M7 12l5 5 5-5M5 20h14"/></svg>Install app</button></div>
+      </div>
+      <ul class="doc-list">
+        <li><strong>Active state carries three signals</strong> — surface fill, weight 600, and gold icon. Colour alone is never the only indicator (WCAG 1.4.1).</li>
+        <li><strong>Icons are lucide-react</strong>, 21px, stroke 1.8 at rest and 2.25 when active. The app uses 30 of them; the stroke shift is what makes the active state legible without a second colour.</li>
+        <li><strong>Badges cap at 99+</strong> and use <code class="doc-code">--vk-accent-fill</code>, not <code class="doc-code">--vk-accent</code>. See the contrast note.</li>
+        <li><strong>Below 1180px</strong> labels drop and the badge moves to the icon corner; the button keeps its 44px height.</li>
+      </ul>
+    </section>
+
+    <!-- ============ STORIES ============ -->
+    <section id="stories">
+      <div class="doc-h2"><h2>Stories</h2><span>Components</span></div>
+      <div class="doc-demo">
+        <span class="doc-demo-label">Live</span>
+        <div class="stories-section">
+          <div class="stories-heading"><span>Stories</span><small>Expires in 24h</small></div>
+          <div class="stories-scroll">
+            <button class="story-item"><span class="story-ring active-story"><img class="doc-a1" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></span>You</button>
+            <button class="story-item"><span class="story-ring active-story"><img class="doc-a2" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></span>mara.k</button>
+            <button class="story-item"><span class="story-ring active-story"><img class="doc-a3" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></span>dev_ari</button>
+            <button class="story-item"><span class="story-ring active-story viewed"><img class="doc-a4" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></span>j.moss</button>
+            <button class="story-item"><span class="story-ring"><img class="doc-a1" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></span>renee</button>
+          </div>
+        </div>
+      </div>
+      <ul class="doc-list">
+        <li><strong>Unviewed</strong> — conic gradient, gold → rose → ember. <strong>Viewed</strong> — flat <code class="doc-code">alpha-18</code>. <strong>No story</strong> — flat <code class="doc-code">alpha-14</code>, no ring emphasis.</li>
+        <li><strong>The ring is not the only signal.</strong> Order carries it too: unviewed first. A user who can't distinguish the gradient still gets the information from position.</li>
+        <li><strong>Progress bars</strong> use <code class="doc-code">--story-duration</code> as a per-story inline variable so a 15-second video and a 5-second photo animate correctly from the same CSS.</li>
+        <li><strong>Reaction chips</strong> are 44 × 44px with a gold ring when active — the one place an emoji is a control.</li>
+      </ul>
+    </section>
+
+    <!-- ============ MARQUEE ============ -->
+    <section id="marquee">
+      <div class="doc-h2"><h2>Marquee</h2><span>The one new component</span></div>
+      <p class="doc-lede">The only structural addition in this direction: the top item of the feed is promoted to a full-bleed editorial hero under a scrim. It is <em>additive</em> — remove it and the feed renders exactly as it does today. It reads from the same post object; there is no new endpoint and no schema change.</p>
+      <div class="doc-demo">
+        <span class="doc-demo-label">Live</span>
+        <div class="marquee doc-narrow">
+          <div class="marquee-art"><img class="doc-g1" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></div>
+          <div class="marquee-scrim"></div>
+          <div class="marquee-body">
+            <div class="eyebrow">✦ Featured moment</div>
+            <h2>Golden hour on the roof</h2>
+            <p>Mara shared six photos and a story with your circle.</p>
+            <div class="marquee-actions">
+              <button class="login-submit" style="min-height:38px;padding:0 var(--vk-space-4);font-size:var(--vk-size-sm)">Open</button>
+              <button class="member-back" style="border-color:var(--vk-alpha-28);color:#fff;backdrop-filter:blur(10px)">Follow</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="doc-rule doc-warn"><b>Decide the promotion rule before building it.</b> "Most recent post from someone you follow" is the honest default and needs no new logic. Anything smarter — engagement ranking, editorial picks — is a product decision with moderation consequences in an invite-only adult community, and it belongs in a separate conversation from this design system.</p>
+    </section>
+
+    <!-- ============ POST ============ -->
+    <section id="post">
+      <div class="doc-h2"><h2>Post card</h2><span>The workhorse</span></div>
+      <div class="doc-demo">
+        <span class="doc-demo-label">Live</span>
+        <article class="post-card doc-narrow">
+          <header class="post-header">
+            <div class="post-author">
+              <img class="doc-a1" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
+              <div><strong>mara.k</strong><span>Atlanta · 2h</span></div>
+            </div>
+            <button class="icon-button" aria-label="Post options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+          </header>
+          <div class="post-image-wrap" style="max-height:280px">
+            <img class="post-image doc-g1" style="min-height:0;height:280px" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
+            <button class="post-audio-toggle" aria-label="Unmute"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l4 6M21 9l-4 6"/></svg></button>
+          </div>
+          <div class="post-actions">
+            <div>
+              <button class="icon-button liked" aria-label="Unlike"><svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-9.3A4 4 0 0112 8a4 4 0 017 2.7C19 15.4 12 20 12 20z"/></svg></button>
+              <button class="icon-button" aria-label="Comment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 12a7 7 0 01-9.8 6.4L4 20l1.6-5.6A7 7 0 1120 12z"/></svg></button>
+              <button class="icon-button" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 12l16-7-6 16-2.6-6.4z"/></svg></button>
+            </div>
+            <button class="icon-button saved" aria-label="Saved"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h12v16l-6-4-6 4z"/></svg></button>
+          </div>
+          <div class="post-copy">
+            <strong>88 likes</strong>
+            <p><b>mara.k</b>The last twenty minutes of daylight, from the roof on Peachtree.</p>
+            <div class="post-comments"><small>View all 12 comments</small></div>
+            <time>2 hours ago</time>
+          </div>
+          <div class="comment-row">
+            <input placeholder="Add a comment…" aria-label="Add a comment">
+            <button>Post</button>
+          </div>
+        </article>
+      </div>
+      <table class="doc-t">
+        <thead><tr><th>State</th><th>Treatment</th></tr></thead>
+        <tbody>
+          <tr><td>Liked</td><td><code class="doc-code">--vk-accent</code> fill + <code class="doc-code">pop</code> at <code class="doc-code">ease-spring</code>. Optimistic — paint first, reconcile on response.</td></tr>
+          <tr><td>Saved</td><td><code class="doc-code">--vk-brand</code> fill. Gold, because saving is a utility, not affection.</td></tr>
+          <tr><td>Video</td><td>Play indicator at <code class="doc-code">z-raised</code>, audio toggle bottom-right at 44px, <code class="doc-code">object-fit: contain</code> over <code class="doc-code">--vk-media-bg</code>.</td></tr>
+          <tr><td>Own post</td><td>Menu gains Edit caption and a <code class="doc-code">.post-menu-danger</code> Delete in <code class="doc-code">red-300</code>.</td></tr>
+          <tr><td>Mobile ≤720px</td><td>Card goes edge to edge: no side borders, no radius, no shadow. The media becomes the boundary.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ FORMS ============ -->
+    <section id="forms">
+      <div class="doc-h2"><h2>Forms</h2><span>Components</span></div>
+      <div class="doc-demo">
+        <span class="doc-demo-label">Live</span>
+        <div class="form-fields doc-narrow" style="padding:0">
+          <label><span>Display name</span><input placeholder="Mara Kessler"></label>
+          <label><span>Username</span><div class="input-prefix"><i>@</i><input placeholder="mara.k"></div><small>Letters, numbers and dots. This is how people find you.</small></label>
+          <label><span>Bio</span><textarea placeholder="Photographer. Rooftops, long dinners…"></textarea></label>
+          <label><span>Invitation code</span><input value="VK-8842-QN" aria-invalid="true" style="border-color:var(--vk-border-danger)"><small class="inline-error">That code has already been claimed.</small></label>
+          <div class="setting-row" style="padding:var(--vk-space-4) 0">
+            <div><strong>Private account</strong><p>Only approved followers can see your posts and stories.</p></div>
+            <button class="toggle on" role="switch" aria-checked="true" aria-label="Private account"><span></span></button>
+          </div>
+        </div>
+      </div>
+      <ul class="doc-list">
+        <li><strong>Every input is 44px minimum</strong> and sits on <code class="doc-code">--vk-surface-raised</code>, one step lighter than the panel behind it. On dark, a field that matches its container disappears.</li>
+        <li><strong>Focus does two things</strong>: the gold outline ring (12.64:1) plus a border-colour change to brand. Ring alone is invisible to someone using a high-contrast OS theme; both together survive it.</li>
+        <li><strong>Errors are text, not colour.</strong> <code class="doc-code">.inline-error</code> in <code class="doc-code">red-300</code> (8.11:1) states what's wrong and what to do — paired with <code class="doc-code">aria-invalid</code> and <code class="doc-code">aria-describedby</code>.</li>
+        <li><strong>The toggle is a <code class="doc-code">role="switch"</code></strong> with <code class="doc-code">aria-checked</code>. The knob travel is <code class="doc-code">ease-spring</code> — one of only four places affective easing is allowed.</li>
+        <li><strong>Never disable a submit without saying why.</strong> A greyed button with no explanation is the most common accessibility failure in a signup flow, and this app has an invitation gate where it matters most.</li>
+      </ul>
+    </section>
+
+    <!-- ============ PEOPLE ============ -->
+    <section id="people">
+      <div class="doc-h2"><h2>People &amp; explore</h2><span>Components</span></div>
+      <div class="doc-demo">
+        <span class="doc-demo-label">Live</span>
+        <div class="search-panel doc-narrow" style="margin-bottom:var(--vk-space-4)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input placeholder="Search people" aria-label="Search people">
+        </div>
+        <div class="people-grid">
+          <article class="person-card">
+            <div class="person-identity">
+              <button class="person-avatar-button"><img class="doc-a2" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></button>
+              <div><strong>Ari Devlin</strong><p>@dev_ari · 8 mutuals</p></div>
+            </div>
+            <div class="person-actions"><button class="primary">Follow</button><button>Message</button></div>
+          </article>
+          <article class="person-card">
+            <div class="person-identity">
+              <button class="person-avatar-button"><img class="doc-a3" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></button>
+              <div><strong>Jules Moss</strong><p>@j.moss · Following</p></div>
+            </div>
+            <div class="person-actions"><button class="following">Following</button><button class="danger">Block</button></div>
+          </article>
+        </div>
+      </div>
+      <p class="doc-p">Follow state is a <em>label change</em>, not just a colour change: Follow → Following. Both are announced by screen readers; a colour-only difference would not be. Block is outlined danger, never filled — filled destructive is reserved for confirmations where the action is one tap from irreversible.</p>
+    </section>
+
+    <!-- ============ MESSAGES ============ -->
+    <section id="messages">
+      <div class="doc-h2"><h2>Messages</h2><span>Components</span></div>
+      <div class="doc-demo">
+        <span class="doc-demo-label">Live</span>
+        <div class="message-thread doc-narrow">
+          <header>
+            <img class="doc-a1" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
+            <div><strong>Mara Kessler</strong><br><span>@mara.k</span></div>
+          </header>
+          <div class="message-scroll" style="max-height:220px">
+            <p>Are you coming to the thing on Saturday?<time>9:12 AM</time></p>
+            <p class="mine">Wouldn't miss it. Should I bring anything?<time>9:14 AM</time></p>
+            <p>Just yourself.<time>9:14 AM</time></p>
+          </div>
+          <div class="message-composer">
+            <input placeholder="Message…" aria-label="Message">
+            <button aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M4 12l16-7-6 16-2.6-6.4z"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <p class="doc-p">Own messages are gold with ink text (10.04:1) — the same fill as the primary button, because in a thread "the thing you did" and "the action you take" are the same colour of intent. Received messages sit on <code class="doc-code">surface-raised</code>. The asymmetric corner radius (<code class="doc-code">radius-xs</code> on the tail corner) does the sender/receiver work independently of colour.</p>
+      <p class="doc-p">Messages are text-only by product design, so there is no attachment affordance in the composer — a deliberate absence, not an omission.</p>
+    </section>
+
+    <!-- ============ MODALS ============ -->
+    <section id="modals">
+      <div class="doc-h2"><h2>Modals &amp; sheets</h2><span>Components</span></div>
+      <div class="doc-demo">
+        <span class="doc-demo-label">Live</span>
+        <div class="composer doc-narrow" style="position:static;animation:none;max-height:none">
+          <header>
+            <button class="icon-button composer-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            <h2>New post</h2>
+            <button class="share-button">Share</button>
+          </header>
+          <div class="upload-drop">
+            <span><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg></span>
+            <h3>Drag a photo or video here</h3>
+            <p>Up to 60 seconds. Stories expire after 24 hours.</p>
+            <div class="upload-choices"><button>Choose file</button><button>Take photo</button></div>
+          </div>
+        </div>
+      </div>
+      <ul class="doc-list">
+        <li><strong>Backdrop</strong> — <code class="doc-code">--vk-scrim-full</code> plus a 6px blur at <code class="doc-code">z-backdrop</code>. The blur is what stops a bright photo behind the modal from competing with it.</li>
+        <li><strong>Entrance</strong> — 12px rise + fade at <code class="doc-code">dur-slow / ease-entrance</code>. Exits are faster than entrances.</li>
+        <li><strong>≤720px modals become bottom sheets</strong> — full width, <code class="doc-code">radius-sheet</code>, 94dvh cap, aligned to the bottom edge so they open under the thumb.</li>
+        <li><strong>Focus must be trapped</strong> and returned to the trigger on close, and <kbd>Esc</kbd> must dismiss. The theme cannot enforce this — it is a component-code requirement, listed in the adoption checklist.</li>
+      </ul>
+    </section>
+
+    <!-- ============ FEEDBACK ============ -->
+    <section id="feedback">
+      <div class="doc-h2"><h2>Feedback states</h2><span>Empty, loading, toast</span></div>
+      <div class="doc-cols">
+        <div class="doc-demo">
+          <span class="doc-demo-label">Empty</span>
+          <div class="empty-state" style="padding:var(--vk-space-8) var(--vk-space-5)">
+            <span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.2 5.6L20 10l-4.4 3.6L17 20l-5-3.2L7 20l1.4-6.4L4 10l5.8-1.4z"/></svg></span>
+            <h2>Nothing here yet</h2>
+            <p>When people you follow share something, it lands here.</p>
+            <button>Find people</button>
+          </div>
+        </div>
+        <div class="doc-demo">
+          <span class="doc-demo-label">Loading</span>
+          <div class="skeleton-card">
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
+            <div class="skeleton-image" style="height:150px"></div>
+          </div>
+        </div>
+      </div>
+      <div class="doc-demo doc-row">
+        <span class="doc-demo-label">Toast &amp; status</span>
+        <span class="toast" style="position:static;transform:none;animation:none">Post shared to your korner</span>
+        <span class="invite-status available">Available</span>
+        <span class="invite-status claimed">Claimed</span>
+        <span class="invite-status revoked">Revoked</span>
+      </div>
+      <ul class="doc-list">
+        <li><strong>Every empty state names the next action.</strong> An empty state without a button is a dead end.</li>
+        <li><strong>Skeletons mirror the real layout</strong> — same heights, same radii. A generic spinner tells you nothing about what's coming.</li>
+        <li><strong>Toasts are <code class="doc-code">role="status"</code></strong>, <code class="doc-code">aria-live="polite"</code>, and never carry the only copy of an action. Anything you can undo needs a persistent affordance, not a 4-second window.</li>
+        <li><strong>Status chips pair colour with a word.</strong> Available / Claimed / Revoked read correctly in greyscale.</li>
+      </ul>
+    </section>
+
+    <!-- ============ INVITES ============ -->
+    <section id="invites">
+      <div class="doc-h2"><h2>Invitations</h2><span>The product's front door</span></div>
+      <p class="doc-lede">VipKorner is invitation-only, so the invite code is the highest-stakes string in the product — people read it aloud, retype it, and paste it into a signup form under time pressure.</p>
+      <div class="doc-demo">
+        <span class="doc-demo-label">Live</span>
+        <div class="invite-code-line"><code>VK-8842-QN</code><button class="member-back">Copy</button><span class="invite-status available">Available</span></div>
+      </div>
+      <ul class="doc-list">
+        <li><strong>Codes are monospace with <code class="doc-code">tracking-wide</code></strong> so 0/O and 1/l separate visually. This is a legibility requirement, not a style choice.</li>
+        <li><strong>Gold on <code class="doc-code">brand-subtle</code></strong> — the code is the most valuable thing on the screen, so it gets the brand colour.</li>
+        <li><strong>Copy always confirms</strong> with a toast. Silent clipboard writes make people copy twice.</li>
+        <li><strong>Never render a full code in a screenshot-friendly share sheet</strong> without an explicit user action — a claimed code is a spent asset.</li>
+      </ul>
+    </section>
+
+    <!-- ============ A11Y ============ -->
+    <section id="a11y">
+      <div class="doc-h2"><h2>Accessibility</h2><span>Commitments, and what's still open</span></div>
+      <table class="doc-t">
+        <thead><tr><th>Requirement</th><th>How the system meets it</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>1.4.3 Contrast (AA)</td><td>Every text token verified against all four surfaces; two exceptions documented with substitutes.</td><td class="doc-pass">Met in tokens</td></tr>
+          <tr><td>1.4.11 Non-text contrast</td><td><code class="doc-code">border-strong</code> at 3.22:1 for meaningful boundaries; focus ring at 12.64:1.</td><td class="doc-pass">Met in tokens</td></tr>
+          <tr><td>1.4.1 Use of colour</td><td>Active nav, follow state, story state and invite status each carry a second signal — weight, label, order or word.</td><td class="doc-pass">Met in theme</td></tr>
+          <tr><td>2.4.7 Focus visible</td><td>One <code class="doc-code">:focus-visible</code> rule on all interactive elements; never removed.</td><td class="doc-pass">Met in theme</td></tr>
+          <tr><td>2.5.8 Target size (AA, 24px)</td><td>Two tokens only: 44px standalone, 38px in dense rows. Small-by-design controls expand their hit area with a pseudo-element.</td><td class="doc-pass">Met in theme — 2.5.5 AAA met for standalone controls</td></tr>
+          <tr><td>2.3.3 Animation from interaction</td><td><code class="doc-code">prefers-reduced-motion</code> collapses all motion; story timing preserved deliberately.</td><td class="doc-pass">Met in theme</td></tr>
+          <tr><td>Forced colours</td><td>Token overrides under <code class="doc-code">forced-colors: active</code> keep boundaries visible.</td><td class="doc-pass">Met in tokens</td></tr>
+          <tr><td>1.1.1 Non-text content</td><td>Alt text on user media, labels on icon buttons.</td><td class="doc-fail">Component work — not stylable</td></tr>
+          <tr><td>2.1.2 No keyboard trap / 2.4.3 Focus order</td><td>Modal focus trap, restore on close, <kbd>Esc</kbd> to dismiss, story player arrow keys.</td><td class="doc-fail">Component work — not stylable</td></tr>
+          <tr><td>4.1.3 Status messages</td><td>Toasts and unread counts announced politely.</td><td class="doc-fail">Component work — not stylable</td></tr>
+        </tbody>
+      </table>
+      <p class="doc-rule doc-warn"><b>Be precise about what a stylesheet can promise.</b> The token and theme layers can guarantee contrast, focus visibility, target size and motion. They cannot supply alt text, manage focus, or announce state. Those three rows are real work in <code class="doc-code">page.tsx</code>, and adopting this system does not do them. They are in the adoption plan below as their own phase.</p>
+      <p class="doc-p">One product-specific note: VipKorner's story player is time-based, and WCAG 2.2.1 asks that time limits be adjustable or extendable. Auto-advance with no pause control is a genuine failure. A tap-and-hold pause already matches user expectation from the category — worth confirming it exists.</p>
+    </section>
+
+    <!-- ============ ADOPTION ============ -->
+    <section id="adoption">
+      <div class="doc-h2"><h2>Adoption plan</h2><span>Five phases, each shippable</span></div>
+      <p class="doc-lede">Each phase leaves the app in a working, deployable state. No phase requires the next one to land in the same release.</p>
+      <div class="doc-phase"><b>1</b><div><h5>Install the token layer behind the legacy bridge</h5><p>Add <code class="doc-code">vipkorner-tokens.css</code> and the two import lines. The existing <code class="doc-code">globals.css</code> stays untouched — the bridge maps its nine variables onto the new palette, so the app flips to the dark canvas in one commit and one revert. This is the phase that proves the direction with real user media before anything is rewritten. <b>Ship it behind a flag if you can.</b></p></div></div>
+      <div class="doc-phase"><b>2</b><div><h5>Swap in the theme layer</h5><p>Replace the body of <code class="doc-code">globals.css</code> with <code class="doc-code">vipkorner-theme.css</code>. Same 210 selectors, same DOM, no markup edits. Expect a day of visual QA on the components with the most hard-coded values today — the story viewer, the media viewer, and the admin invite panel.</p></div></div>
+      <div class="doc-phase"><b>3</b><div><h5>Fix the type floor</h5><p>The 9px and 10px text becomes 11px micro labels or 12px meta. This is a real visual change: some rows get taller and some truncation thresholds move. Do it as its own PR so it can be reviewed on its merits rather than buried in a redesign.</p></div></div>
+      <div class="doc-phase"><b>4</b><div><h5>Split <code class="doc-code">page.tsx</code> and do the component-level accessibility work</h5><p>One file per view, one file per modal. While the components are open: alt text, focus trapping and restoration, <kbd>Esc</kbd> handling, live regions for unread counts and toasts, story pause. These are the three failing rows in the table above.</p></div></div>
+      <div class="doc-phase"><b>5</b><div><h5>Delete the bridge and add the guard</h5><p>Remove the legacy variable block. Add a lint rule (Stylelint <code class="doc-code">declaration-property-value-disallowed-list</code>, or a CI grep) that fails any raw hex or raw px outside the token file. Without this step the system erodes within two sprints — that is how the current 155 literals accumulated.</p></div></div>
+      <div class="doc-rule doc-ok"><b>What is deliberately not in the plan.</b> No functional change, no route change, no API change, no schema change, and no change to the invitation flow, the server-side 18+ check, the self-scoped follower endpoints, block and privacy controls, story expiry or text-only DMs. This is a presentation system.</div>
+    </section>
+
+    <!-- ============ GOVERNANCE ============ -->
+    <section id="governance">
+      <div class="doc-h2"><h2>Governance</h2><span>How it stays true</span></div>
+      <div class="doc-do">
+        <div class="yes"><h5>Adding a token</h5>Name the role, not the appearance — <code class="doc-code">--vk-text-subtle</code>, never <code class="doc-code">--vk-grey-3</code>. Compute its contrast against all four surfaces before it lands, and record the numbers in <code class="doc-code">tokens.json</code>. If an existing token is within 5% of the new one, use the existing one.</div>
+        <div class="no"><h5>Rejecting a token</h5>"It looks slightly better here" is not a reason. A new hue, a fourth family, a shadow between elev-2 and elev-3, or a colour whose only justification is one screen — all no. Every added token is a decision the next person has to understand.</div>
+      </div>
+      <h3 class="doc-h3">Review checklist for any UI PR</h3>
+      <ul class="doc-list">
+        <li>No raw hex, rgb or px outside <code class="doc-code">vipkorner-tokens.css</code>.</li>
+        <li>Every interactive element reaches 44px and has a visible focus state.</li>
+        <li>Any new colour pairing has a computed contrast ratio in the PR description.</li>
+        <li>No new text below 12px unless it is an uppercase tracked micro label.</li>
+        <li>New motion uses a named duration and easing, and degrades under <code class="doc-code">prefers-reduced-motion</code>.</li>
+        <li>Any state expressed with colour is also expressed with a word, an icon, a weight or a position.</li>
+        <li>Tested with a real dark photograph, a real bright screenshot, and a portrait video.</li>
+      </ul>
+    </section>
+
+    <!-- ============ SCOPE ============ -->
+    <section id="scope">
+      <div class="doc-h2"><h2>Out of scope &amp; open questions</h2><span>Honest edges</span></div>
+      <ul class="doc-list">
+        <li><strong>The marketing site (vipkorner.com)</strong> is not covered here. It is one self-contained file with its own <code class="doc-code">&lt;style&gt;</code> block; it should consume <code class="doc-code">vipkorner-tokens.css</code> and get a small site-specific theme rather than being folded into the app theme.</li>
+        <li><strong>Email templates</strong> — the confirmation email is part of the invitation flow and currently has no design coverage. Dark-mode email is its own problem; it needs a light-canvas variant of the palette.</li>
+        <li><strong>A light theme.</strong> The token structure supports one — redefine the semantic block under a <code class="doc-code">[data-theme="light"]</code> selector and nothing else changes. Whether to build it is a product call; a photo-sharing app that people open at night has a real argument for dark-only.</li>
+        <li><strong>Iconography.</strong> The system standardises size and stroke for the 30 lucide icons in use but does not define a custom set. If VipKorner wants a proprietary mark language, that is a separate piece of work.</li>
+        <li><strong>The Mobbin reference.</strong> I could not open the Apple TV screen set you linked — 403 to server-side fetching, and the Chrome extension was not connected. This system is built against the Apple TV layout language as I know it, not against those specific screens. Send a screenshot and I will tighten the marquee and shelf specs against it.</li>
+        <li><strong>Not yet decided:</strong> the marquee promotion rule; whether the story player has a pause control today; whether the three unstyled classes are dead markup or missing features.</li>
+      </ul>
+      <p class="doc-foot">
+        VipKorner Design System v1.0.0 · Midnight Marquee · generated August 2026.<br>
+        Every specimen on this page is rendered by <code class="doc-code">vipkorner-tokens.css</code> and <code class="doc-code">vipkorner-theme.css</code> — the same two files the app would ship. Contrast ratios were computed, not estimated. No file in <code class="doc-code">app/</code>, <code class="doc-code">lib/</code>, <code class="doc-code">worker/</code>, <code class="doc-code">db/</code> or <code class="doc-code">public/</code> was modified to produce it.
+      </p>
+    </section>
+
+  </main>
+</div>
+</body>
+</html>

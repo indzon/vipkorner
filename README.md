@@ -22,6 +22,15 @@ VipKorner is an invitation-only, multi-user progressive web app for adults. It c
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system details and [docs/OPERATIONS.md](docs/OPERATIONS.md) for deployment and configuration.
 
+## Design system
+
+The application UI uses the **VipKorner Midnight Marquee** design system. Its
+machine-readable tokens, CSS token layer, component theme, and live specimen
+documentation are maintained together in [`design/system`](design/system).
+`app/globals.css` is intentionally limited to importing Tailwind, the token
+layer, and the theme layer so presentation changes remain separate from app
+behavior.
+
 ## Local development
 
 Prerequisites: Node.js `>=22.13.0` and pnpm.

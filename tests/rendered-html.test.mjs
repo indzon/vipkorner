@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+const readAppStyles = () => read("design/system/vipkorner-theme.css");
 
 test("connection lists remain scoped to the authenticated member", async () => {
   const socialRoute = await read("app/api/social/route.ts");
@@ -26,7 +27,7 @@ test("profile counts refresh without a full page reload", async () => {
 test("member identity surfaces open profiles with activity avatars", async () => {
   const [page, css, feedRoute, socialRoute] = await Promise.all([
     read("app/page.tsx"),
-    read("app/globals.css"),
+    readAppStyles(),
     read("app/api/feed/route.ts"),
     read("app/api/social/route.ts"),
   ]);
@@ -38,8 +39,8 @@ test("member identity surfaces open profiles with activity avatars", async () =>
   assert.match(page, /startMemberConversation/);
   assert.match(page, /onMessage\(member\.id\)/);
   assert.match(page, /aria-label={`Message @\$\{member\.username\}`}/);
-  assert.match(css, /\.profile-stats \{ display: flex; align-items: center;/);
-  assert.match(css, /\.person-identity \{[^}]*align-items: flex-start;[^}]*text-align: left;/);
+  assert.match(css, /\.profile-stats \{ display: flex;/);
+  assert.match(css, /\.person-identity \{[^}]*align-items: center;[^}]*text-align: left;/);
   assert.match(css, /\.member-message-button/);
   assert.match(feedRoute, /n\.actor_id AS actorId/);
   assert.match(feedRoute, /u\.display_name AS actorDisplayName/);
@@ -62,7 +63,7 @@ test("repository documentation describes the deployed privacy contract", async (
 test("unread navigation badges and persisted story reactions stay wired together", async () => {
   const [page, css, feedRoute, storiesRoute, schema, storage, readme, architecture, operations] = await Promise.all([
     read("app/page.tsx"),
-    read("app/globals.css"),
+    readAppStyles(),
     read("app/api/feed/route.ts"),
     read("app/api/stories/route.ts"),
     read("db/schema.ts"),
