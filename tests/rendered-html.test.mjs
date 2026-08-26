@@ -24,8 +24,9 @@ test("profile counts refresh without a full page reload", async () => {
 });
 
 test("member identity surfaces open profiles with activity avatars", async () => {
-  const [page, feedRoute, socialRoute] = await Promise.all([
+  const [page, css, feedRoute, socialRoute] = await Promise.all([
     read("app/page.tsx"),
+    read("app/globals.css"),
     read("app/api/feed/route.ts"),
     read("app/api/social/route.ts"),
   ]);
@@ -34,6 +35,7 @@ test("member identity surfaces open profiles with activity avatars", async () =>
   assert.match(page, /onViewProfile\(activity\.actorId\)/);
   assert.match(page, /className="activity-avatar"/);
   assert.match(page, /className="person-identity"/);
+  assert.match(css, /\.profile-stats \{ display: flex; align-items: center;/);
   assert.match(feedRoute, /n\.actor_id AS actorId/);
   assert.match(feedRoute, /u\.display_name AS actorDisplayName/);
   assert.match(socialRoute, /params\.get\("profile"\)/);
