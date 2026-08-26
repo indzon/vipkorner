@@ -46,3 +46,11 @@ Follow and block responses include the signed-in member’s current counts. The 
 Profile navigation from a connection or activity item requests only the selected member’s public summary and aggregate counts. Verify that these links open the correct profile and that no follower/following list is exposed for another member.
 
 For member-profile releases, verify Explore identity copy remains left-aligned, open another member’s profile, select the accessible message icon, and confirm the correct private conversation opens in Messages.
+
+## Messaging and story-reaction smoke test
+
+1. Send a text message from one member to another and confirm the recipient sees the same unread badge on desktop navigation, compact navigation, and mobile navigation without manually refreshing the page.
+2. Open the conversation and confirm the unread badge clears after the messages are marked read.
+3. Open another member’s active story, choose an emoji, and confirm it becomes selected and the reaction count updates.
+4. Choose a different emoji and confirm it replaces the first; choose the selected emoji again and confirm it is removed.
+5. Disable story replies on the story owner’s account and confirm reaction controls are no longer offered to other members.

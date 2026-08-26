@@ -1,4 +1,4 @@
-import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
@@ -66,6 +66,16 @@ export const storyViews = sqliteTable("story_views", {
   userId: text("user_id").notNull(),
   viewedAt: integer("viewed_at").notNull(),
 }, (table) => [primaryKey({ columns: [table.storyId, table.userId] })]);
+
+export const storyReactions = sqliteTable("story_reactions", {
+  storyId: text("story_id").notNull(),
+  userId: text("user_id").notNull(),
+  emoji: text("emoji").notNull(),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.storyId, table.userId] }),
+  index("story_reactions_story_idx").on(table.storyId, table.createdAt),
+]);
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),

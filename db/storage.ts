@@ -120,8 +120,13 @@ export async function ensureSchema() {
       story_id TEXT NOT NULL, user_id TEXT NOT NULL, viewed_at INTEGER NOT NULL,
       PRIMARY KEY (story_id, user_id)
     )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS story_reactions (
+      story_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL, created_at INTEGER NOT NULL,
+      PRIMARY KEY (story_id, user_id)
+    )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, created_at DESC)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages (conversation_id, created_at)"),
+    DB.prepare("CREATE INDEX IF NOT EXISTS story_reactions_story_idx ON story_reactions (story_id, created_at DESC)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status, created_at DESC)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS pending_registrations_created_idx ON pending_registrations (created_at)"),
   ]);

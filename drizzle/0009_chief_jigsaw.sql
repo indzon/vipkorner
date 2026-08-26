@@ -1,0 +1,1 @@
+CREATE INDEX `story_reactions_story_idx` ON `story_reactions` (`story_id`,`created_at`);

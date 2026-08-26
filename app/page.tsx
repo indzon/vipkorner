@@ -53,7 +53,7 @@ type Post = {
 
 type PublicUser = { id: string; username: string; displayName: string; location?: string; bio?: string; imageKey: string | null; imageUrl: string | null };
 type Comment = { id: string; postId: string; body: string; createdAt: number; author: PublicUser };
-type Activity = { id: string; type: "like" | "comment" | "follow" | "message"; postId: string | null; message: string; createdAt: number; readAt?: number | null; actorId?: string | null; actorUsername?: string | null; actorDisplayName?: string | null; actorImageKey?: string | null; actorImageUrl?: string | null };
+type Activity = { id: string; type: "like" | "comment" | "follow" | "message" | "story_reaction"; postId: string | null; message: string; createdAt: number; readAt?: number | null; actorId?: string | null; actorUsername?: string | null; actorDisplayName?: string | null; actorImageKey?: string | null; actorImageUrl?: string | null };
 
 type Profile = {
   id: string;
@@ -85,6 +85,9 @@ type Story = {
   captionX: number;
   captionY: number;
   viewed: number | boolean;
+  reaction: string | null;
+  reactionCount: number;
+  reactionsAllowed: number | boolean;
   author: PublicUser;
 };
 
@@ -94,6 +97,7 @@ type ConnectionCounts = { following: number; followers: number };
 type ConnectionUser = PublicUser & { connectedAt: number };
 type Conversation = { id: string; status: "pending" | "accepted"; requestedBy: string; updatedAt: number; otherId: string; username: string; displayName: string; imageKey: string | null; imageUrl: string | null; lastMessage: string | null; unread: number };
 type DirectMessage = { id: string; senderId: string; body: string; createdAt: number };
+const STORY_REACTION_EMOJIS = ["❤️", "😂", "🔥", "👏", "😮"] as const;
 
 function profileImage(profile: { imageKey: string | null; imageUrl: string | null; username?: string; displayName?: string }) {
   if (profile.imageKey || profile.imageUrl) return imageSource(profile);
@@ -290,7 +294,10 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!accessReady) return;
-    const loadTimer = window.setTimeout(() => void loadFeed(), 0);
+    const loadTimer = window.setTimeout(() => {
+      void loadFeed();
+      void loadConversations().catch(() => undefined);
+    }, 0);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => undefined);
     const onInstall = (event: Event) => {
       event.preventDefault();
@@ -298,11 +305,15 @@ export default function HomePage() {
     };
     window.addEventListener("beforeinstallprompt", onInstall);
     return () => { window.clearTimeout(loadTimer); window.removeEventListener("beforeinstallprompt", onInstall); };
-  }, [accessReady, loadFeed]);
+  }, [accessReady, loadConversations, loadFeed]);
 
   useEffect(() => {
     if (!accessReady) return;
-    const refresh = () => { if (document.visibilityState === "visible") void loadSocialCounts(); };
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void loadSocialCounts();
+      void loadConversations().catch(() => undefined);
+    };
     const interval = window.setInterval(refresh, 15000);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
@@ -311,7 +322,7 @@ export default function HomePage() {
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [accessReady, loadSocialCounts]);
+  }, [accessReady, loadConversations, loadSocialCounts]);
 
   useEffect(() => {
     if (!toast) return;
@@ -323,6 +334,11 @@ export default function HomePage() {
     if (!query.trim()) return posts;
     return posts.filter((post) => post.caption.toLowerCase().includes(query.toLowerCase()));
   }, [posts, query]);
+
+  const unreadMessages = useMemo(
+    () => conversations.reduce((total, conversation) => total + Number(conversation.unread || 0), 0),
+    [conversations],
+  );
 
   async function togglePost(id: string, action: "like" | "save") {
     setPosts((current) => current.map((post) => {
@@ -373,6 +389,16 @@ export default function HomePage() {
     setToast("Story deleted.");
   }
 
+  async function reactToStory(storyId: string, emoji: string) {
+    const response = await fetch("/api/stories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "react", id: storyId, emoji }),
+    });
+    const result = await readApiResponse<{ reaction: string | null; reactionCount: number }>(response, "Could not react to this story.");
+    setStories((current) => current.map((story) => story.id === storyId ? { ...story, reaction: result.reaction, reactionCount: result.reactionCount } : story));
+  }
+
   const markStoryViewed = useCallback((storyId: string) => {
     setStories((current) => current.map((story) => story.id === storyId ? { ...story, viewed: true } : story));
     fetch("/api/stories", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: storyId }) }).catch(() => undefined);
@@ -392,7 +418,7 @@ export default function HomePage() {
         <nav>
           <NavButton icon={<Home />} label="Home" active={view === "home" && !searchOpen} onClick={homeNav} />
           <NavButton icon={<Compass />} label="Explore" active={view === "explore"} onClick={exploreNav} />
-          <NavButton icon={<Mail />} label="Messages" active={view === "messages"} onClick={messagesNav} />
+          <NavButton icon={<Mail />} label="Messages" badge={unreadMessages} active={view === "messages"} onClick={messagesNav} />
           <NavButton icon={<UserRound />} label="Profile" active={view === "profile"} onClick={profileNav} />
         </nav>
         <div className="nav-footer">
@@ -404,7 +430,7 @@ export default function HomePage() {
       <section className="content-column">
         <header className="mobile-header">
           <button className="brand" onClick={homeNav} aria-label="VipKorner home"><span className="brand-mark">V</span><span>VipKorner</span></button>
-          <div className="header-actions"><button className="icon-button" onClick={profileNav} aria-label="Profile"><UserRound /></button><button className="icon-button" onClick={messagesNav} aria-label="Messages"><Send /></button></div>
+          <div className="header-actions"><button className="icon-button" onClick={profileNav} aria-label="Profile"><UserRound /></button><button className="icon-button" onClick={messagesNav} aria-label={unreadMessages ? `Messages, ${unreadMessages} unread` : "Messages"}><Send />{unreadMessages > 0 && <i className="message-badge">{unreadMessages > 99 ? "99+" : unreadMessages}</i>}</button></div>
         </header>
 
         {searchOpen && (
@@ -439,12 +465,12 @@ export default function HomePage() {
       <nav className="mobile-nav" aria-label="Mobile navigation">
         <button className={view === "home" ? "active" : ""} onClick={homeNav} aria-label="Home"><Home /></button>
         <button className={view === "explore" ? "active" : ""} onClick={exploreNav} aria-label="Explore"><Search /></button>
-        <button className={view === "messages" ? "active" : ""} onClick={messagesNav} aria-label="Messages"><Mail /></button>
+        <button className={view === "messages" ? "active" : ""} onClick={messagesNav} aria-label={unreadMessages ? `Messages, ${unreadMessages} unread` : "Messages"}><Mail />{unreadMessages > 0 && <i className="message-badge">{unreadMessages > 99 ? "99+" : unreadMessages}</i>}</button>
         <button className={view === "profile" ? "active" : ""} onClick={profileNav} aria-label="Profile"><img src={profileImage(profile)} alt="" /></button>
       </nav>
 
       {composer && <Composer type={composer} profile={profile} onClose={() => setComposer(null)} onCreated={(message) => { setComposer(null); setToast(message); loadFeed(); }} />}
-      {activeStoryId && <StoryViewer key={activeStoryId} stories={stories} activeId={activeStoryId} onChange={setActiveStoryId} onViewed={markStoryViewed} onClose={() => setActiveStoryId(null)} onDelete={deleteStory} />}
+      {activeStoryId && <StoryViewer key={activeStoryId} stories={stories} activeId={activeStoryId} onChange={setActiveStoryId} onViewed={markStoryViewed} onClose={() => setActiveStoryId(null)} onDelete={deleteStory} onReact={reactToStory} />}
       {profilePanel === "edit" && <EditProfileModal profile={profile} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Profile updated."); }} />}
       {profilePanel === "settings" && <SettingsModal profile={profile} installPrompt={installPrompt} onInstallGuide={() => { setProfilePanel(null); setInstallGuideOpen(true); }} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Settings saved."); }} />}
       {profilePanel === "activity" && <ActivityModal activities={activities} posts={posts} onViewProfile={openMemberProfile} onClose={() => setProfilePanel(null)} />}
@@ -455,8 +481,8 @@ export default function HomePage() {
   );
 }
 
-function NavButton({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick: () => void }) {
-  return <button className={`nav-button ${active ? "active" : ""}`} onClick={onClick}>{icon}<span>{label}</span></button>;
+function NavButton({ icon, label, badge = 0, active, onClick }: { icon: React.ReactNode; label: string; badge?: number; active?: boolean; onClick: () => void }) {
+  return <button className={`nav-button ${active ? "active" : ""}`} onClick={onClick} aria-label={badge ? `${label}, ${badge} unread` : label}>{icon}<span>{label}</span>{badge > 0 && <i className="nav-badge">{badge > 99 ? "99+" : badge}</i>}</button>;
 }
 
 function StoriesTray({ stories, profile, onAdd, onOpen }: { stories: Story[]; profile: Profile; onAdd: () => void; onOpen: (story: Story) => void }) {
@@ -632,12 +658,14 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
   );
 }
 
-function StoryViewer({ stories, activeId, onChange, onViewed, onClose, onDelete }: { stories: Story[]; activeId: string; onChange: (id: string) => void; onViewed: (id: string) => void; onClose: () => void; onDelete: (id: string) => Promise<void> }) {
+function StoryViewer({ stories, activeId, onChange, onViewed, onClose, onDelete, onReact }: { stories: Story[]; activeId: string; onChange: (id: string) => void; onViewed: (id: string) => void; onClose: () => void; onDelete: (id: string) => Promise<void>; onReact: (id: string, emoji: string) => Promise<void> }) {
   const story = stories.find((item) => item.id === activeId);
   const currentIndex = stories.findIndex((item) => item.id === activeId);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [error, setError] = useState("");
+  const [reactionBusy, setReactionBusy] = useState(false);
+  const [reactionError, setReactionError] = useState("");
   const [storyMuted, setStoryMuted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -679,6 +707,18 @@ function StoryViewer({ stories, activeId, onChange, onViewed, onClose, onDelete 
     }
   }
 
+  async function react(emoji: string) {
+    setReactionBusy(true);
+    setReactionError("");
+    try {
+      await onReact(story!.id, emoji);
+    } catch (reason) {
+      setReactionError(reason instanceof Error ? reason.message : "Could not react to this story.");
+    } finally {
+      setReactionBusy(false);
+    }
+  }
+
   return (
     <div className="story-viewer" role="dialog" aria-modal="true" aria-label="Story">
       <div className="story-frame">
@@ -687,7 +727,7 @@ function StoryViewer({ stories, activeId, onChange, onViewed, onClose, onDelete 
         {story.mediaType === "video" ? <video ref={videoRef} key={story.id} className="story-full-image" src={imageSource(story)} autoPlay muted={storyMuted} playsInline onClick={() => setStoryMuted((muted) => !muted)} onEnded={goNext} aria-label={story.caption || "Your video story"} /> : <img className="story-full-image" src={imageSource(story)} alt={story.caption || "Your story"} />}
         {currentIndex > 0 && <button className="story-nav previous" onClick={() => onChange(stories[currentIndex - 1].id)} aria-label="Previous story"><ChevronLeft /></button>}
         {currentIndex < stories.length - 1 && <button className="story-nav next" onClick={goNext} aria-label="Next story"><ChevronRight /></button>}
-        <footer>{story.caption && <p style={{ left: `${story.captionX}%`, top: `${story.captionY}%` }}>{story.caption}</p>}<span>Story expires automatically within 24 hours</span></footer>
+        <footer>{story.caption && <p style={{ left: `${story.captionX}%`, top: `${story.captionY}%` }}>{story.caption}</p>}{!story.owned && Boolean(story.reactionsAllowed) && <div className="story-reactions" aria-label="React to story">{STORY_REACTION_EMOJIS.map((emoji) => <button type="button" key={emoji} className={story.reaction === emoji ? "active" : ""} disabled={reactionBusy} aria-label={`React ${emoji}`} aria-pressed={story.reaction === emoji} onClick={() => void react(emoji)}>{emoji}</button>)}</div>}{reactionError && <span className="story-reaction-error" role="alert">{reactionError}</span>}<span>Story expires automatically within 24 hours{story.reactionCount > 0 ? ` · ${story.reactionCount} reaction${story.reactionCount === 1 ? "" : "s"}` : ""}</span></footer>
         {confirmDelete && <div className="story-delete-confirm"><strong>Delete this story?</strong><p>This removes it immediately instead of waiting for it to expire.</p>{error && <span>{error}</span>}<div><button onClick={() => setConfirmDelete(false)}>Cancel</button><button onClick={removeStory} disabled={deleteBusy}>{deleteBusy ? "Deleting…" : "Delete"}</button></div></div>}
       </div>
     </div>
@@ -740,8 +780,8 @@ function MessagesView({ profile, conversations, initialConversationId, onRefresh
   const active = conversations.find((item) => item.id === activeId);
   useEffect(() => {
     if (!activeId) return;
-    fetch(`/api/messages?conversationId=${encodeURIComponent(activeId)}`).then((response) => readApiResponse<{ messages: DirectMessage[] }>(response, "Could not load this conversation.")).then((data) => setMessages(data.messages)).catch((reason) => setError(reason instanceof Error ? reason.message : "Could not load messages."));
-  }, [activeId]);
+    fetch(`/api/messages?conversationId=${encodeURIComponent(activeId)}`).then((response) => readApiResponse<{ messages: DirectMessage[] }>(response, "Could not load this conversation.")).then(async (data) => { setMessages(data.messages); await onRefresh(); }).catch((reason) => setError(reason instanceof Error ? reason.message : "Could not load messages."));
+  }, [activeId, onRefresh]);
   async function sendMessage(event: FormEvent) {
     event.preventDefault(); if (!activeId || !body.trim()) return; setBusy(true); setError("");
     try { const response = await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send", conversationId: activeId, body }) }); const message = await readApiResponse<DirectMessage>(response, "Could not send this message."); setMessages((current) => [...current, message]); setBody(""); await onRefresh(); }

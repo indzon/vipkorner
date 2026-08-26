@@ -58,3 +58,34 @@ test("repository documentation describes the deployed privacy contract", async (
   assert.match(architecture, /callers cannot request another member’s list/i);
   assert.match(operations, /Push the exact deployed source revision to `indzon\/vipkorner`/);
 });
+
+test("unread navigation badges and persisted story reactions stay wired together", async () => {
+  const [page, css, feedRoute, storiesRoute, schema, storage, readme, architecture, operations] = await Promise.all([
+    read("app/page.tsx"),
+    read("app/globals.css"),
+    read("app/api/feed/route.ts"),
+    read("app/api/stories/route.ts"),
+    read("db/schema.ts"),
+    read("db/storage.ts"),
+    read("README.md"),
+    read("docs/ARCHITECTURE.md"),
+    read("docs/OPERATIONS.md"),
+  ]);
+
+  assert.match(page, /const unreadMessages = useMemo/);
+  assert.match(page, /badge={unreadMessages}/);
+  assert.match(page, /className="message-badge"/);
+  assert.match(page, /STORY_REACTION_EMOJIS/);
+  assert.match(page, /onReact={reactToStory}/);
+  assert.match(css, /\.nav-badge, \.message-badge/);
+  assert.match(css, /\.story-reactions/);
+  assert.match(feedRoute, /AS reactionCount/);
+  assert.match(feedRoute, /AS reactionsAllowed/);
+  assert.match(storiesRoute, /STORY_REACTIONS/);
+  assert.match(storiesRoute, /type = 'story_reaction'/);
+  assert.match(schema, /storyReactions = sqliteTable\("story_reactions"/);
+  assert.match(storage, /CREATE TABLE IF NOT EXISTS story_reactions/);
+  assert.match(readme, /Unread totals appear/);
+  assert.match(architecture, /one emoji per `\(story_id, user_id\)`/);
+  assert.match(operations, /Messaging and story-reaction smoke test/);
+});

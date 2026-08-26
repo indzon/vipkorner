@@ -17,7 +17,8 @@ VipKorner is an invitation-only, multi-user progressive web app for adults. It c
 - Another member’s profile includes a message action that creates or reopens the private text conversation with that member.
 - Follow counts refresh immediately after follow/block actions, when the app regains focus, and periodically while it is visible.
 - Stories expire after 24 hours. Posts and stories support images and videos.
-- Direct messages are text-only and subject to follow/block privacy controls.
+- Members can react to another member’s story with a quick emoji when that story owner allows story replies; each member has one current reaction per story and can tap it again to remove it.
+- Direct messages are text-only and subject to follow/block privacy controls. Unread totals appear on the desktop, compact, and mobile Messages navigation and refresh while the app is visible.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system details and [docs/OPERATIONS.md](docs/OPERATIONS.md) for deployment and configuration.
 

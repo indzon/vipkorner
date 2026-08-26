@@ -32,7 +32,11 @@ The app stays invitation-only while `app_meta.registration_mode` is `invite`.
 - Follow and block mutations return refreshed counts for immediate UI updates.
 - The client refreshes counts every 15 seconds while visible and whenever the window regains focus.
 
-Connection rows, notification actors, and Explore identities all use the same member-profile navigation path. Activity payloads include the actor’s public avatar fields so the UI does not substitute a generic activity icon. From another member’s profile, the message action posts `{ action: "start", targetId }` to `/api/messages`, then opens the returned conversation in the Messages view.
+Connection rows, notification actors, and Explore identities all use the same member-profile navigation path. Activity payloads include the actor’s public avatar fields so the UI does not substitute a generic activity icon. From another member’s profile, the message action posts `{ action: "start", targetId }` to `/api/messages`, then opens the returned conversation in the Messages view. The client loads conversation summaries at startup, on focus, and every 15 seconds while visible so the Messages navigation can display an aggregate unread count; opening a conversation marks its messages read and refreshes that count.
+
+## Story reactions
+
+`story_reactions` stores at most one emoji per `(story_id, user_id)`. `/api/stories` validates reactions against the supported emoji set, rechecks story visibility and block rules, honors the story owner’s `story_replies` setting, and prevents self-reactions. Selecting a new emoji replaces the prior reaction; selecting the active emoji removes it. A current reaction creates one owner notification, and changing or removing the reaction replaces or removes that notification.
 
 ## Main application routes
 
@@ -40,9 +44,10 @@ Connection rows, notification actors, and Explore identities all use the same me
 | --- | --- |
 | `/api/auth` | Supabase sign-in, invitation validation, pending registration |
 | `/auth/confirm` | Confirmation exchange and automatic profile finalization |
-| `/api/feed` | Feed, stories, comments, notifications, own profile summary |
+| `/api/feed` | Feed, stories with viewer reaction state, comments, notifications, own profile summary |
 | `/api/social` | Discovery, follows, blocks, reports, invitations, connection lists |
-| `/api/messages` | Text-only conversations and message requests |
+| `/api/messages` | Text-only conversations, message requests, and unread totals |
+| `/api/stories` | Story creation, views, reactions, and owner deletion |
 | `/api/uploads` | Validated R2 uploads |
 | `/api/media` | Authorized media delivery |
 
