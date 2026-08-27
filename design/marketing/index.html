@@ -197,43 +197,13 @@ img{display:block;max-width:100%;}
 .device--laptop::after{content:"";display:block;height:14px;margin:14px -34px 0;border-radius:0 0 14px 14px;background:linear-gradient(180deg,#26262C,#141418);}
 .device-notch{position:absolute;z-index:2;top:10px;left:50%;transform:translateX(-50%);width:112px;height:26px;border-radius:0 0 16px 16px;background:#0B0B0E;}
 
-/* ============================================================================
-   SCREENSHOT PLACEHOLDERS
-   Each slot reserves its exact aspect ratio, so dropping the real image in
-   causes ZERO layout shift. Replace the .shot-hold div with the <img> in the
-   comment above it — nothing else needs to change.
-   ========================================================================= */
+/* ---------- product screenshots ---------- */
 .shot{position:relative;margin:0;background:var(--vk-media-bg);box-shadow:var(--vk-media-hairline);}
-.shot img{width:100%;height:100%;object-fit:cover;}
-.shot-hold{
-  position:relative;width:100%;height:100%;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--vk-space-2);
-  padding:var(--vk-space-5);text-align:center;
-  background-color:var(--vk-ink-100);
-  background-image:
-    linear-gradient(var(--vk-alpha-04) 1px,transparent 1px),
-    linear-gradient(90deg,var(--vk-alpha-04) 1px,transparent 1px),
-    radial-gradient(120% 90% at 30% 0%,rgba(232,180,85,.10),transparent 60%);
-  background-size:28px 28px,28px 28px,100% 100%;
-}
-.shot-hold::after{content:"";position:absolute;inset:8px;border:1px dashed var(--vk-alpha-18);border-radius:var(--vk-radius-sm);pointer-events:none;}
-.shot-icon{width:38px;height:38px;display:grid;place-items:center;border-radius:var(--vk-radius-circle);background:var(--vk-brand-subtle);color:var(--vk-brand);}
-.shot-icon svg{width:18px;height:18px;}
-.shot-name{color:var(--vk-text);font-size:var(--vk-size-sm);font-weight:var(--vk-weight-semibold);}
-.shot-spec{display:block;margin-top:var(--vk-space-1);color:var(--vk-text-subtle);font-family:var(--vk-font-mono);font-size:var(--vk-size-micro);letter-spacing:.02em;}
-.shot-what{display:block;margin-top:var(--vk-space-2);max-width:30ch;color:var(--vk-text-muted);font-size:var(--vk-size-xs);line-height:var(--vk-leading-normal);}
+.shot img{width:100%;height:100%;object-fit:contain;background:var(--vk-media-bg);}
 .shot--phone{aspect-ratio:390/844;}
 .shot--laptop{aspect-ratio:1280/800;}
 .shot--story{aspect-ratio:9/16;border-radius:var(--vk-radius-lg);overflow:hidden;}
 .shot--wide{aspect-ratio:16/10;border-radius:var(--vk-radius-lg);overflow:hidden;}
-
-/* ============================================================================
-   TICKER — scroll-scrubbed marquee band
-   ========================================================================= */
-.ticker{position:relative;overflow:clip;padding:var(--vk-space-5) 0;border-block:1px solid var(--vk-border-subtle);background:var(--vk-ink-050);}
-.ticker-track{display:flex;gap:var(--vk-space-9);width:max-content;will-change:transform;}
-.ticker-item{display:inline-flex;align-items:center;gap:var(--vk-space-3);color:var(--vk-text-subtle);font-size:var(--vk-size-micro);font-weight:var(--vk-weight-bold);letter-spacing:var(--vk-tracking-micro);text-transform:uppercase;white-space:nowrap;}
-.ticker-item span{color:var(--vk-brand);}
 
 /* ---------- section shell ---------- */
 .section{padding:clamp(72px,10vw,132px) 0;}
@@ -325,6 +295,13 @@ img{display:block;max-width:100%;}
   .cta-inner{flex-direction:column;align-items:flex-start;}
 }
 @media (max-width:600px){
+  :root{--site-gutter:20px;}
+  .wrap,.strip-head{width:calc(100% - (var(--site-gutter) * 2));max-width:none;margin-inline:auto;}
+  .hero,.section,.feature,.feature-copy,.feature-media,.strip{min-width:0;}
+  .section-head,.feature-copy h3,.strip-head h2{overflow-wrap:anywhere;}
+  .strip-track{padding-inline:var(--site-gutter);scroll-padding-inline:var(--site-gutter);}
+  [data-parallax]{transform:none !important;will-change:auto;}
+  .js [data-reveal][data-reveal="left"],.js [data-reveal][data-reveal="right"]{transform:translate3d(0,26px,0);}
   .hero-actions .btn{width:100%;}
   .foot-inner{flex-direction:column;}
 }
@@ -357,7 +334,6 @@ img{display:block;max-width:100%;}
   .strip-rail{height:auto;}
   .strip-pin{position:static;height:auto;padding:clamp(64px,9vw,110px) 0;}
   .strip-track{width:auto;overflow-x:auto;transform:none !important;}
-  .ticker-track{transform:none !important;}
 }
 </style>
 </head>
@@ -409,40 +385,13 @@ img{display:block;max-width:100%;}
         <div class="device-notch" aria-hidden="true"></div>
         <div class="device-screen">
           <figure class="shot shot--phone">
-            <!-- REPLACE THIS BLOCK WITH:
-                 <img src="/shots/app-home@2x.png" width="780" height="1688"
-                      alt="The VipKorner home feed: a featured moment at the top, a row of story rings, and posts from people you follow."> -->
-            <div class="shot-hold">
-              <span class="shot-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-4 4-2-2-7 6"/></svg></span>
-              <span class="shot-name">Home feed</span>
-              <span class="shot-spec">app-home@2x.png · 780 × 1688</span>
-              <span class="shot-what">Featured moment at the top, story rings beneath it, first post partly visible.</span>
-            </div>
+            <img src="/shots/app-home@2x.png" width="390" height="717" fetchpriority="high"
+                 alt="The VipKorner home feed with story rings and posts from people you follow.">
           </figure>
         </div>
       </div>
     </div>
   </section>
-
-  <!-- ============================ TICKER ============================ -->
-  <div class="ticker" aria-hidden="true">
-    <div class="ticker-track" id="ticker">
-      <span class="ticker-item"><span>✦</span> Invitation only</span>
-      <span class="ticker-item"><span>✦</span> Adults 18 and over</span>
-      <span class="ticker-item"><span>✦</span> Stories expire in 24 hours</span>
-      <span class="ticker-item"><span>✦</span> Private by choice</span>
-      <span class="ticker-item"><span>✦</span> No algorithm</span>
-      <span class="ticker-item"><span>✦</span> Text-only messages</span>
-      <span class="ticker-item"><span>✦</span> Installs like an app</span>
-      <span class="ticker-item"><span>✦</span> Invitation only</span>
-      <span class="ticker-item"><span>✦</span> Adults 18 and over</span>
-      <span class="ticker-item"><span>✦</span> Stories expire in 24 hours</span>
-      <span class="ticker-item"><span>✦</span> Private by choice</span>
-      <span class="ticker-item"><span>✦</span> No algorithm</span>
-      <span class="ticker-item"><span>✦</span> Text-only messages</span>
-      <span class="ticker-item"><span>✦</span> Installs like an app</span>
-    </div>
-  </div>
 
   <!-- ============================ FEATURES ============================ -->
   <section class="section" id="inside">
@@ -472,15 +421,8 @@ img{display:block;max-width:100%;}
             <div class="device-notch" aria-hidden="true"></div>
             <div class="device-screen">
               <figure class="shot shot--phone">
-                <!-- REPLACE WITH:
-                     <img src="/shots/app-composer@2x.png" width="780" height="1688"
-                          alt="The VipKorner composer with a photo selected and a caption being written."> -->
-                <div class="shot-hold">
-                  <span class="shot-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg></span>
-                  <span class="shot-name">Composer</span>
-                  <span class="shot-spec">app-composer@2x.png · 780 × 1688</span>
-                  <span class="shot-what">Photo selected, caption half-typed, Share button active in the header.</span>
-                </div>
+                <img src="/shots/app-composer@2x.png" width="390" height="844" loading="lazy" decoding="async"
+                     alt="The VipKorner composer with a photo selected and a caption being written.">
               </figure>
             </div>
           </div>
@@ -503,15 +445,8 @@ img{display:block;max-width:100%;}
         <!-- SCREENSHOT SLOT 3 -->
         <div class="feature-media" data-reveal="left">
           <figure class="shot shot--wide" data-parallax="-0.08">
-            <!-- REPLACE WITH:
-                 <img src="/shots/app-explore@2x.png" width="2560" height="1600"
-                      alt="The VipKorner Explore view on desktop, showing a grid of member profiles with follow buttons."> -->
-            <div class="shot-hold">
-              <span class="shot-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-2 5-5 2 2-5z"/></svg></span>
-              <span class="shot-name">Explore, desktop</span>
-              <span class="shot-spec">app-explore@2x.png · 2560 × 1600</span>
-              <span class="shot-what">Three-column shell with the search panel open and a grid of member cards.</span>
-            </div>
+            <img src="/shots/app-explore@2x.png" width="1183" height="800" loading="lazy" decoding="async"
+                 alt="The VipKorner Explore view on desktop, showing a member profile and follow controls.">
           </figure>
         </div>
       </div>
@@ -535,15 +470,8 @@ img{display:block;max-width:100%;}
             <div class="device-notch" aria-hidden="true"></div>
             <div class="device-screen">
               <figure class="shot shot--phone">
-                <!-- REPLACE WITH:
-                     <img src="/shots/app-messages@2x.png" width="780" height="1688"
-                          alt="A VipKorner direct message thread with sent and received messages."> -->
-                <div class="shot-hold">
-                  <span class="shot-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a7 7 0 01-9.8 6.4L4 20l1.6-5.6A7 7 0 1120 12z"/></svg></span>
-                  <span class="shot-name">Message thread</span>
-                  <span class="shot-spec">app-messages@2x.png · 780 × 1688</span>
-                  <span class="shot-what">A short exchange — gold outgoing bubbles, grey incoming, composer at the base.</span>
-                </div>
+                <img src="/shots/app-messages@2x.png" width="390" height="844" loading="lazy" decoding="async"
+                     alt="A VipKorner direct message thread with sent and received messages.">
               </figure>
             </div>
           </div>
@@ -565,45 +493,29 @@ img{display:block;max-width:100%;}
           <!-- SCREENSHOT SLOTS 5–8 -->
           <figure class="strip-card">
             <div class="shot shot--story">
-              <!-- REPLACE WITH: <img src="/shots/story-1@2x.png" width="620" height="1102" alt="A VipKorner story with the 24-hour progress bar running along the top."> -->
-              <div class="shot-hold">
-                <span class="shot-name">Story · viewing</span>
-                <span class="shot-spec">story-1@2x.png · 620 × 1102</span>
-                <span class="shot-what">Progress bars along the top, poster's name and time remaining.</span>
-              </div>
+              <img src="/shots/story-1@2x.png" width="390" height="844" loading="lazy" decoding="async"
+                   alt="A VipKorner story with the 24-hour progress bar running along the top.">
             </div>
             <figcaption><b>Posted at 6:40pm</b><span>The progress bar shows how much of the sequence is left.</span></figcaption>
           </figure>
           <figure class="strip-card">
             <div class="shot shot--story">
-              <!-- REPLACE WITH: <img src="/shots/story-2@2x.png" width="620" height="1102" alt="A VipKorner story with the emoji reaction row visible at the bottom."> -->
-              <div class="shot-hold">
-                <span class="shot-name">Story · reacting</span>
-                <span class="shot-spec">story-2@2x.png · 620 × 1102</span>
-                <span class="shot-what">Emoji reaction row at the base, one chip in its selected state.</span>
-              </div>
+              <img src="/shots/story-2@2x.png" width="390" height="844" loading="lazy" decoding="async"
+                   alt="A VipKorner story with the emoji reaction row visible at the bottom.">
             </div>
             <figcaption><b>One reaction each</b><span>Tap to react, tap the same one again to take it back.</span></figcaption>
           </figure>
           <figure class="strip-card">
             <div class="shot shot--story">
-              <!-- REPLACE WITH: <img src="/shots/story-3@2x.png" width="620" height="1102" alt="The VipKorner story composer with a caption placed over the image."> -->
-              <div class="shot-hold">
-                <span class="shot-name">Story · composing</span>
-                <span class="shot-spec">story-3@2x.png · 620 × 1102</span>
-                <span class="shot-what">Caption being dragged into position over the image.</span>
-              </div>
+              <img src="/shots/story-3@2x.png" width="390" height="844" loading="lazy" decoding="async"
+                   alt="The VipKorner story composer with a photo selected and caption controls visible.">
             </div>
             <figcaption><b>Put the words where you want them</b><span>Drag the caption anywhere on the frame before you post.</span></figcaption>
           </figure>
           <figure class="strip-card">
             <div class="shot shot--story">
-              <!-- REPLACE WITH: <img src="/shots/story-4@2x.png" width="620" height="1102" alt="A VipKorner story ring row showing unviewed and already-viewed stories."> -->
-              <div class="shot-hold">
-                <span class="shot-name">Story · the rail</span>
-                <span class="shot-spec">story-4@2x.png · 620 × 1102</span>
-                <span class="shot-what">Story rings — unviewed first with the gold ring, viewed ones flat.</span>
-              </div>
+              <img src="/shots/story-4@2x.png" width="390" height="844" loading="lazy" decoding="async"
+                   alt="The VipKorner home screen showing unviewed and viewed story rings.">
             </div>
             <figcaption><b>Unviewed first</b><span>Order carries the information, not just the ring colour.</span></figcaption>
           </figure>
@@ -644,15 +556,8 @@ img{display:block;max-width:100%;}
         <div class="device device--laptop" data-parallax="-0.06">
           <div class="device-screen">
             <figure class="shot shot--laptop">
-              <!-- REPLACE WITH:
-                   <img src="/shots/app-signin@2x.png" width="2560" height="1600"
-                        alt="The VipKorner sign-in and invitation screen on desktop, with the editorial panel on the left and the form on the right."> -->
-              <div class="shot-hold">
-                <span class="shot-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></span>
-                <span class="shot-name">Sign in &amp; invitation</span>
-                <span class="shot-spec">app-signin@2x.png · 2560 × 1600</span>
-                <span class="shot-what">Split login screen — editorial panel left, invitation code field right.</span>
-              </div>
+              <img src="/shots/app-signin@2x.png" width="1183" height="720" loading="lazy" decoding="async"
+                   alt="The VipKorner sign-in screen on desktop, with the editorial panel on the left and the form on the right.">
             </figure>
           </div>
         </div>
@@ -676,15 +581,8 @@ img{display:block;max-width:100%;}
       <!-- SCREENSHOT SLOT 10 -->
       <div data-reveal="right">
         <figure class="shot shot--wide" data-parallax="-0.05">
-          <!-- REPLACE WITH:
-               <img src="/shots/app-install@2x.png" width="1600" height="1000"
-                    alt="The VipKorner install prompt with step-by-step instructions for adding the app to a home screen."> -->
-          <div class="shot-hold">
-            <span class="shot-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M7 12l5 5 5-5M5 20h14"/></svg></span>
-            <span class="shot-name">Install guide</span>
-            <span class="shot-spec">app-install@2x.png · 1600 × 1000</span>
-            <span class="shot-what">The install sheet with its numbered add-to-home-screen steps.</span>
-          </div>
+          <img src="/shots/app-install@2x.png" width="1183" height="800" loading="lazy" decoding="async"
+               alt="The VipKorner install prompt with instructions for adding the app to a home screen.">
         </figure>
       </div>
     </div>
@@ -764,15 +662,14 @@ img{display:block;max-width:100%;}
     revealables.forEach(function (el) { io.observe(el); });
   }
 
-  /* ---------- 2. Parallax, ticker, pinned strip, nav -------------------- */
+  /* ---------- 2. Parallax, pinned strip, nav ---------------------------- */
   var nav        = document.getElementById('nav');
   var navBar     = document.getElementById('navProgress');
-  var ticker     = document.getElementById('ticker');
   var stripRail  = document.getElementById('stripRail');
   var stripTrack = document.getElementById('stripTrack');
 
   var layers = [];   // measured parallax elements
-  var docH = 0, vh = 0, railTop = 0, railH = 0, trackOverflow = 0, tickerOverflow = 0;
+  var docH = 0, vh = 0, railTop = 0, railH = 0, trackOverflow = 0;
   var ticking = false;
   var enabled = false;
 
@@ -801,9 +698,6 @@ img{display:block;max-width:100%;}
         .getPropertyValue('--site-gutter')) || 24;
       trackOverflow = Math.max(0, stripTrack.scrollWidth - window.innerWidth + gutter);
     }
-    if (ticker) {
-      tickerOverflow = Math.max(0, ticker.scrollWidth / 2);
-    }
   }
 
   function frame() {
@@ -828,12 +722,6 @@ img{display:block;max-width:100%;}
       L.el.style.transform = 'translate3d(0,' + (delta * L.speed).toFixed(2) + 'px,0)';
     }
 
-    /* Ticker: drifts with the page rather than animating on a timer, so it
-       is never moving when the visitor is not. */
-    if (ticker && tickerOverflow) {
-      ticker.style.transform = 'translate3d(' + (-(y * 0.14) % tickerOverflow).toFixed(2) + 'px,0,0)';
-    }
-
     /* Pinned strip: vertical scroll through the runway drives horizontal
        travel of the story cards. */
     if (stripTrack && trackOverflow && railH > vh) {
@@ -849,7 +737,6 @@ img{display:block;max-width:100%;}
 
   function clearTransforms() {
     layers.forEach(function (L) { L.el.style.transform = ''; });
-    if (ticker) ticker.style.transform = '';
     if (stripTrack) stripTrack.style.transform = '';
   }
 

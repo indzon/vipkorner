@@ -38,6 +38,27 @@ test("the deployed marketing page matches its design source", async () => {
   assert.equal(deployed, source);
 });
 
+test("the marketing page uses real app captures without a marquee", async () => {
+  const marketing = await read("public/marketing.html");
+  const captures = [
+    "app-home@2x.png",
+    "app-composer@2x.png",
+    "app-explore@2x.png",
+    "app-messages@2x.png",
+    "story-1@2x.png",
+    "story-2@2x.png",
+    "story-3@2x.png",
+    "story-4@2x.png",
+    "app-signin@2x.png",
+    "app-install@2x.png",
+  ];
+
+  captures.forEach((capture) => assert.match(marketing, new RegExp(`/shots/${capture.replace(".", "\\.")}`)));
+  assert.doesNotMatch(marketing, /shot-hold|ticker-track|id="ticker"/);
+  assert.match(marketing, /--site-gutter:20px/);
+  assert.match(marketing, /\[data-parallax\]\{transform:none !important/);
+});
+
 test("connection lists remain scoped to the authenticated member", async () => {
   const socialRoute = await read("app/api/social/route.ts");
 
