@@ -94,6 +94,11 @@ export async function ensureSchema() {
       follower_id TEXT NOT NULL, followed_id TEXT NOT NULL, created_at INTEGER NOT NULL,
       PRIMARY KEY (follower_id, followed_id)
     )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS follow_requests (
+      requester_id TEXT NOT NULL, target_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL, responded_at INTEGER,
+      PRIMARY KEY (requester_id, target_id)
+    )`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS blocks (
       blocker_id TEXT NOT NULL, blocked_id TEXT NOT NULL, created_at INTEGER NOT NULL,
       PRIMARY KEY (blocker_id, blocked_id)
@@ -132,6 +137,7 @@ export async function ensureSchema() {
       PRIMARY KEY (story_id, user_id)
     )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, created_at DESC)"),
+    DB.prepare("CREATE INDEX IF NOT EXISTS follow_requests_target_status_idx ON follow_requests (target_id, status, created_at DESC)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages (conversation_id, created_at)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS story_reactions_story_idx ON story_reactions (story_id, created_at DESC)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status, created_at DESC)"),

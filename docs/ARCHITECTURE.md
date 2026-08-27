@@ -23,14 +23,17 @@ The app stays invitation-only while `app_meta.registration_mode` is `invite`.
 
 ## Social graph privacy
 
-`follows` stores directional relationships using `(follower_id, followed_id)` as its composite key.
+`follows` stores approved directional relationships using `(follower_id, followed_id)` as its composite key. `follow_requests` stores the private-account request lifecycle (`pending`, `approved`, `declined`, or `canceled`) without granting media access until an approved request creates a `follows` row.
 
-- Discovery returns public profile summaries and aggregate follower counts.
+- Discovery returns available profile summaries and aggregate follower counts, including private profiles so a signed-in member can request access.
 - `/api/social?counts=1` returns only the signed-in member’s counts.
 - `/api/social?list=followers` and `?list=following` always resolve against the authenticated member; callers cannot request another member’s list.
 - `/api/social?profile=<id>` returns one available member’s public profile summary and aggregate counts, but never their connection lists.
 - Follow and block mutations return refreshed counts for immediate UI updates.
-- The client refreshes counts every 15 seconds while visible and whenever the window regains focus.
+- A follow mutation creates a direct relationship only for a public profile. Private profiles create a pending request and owner notification; the owner can approve or decline from Activity, and the requester receives the decision as a notification.
+- The client refreshes the feed, activity, counts, and conversations every 15 seconds while visible and whenever the window regains focus.
+
+Member-profile post and story visibility continues to depend exclusively on `users.is_public`, self-ownership, or an approved `follows` row. Pending requests never satisfy media queries. The profile summary includes the member location and, when the viewer may see posts, a recent post image for the gradient-backed hero. Locked private profiles fall back to public avatar imagery and do not expose private post keys.
 
 Connection rows, notification actors, and Explore identities all use the same member-profile navigation path. Activity payloads include the actor’s public avatar fields so the UI does not substitute a generic activity icon. From another member’s profile, the message action posts `{ action: "start", targetId }` to `/api/messages`, then opens the returned conversation in the Messages view. The client loads conversation summaries at startup, on focus, and every 15 seconds while visible so the Messages navigation can display an aggregate unread count; opening a conversation marks its messages read and refreshes that count.
 
@@ -51,7 +54,7 @@ The home story tray groups active stories by member and displays only members wh
 | `/api/auth` | Supabase sign-in, invitation validation, pending registration |
 | `/auth/confirm` | Confirmation exchange and automatic profile finalization |
 | `/api/feed` | Feed, stories with viewer reaction state, comments, notifications, own profile summary |
-| `/api/social` | Discovery, follows, blocks, reports, invitations, connection lists |
+| `/api/social` | Discovery, direct follows, private follow requests, blocks, reports, invitations, connection lists |
 | `/api/messages` | Text-only conversations, message requests, and unread totals |
 | `/api/stories` | Story creation, views, reactions, and owner deletion |
 | `/api/uploads` | Validated multipart R2 uploads, including ordered post-carousel completion |

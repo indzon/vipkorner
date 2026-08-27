@@ -16,6 +16,7 @@ import {
   Menu,
   MessageCircle,
   Mail,
+  MapPin,
   MoreHorizontal,
   Play,
   Plus,
@@ -65,7 +66,8 @@ type Post = {
 
 type PublicUser = { id: string; username: string; displayName: string; location?: string; bio?: string; imageKey: string | null; imageUrl: string | null };
 type Comment = { id: string; postId: string; body: string; createdAt: number; author: PublicUser };
-type Activity = { id: string; type: "like" | "comment" | "follow" | "message" | "story_reaction"; postId: string | null; message: string; createdAt: number; readAt?: number | null; actorId?: string | null; actorUsername?: string | null; actorDisplayName?: string | null; actorImageKey?: string | null; actorImageUrl?: string | null };
+type FollowRequestStatus = "pending" | "approved" | "declined" | "canceled" | null;
+type Activity = { id: string; type: "like" | "comment" | "follow" | "message" | "story_reaction" | "follow_request" | "follow_request_approved" | "follow_request_declined"; postId: string | null; message: string; createdAt: number; readAt?: number | null; actorId?: string | null; actorUsername?: string | null; actorDisplayName?: string | null; actorImageKey?: string | null; actorImageUrl?: string | null; requestStatus?: FollowRequestStatus };
 
 type Profile = {
   id: string;
@@ -103,8 +105,8 @@ type Story = {
   author: PublicUser;
 };
 
-type DiscoveryUser = PublicUser & { following: number | boolean; followsYou: number | boolean; blocked: number | boolean; followers: number; posts: number; role: string; isSelf: number | boolean };
-type MemberProfile = PublicUser & { website?: string; isPublic: number | boolean; following: number | boolean; followsYou: number | boolean; followers: number; followingCount: number; posts: number; isSelf: number | boolean };
+type DiscoveryUser = PublicUser & { isPublic: number | boolean; following: number | boolean; followsYou: number | boolean; followRequestStatus?: FollowRequestStatus; blocked: number | boolean; followers: number; posts: number; role: string; isSelf: number | boolean };
+type MemberProfile = PublicUser & { website?: string; isPublic: number | boolean; following: number | boolean; followsYou: number | boolean; followRequestStatus?: FollowRequestStatus; followers: number; followingCount: number; posts: number; isSelf: number | boolean; heroImageKey?: string | null; heroImageUrl?: string | null };
 type ConnectionCounts = { following: number; followers: number };
 type ConnectionUser = PublicUser & { connectedAt: number };
 type Conversation = { id: string; status: "pending" | "accepted"; requestedBy: string; updatedAt: number; otherId: string; username: string; displayName: string; imageKey: string | null; imageUrl: string | null; lastMessage: string | null; unread: number };
@@ -327,6 +329,7 @@ export default function HomePage() {
     if (!accessReady) return;
     const refresh = () => {
       if (document.visibilityState !== "visible") return;
+      void loadFeed();
       void loadSocialCounts();
       void loadConversations().catch(() => undefined);
     };
@@ -338,7 +341,7 @@ export default function HomePage() {
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [accessReady, loadConversations, loadSocialCounts]);
+  }, [accessReady, loadConversations, loadFeed, loadSocialCounts]);
 
   useEffect(() => {
     if (!toast) return;
@@ -467,7 +470,7 @@ export default function HomePage() {
           </>
         ) : view === "profile" ? (
           <ProfileView posts={posts} profile={profile} onCounts={updateConnectionCounts} onViewProfile={openMemberProfile} onCreate={() => setComposer("post")} onEdit={() => setProfilePanel("edit")} onSettings={() => setProfilePanel("settings")} onActivity={() => setProfilePanel("activity")} onOpenPost={(post) => setActivePostId(post.id)} />
-        ) : view === "member" ? <MemberProfileView member={memberProfile} error={memberProfileError} posts={posts} onBack={exploreNav} onMessage={startMemberConversation} onOpenPost={(post) => setActivePostId(post.id)} />
+        ) : view === "member" ? <MemberProfileView member={memberProfile} error={memberProfileError} posts={posts} onBack={exploreNav} onMessage={startMemberConversation} onRefresh={openMemberProfile} onOpenPost={(post) => setActivePostId(post.id)} />
         : view === "explore" ? <ExploreView users={discovery} onRefresh={() => loadDiscovery(query)} onCounts={updateConnectionCounts} onViewProfile={openMemberProfile} onViewSelf={profileNav} onMessage={(conversationId) => { setActiveConversationId(conversationId); setView("messages"); void loadConversations(); }} />
         : <MessagesView key={activeConversationId || "messages"} profile={profile} conversations={conversations} initialConversationId={activeConversationId} onRefresh={loadConversations} />}
       </section>
@@ -489,7 +492,7 @@ export default function HomePage() {
       {activeStoryId && <StoryViewer key={activeStoryId} stories={stories} activeId={activeStoryId} onChange={setActiveStoryId} onViewed={markStoryViewed} onClose={() => setActiveStoryId(null)} onDelete={deleteStory} onReact={reactToStory} />}
       {profilePanel === "edit" && <EditProfileModal profile={profile} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Profile updated."); }} />}
       {profilePanel === "settings" && <SettingsModal profile={profile} installPrompt={installPrompt} onInstallGuide={() => { setProfilePanel(null); setInstallGuideOpen(true); }} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Settings saved."); }} />}
-      {profilePanel === "activity" && <ActivityModal activities={activities} posts={posts} onViewProfile={openMemberProfile} onClose={() => setProfilePanel(null)} />}
+      {profilePanel === "activity" && <ActivityModal activities={activities} posts={posts} onRefresh={loadFeed} onViewProfile={openMemberProfile} onClose={() => setProfilePanel(null)} />}
       {activePost && <MediaViewer post={activePost} profile={profile} onClose={() => setActivePostId(null)} onCaptionUpdate={updateCaption} onDelete={deletePost} onToggle={togglePost} onComment={addComment} />}
       {installGuideOpen && <InstallGuide onClose={() => setInstallGuideOpen(false)} />}
       {toast && <div className="toast" role="status"><Check size={17} /> {toast}</div>}
@@ -802,14 +805,33 @@ function StoryViewer({ stories, activeId, onChange, onViewed, onClose, onDelete,
   );
 }
 
-function MemberProfileView({ member, error, posts, onBack, onMessage, onOpenPost }: { member: MemberProfile | null; error: string; posts: Post[]; onBack: () => void; onMessage: (userId: string) => Promise<void>; onOpenPost: (post: Post) => void }) {
+function MemberProfileView({ member, error, posts, onBack, onMessage, onRefresh, onOpenPost }: { member: MemberProfile | null; error: string; posts: Post[]; onBack: () => void; onMessage: (userId: string) => Promise<void>; onRefresh: (userId: string) => Promise<void>; onOpenPost: (post: Post) => void }) {
+  const [requestBusy, setRequestBusy] = useState(false);
+  const [requestError, setRequestError] = useState("");
   if (error) return <section className="member-profile-state"><span><UserRound /></span><h1>Profile unavailable</h1><p>{error}</p><button onClick={onBack}>Back to Explore</button></section>;
   if (!member) return <section className="member-profile-state" role="status"><span><UserRound /></span><h1>Loading profile…</h1></section>;
   const visiblePosts = posts.filter((post) => post.userId === member.id);
+  const privateAndLocked = !Boolean(member.isPublic) && !Boolean(member.following);
+  const requestPending = member.followRequestStatus === "pending";
+  const heroImage = member.heroImageKey || member.heroImageUrl
+    ? imageSource({ imageKey: member.heroImageKey ?? null, imageUrl: member.heroImageUrl ?? null })
+    : profileImage(member);
+  async function toggleFollowRequest() {
+    setRequestBusy(true); setRequestError("");
+    try {
+      const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "follow", targetId: member!.id }) });
+      await readApiResponse(response, requestPending ? "Could not cancel this follow request." : "Could not send this follow request.");
+      await onRefresh(member!.id);
+    } catch (reason) { setRequestError(reason instanceof Error ? reason.message : "Could not update this follow request."); }
+    finally { setRequestBusy(false); }
+  }
   return <section className="profile-page member-profile-page">
     <button className="member-back" onClick={onBack}><ChevronLeft /> Explore</button>
-    <header className="profile-hero"><img className="member-profile-photo" src={profileImage(member)} alt={member.displayName} /><div className="profile-info"><div><h1>{member.username}</h1><button type="button" className="icon-button member-message-button" onClick={() => void onMessage(member.id)} aria-label={`Message @${member.username}`}><Mail /></button></div><div className="profile-stats"><span><strong>{member.posts}</strong> posts</span><span><strong>{member.followers}</strong> followers</span><span><strong>{member.followingCount}</strong> following</span></div><p><strong>{member.displayName}</strong><br />{member.bio || "New to VipKorner."}<br />{member.website && <a href={`https://${member.website.replace(/^https?:\/\//, "")}`}>{member.website}</a>}</p></div></header>
-    <div className="member-profile-note">{member.isPublic || member.following ? "Public profile" : "Private profile · Follow this member to see their posts."}</div>
+    <header className="profile-hero member-profile-hero">
+      <div className="member-profile-banner" aria-hidden="true"><img src={heroImage} alt="" /><i /></div>
+      <div className="member-profile-hero-content"><img className="member-profile-photo" src={profileImage(member)} alt={member.displayName} /><div className="profile-info"><div><h1>{member.username}</h1><button type="button" className="icon-button member-message-button" onClick={() => void onMessage(member.id)} aria-label={`Message @${member.username}`}><Mail /></button></div><div className="profile-stats"><span><strong>{member.posts}</strong> posts</span><span><strong>{member.followers}</strong> followers</span><span><strong>{member.followingCount}</strong> following</span></div><p><strong>{member.displayName}</strong><br />{member.bio || "New to VipKorner."}</p><span className="member-location"><MapPin /> {member.location || "Location not shared"}</span>{member.website && <a href={`https://${member.website.replace(/^https?:\/\//, "")}`}>{member.website}</a>}</div></div>
+    </header>
+    {privateAndLocked && <div className="member-follow-request"><div><strong>Private profile</strong><span>Only approved followers can see this member’s posts and stories.</span></div><button type="button" className={requestPending ? "requested" : ""} disabled={requestBusy} onClick={() => void toggleFollowRequest()}>{requestBusy ? "Updating…" : requestPending ? "Request sent · Cancel" : "Request to Follow"}</button>{requestError && <p role="alert">{requestError}</p>}</div>}
     {visiblePosts.length ? <div className="profile-grid">{visiblePosts.map((post) => <button key={post.id} onClick={() => onOpenPost(post)} aria-label={`Open ${post.mediaType}: ${post.caption}`}>{post.mediaType === "video" ? <><video src={imageSource(post)} muted playsInline preload="metadata" aria-label={post.caption} /><i className="video-badge"><Video /></i></> : <img src={imageSource(post)} alt={post.caption} />}<span><Heart fill="currentColor" size={17} /> {post.likes}</span></button>)}</div> : <div className="saved-empty"><span><ImagePlus /></span><h3>No posts to show</h3><p>{member.isPublic || member.following ? "This member hasn’t shared a post yet." : "This member’s posts are private."}</p></div>}
   </section>;
 }
@@ -835,15 +857,16 @@ function ExploreView({ users, onRefresh, onCounts, onMessage, onViewProfile, onV
       if (name === "report") { reason = window.prompt(`Why are you reporting @${user.username}?`) || ""; if (!reason) return; }
       if (name === "block" && !user.blocked && !window.confirm(`Block @${user.username}? Following relationships will be removed and you won't see or message each other.`)) return;
       const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: name, targetId: user.id, targetType: "profile", reason }) });
-      const result = await readApiResponse<{ counts?: ConnectionCounts }>(response, "Could not update this profile.");
+      const result = await readApiResponse<{ counts?: ConnectionCounts; following?: boolean; requested?: boolean }>(response, "Could not update this profile.");
       if (result.counts) onCounts(result.counts);
       if (name === "report") setNotice("Report sent to the administrator.");
-      else if (name === "follow" && !user.following) setFollowFeedback(user.username);
+      else if (name === "follow" && result.following) setFollowFeedback(user.username);
+      else if (name === "follow" && result.requested) setNotice(`Follow request sent to @${user.username}.`);
       await onRefresh();
     } catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not complete this action."); }
     finally { setBusyId(null); }
   }
-  return <section className="explore-page"><div className="section-heading"><span className="eyebrow">DISCOVER</span><h1>Find your people</h1><p>Public profiles from the VipKorner community.</p></div>{notice && <p className="panel-notice">{notice}</p>}{followFeedback && <div className="follow-feedback" role="status" aria-live="polite"><Lottie animationData={followSuccessAnimation} loop={false} /><strong>Now following @{followFeedback}</strong></div>}<div className="people-grid">{users.length ? users.map((user) => <article className="person-card" key={user.id}><button className="person-avatar-button" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)} aria-label={`View @${user.username}'s profile`}><img src={profileImage(user)} alt="" /></button><button className="person-identity" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)}><h2>{user.displayName}</h2><strong>@{user.username}</strong><p>{user.bio || "New to VipKorner."}</p><small>{user.posts} posts · {user.followers} followers{user.isSelf ? " · This is you" : user.followsYou ? " · Follows you" : ""}</small></button><div className="person-actions">{user.isSelf ? <button className="primary" onClick={onViewSelf}><UserRound /> View your profile</button> : <><button className={user.following ? "following" : "primary"} disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "follow")}>{user.following ? "Following" : <><UserPlus /> Follow</>}</button><button disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "message")}><Mail /> Message</button><button className={user.blocked ? "danger" : ""} disabled={busyId === user.id} onClick={() => action(user, "block")}><Ban /> {user.blocked ? "Unblock" : "Block"}</button><button disabled={busyId === user.id} onClick={() => action(user, "report")}><Flag /> Report</button></>}</div></article>) : <div className="empty-state"><span><Compass /></span><h2>No profiles found</h2><p>Try a different name or username.</p></div>}</div></section>;
+  return <section className="explore-page"><div className="section-heading"><span className="eyebrow">DISCOVER</span><h1>Find your people</h1><p>Profiles from the VipKorner community.</p></div>{notice && <p className="panel-notice">{notice}</p>}{followFeedback && <div className="follow-feedback" role="status" aria-live="polite"><Lottie animationData={followSuccessAnimation} loop={false} /><strong>Now following @{followFeedback}</strong></div>}<div className="people-grid">{users.length ? users.map((user) => { const requestPending = user.followRequestStatus === "pending"; return <article className="person-card" key={user.id}><button className="person-avatar-button" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)} aria-label={`View @${user.username}'s profile`}><img src={profileImage(user)} alt="" /></button><button className="person-identity" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)}><h2>{user.displayName}</h2><strong>@{user.username}</strong><p>{user.bio || "New to VipKorner."}</p><small>{user.posts} posts · {user.followers} followers{user.isSelf ? " · This is you" : user.followsYou ? " · Follows you" : !user.isPublic ? " · Private" : ""}</small></button><div className="person-actions">{user.isSelf ? <button className="primary" onClick={onViewSelf}><UserRound /> View your profile</button> : <><button className={user.following || requestPending ? "following" : "primary"} disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "follow")}>{user.following ? "Following" : requestPending ? "Requested" : <><UserPlus /> {user.isPublic ? "Follow" : "Request"}</>}</button><button disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "message")}><Mail /> Message</button><button className={user.blocked ? "danger" : ""} disabled={busyId === user.id} onClick={() => action(user, "block")}><Ban /> {user.blocked ? "Unblock" : "Block"}</button><button disabled={busyId === user.id} onClick={() => action(user, "report")}><Flag /> Report</button></>}</div></article>; }) : <div className="empty-state"><span><Compass /></span><h2>No profiles found</h2><p>Try a different name or username.</p></div>}</div></section>;
 }
 
 function MessagesView({ profile, conversations, initialConversationId, onRefresh }: { profile: Profile; conversations: Conversation[]; initialConversationId: string | null; onRefresh: () => Promise<void> }) {
@@ -1073,7 +1096,7 @@ function SettingsModal({ profile, installPrompt, onInstallGuide, onClose, onSave
         <div className="settings-content">
           <div className="settings-intro"><span><SlidersHorizontal /></span><div><strong>Make VipKorner yours</strong><p>Choose how your profile and uploads behave.</p></div></div>
           <div className="settings-list">
-            <SettingRow title="Private account" description="Hide your profile from public discovery." checked={Boolean(draft.privateAccount)} onChange={() => toggle("privateAccount")} />
+            <SettingRow title="Private account" description="Only approved followers can see your posts and stories." checked={Boolean(draft.privateAccount)} onChange={() => toggle("privateAccount")} />
             <SettingRow title="Story replies" description="Allow quick replies while viewing stories." checked={Boolean(draft.storyReplies)} onChange={() => toggle("storyReplies")} />
             <SettingRow title="High-quality uploads" description="Keep original detail in photos and videos." checked={Boolean(draft.highQualityUploads)} onChange={() => toggle("highQualityUploads")} />
           </div>
@@ -1161,13 +1184,26 @@ function AdminControls() {
   </section>;
 }
 
-function ActivityModal({ activities, posts, onViewProfile, onClose }: { activities: Activity[]; posts: Post[]; onViewProfile: (userId: string) => void; onClose: () => void }) {
+function ActivityModal({ activities, posts, onRefresh, onViewProfile, onClose }: { activities: Activity[]; posts: Post[]; onRefresh: () => Promise<void>; onViewProfile: (userId: string) => void; onClose: () => void }) {
+  const [requestBusy, setRequestBusy] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState("");
   useEffect(() => { fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "read-notifications" }) }).catch(() => undefined); }, []);
+  async function respond(activity: Activity, decision: "approve" | "decline") {
+    if (!activity.actorId) return;
+    setRequestBusy(activity.id); setRequestError("");
+    try {
+      const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "follow-request-response", targetId: activity.actorId, decision }) });
+      await readApiResponse(response, `Could not ${decision} this follow request.`);
+      await onRefresh();
+    } catch (reason) { setRequestError(reason instanceof Error ? reason.message : "Could not update this follow request."); }
+    finally { setRequestBusy(null); }
+  }
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Activity" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="profile-modal activity-modal">
         <ModalHeader eyebrow="PROFILE" title="Activity" onClose={onClose} />
-        {activities.length ? <div className="activity-list">{activities.map((activity) => { const post = posts.find((item) => item.id === activity.postId); const actor = { username: activity.actorUsername || "Member", displayName: activity.actorDisplayName || activity.actorUsername || "VipKorner member", imageKey: activity.actorImageKey || null, imageUrl: activity.actorImageUrl || null }; return <button className="activity-item" key={activity.id} disabled={!activity.actorId} onClick={() => { if (activity.actorId) { onClose(); onViewProfile(activity.actorId); } }} aria-label={activity.actorId ? `View @${actor.username}'s profile: ${activity.message}` : activity.message}><img className="activity-avatar" src={profileImage(actor)} alt="" /><span className="activity-copy"><p>{activity.message}</p><time>{relativeTime(activity.createdAt)}</time></span>{post && (post.mediaType === "video" ? <span className="activity-video"><Video /></span> : <img className="activity-media" src={imageSource(post)} alt="" />)}</button>; })}</div> : <div className="activity-empty"><span><Bell /></span><h3>No activity yet</h3><p>Follows, messages, likes, and comments will appear here.</p></div>}
+        {requestError && <p className="inline-error" role="alert">{requestError}</p>}
+        {activities.length ? <div className="activity-list">{activities.map((activity) => { const post = posts.find((item) => item.id === activity.postId); const actor = { username: activity.actorUsername || "Member", displayName: activity.actorDisplayName || activity.actorUsername || "VipKorner member", imageKey: activity.actorImageKey || null, imageUrl: activity.actorImageUrl || null }; const pendingRequest = activity.type === "follow_request" && activity.requestStatus === "pending"; return <article className={`activity-item ${pendingRequest ? "follow-request-item" : ""}`} key={activity.id}><button className="activity-main" disabled={!activity.actorId} onClick={() => { if (activity.actorId) { onClose(); onViewProfile(activity.actorId); } }} aria-label={activity.actorId ? `View @${actor.username}'s profile: ${activity.message}` : activity.message}><img className="activity-avatar" src={profileImage(actor)} alt="" /><span className="activity-copy"><p>{activity.message}</p><time>{relativeTime(activity.createdAt)}</time></span>{post && (post.mediaType === "video" ? <span className="activity-video"><Video /></span> : <img className="activity-media" src={imageSource(post)} alt="" />)}</button>{pendingRequest && <div className="follow-request-actions"><button type="button" disabled={requestBusy === activity.id} onClick={() => void respond(activity, "approve")}>Approve</button><button type="button" disabled={requestBusy === activity.id} onClick={() => void respond(activity, "decline")}>Decline</button></div>}{activity.type === "follow_request" && !pendingRequest && <span className="follow-request-status">{activity.requestStatus === "approved" ? "Approved" : activity.requestStatus === "declined" ? "Declined" : "Canceled"}</span>}</article>; })}</div> : <div className="activity-empty"><span><Bell /></span><h3>No activity yet</h3><p>Follows, follow requests, messages, likes, and comments will appear here.</p></div>}
       </section>
     </div>
   );

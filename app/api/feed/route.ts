@@ -51,7 +51,8 @@ export async function GET() {
         ORDER BY c.created_at ASC`).bind(viewer.id, viewer.id).all(),
       DB.prepare(`SELECT n.id, n.type, n.entity_id AS postId, n.message, n.created_at AS createdAt,
         n.read_at AS readAt, n.actor_id AS actorId, u.username AS actorUsername,
-        u.display_name AS actorDisplayName, u.image_key AS actorImageKey, u.image_url AS actorImageUrl
+        u.display_name AS actorDisplayName, u.image_key AS actorImageKey, u.image_url AS actorImageUrl,
+        (SELECT fr.status FROM follow_requests fr WHERE fr.requester_id = n.actor_id AND fr.target_id = n.user_id) AS requestStatus
         FROM notifications n LEFT JOIN users u ON u.id = n.actor_id
         WHERE n.user_id = ? ORDER BY n.created_at DESC LIMIT 50`).bind(viewer.id).all(),
       DB.prepare("SELECT COUNT(*) AS total FROM follows WHERE follower_id = ?").bind(viewer.id).first<{ total: number }>(),

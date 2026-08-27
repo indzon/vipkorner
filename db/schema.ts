@@ -136,6 +136,17 @@ export const follows = sqliteTable("follows", {
   createdAt: integer("created_at").notNull(),
 });
 
+export const followRequests = sqliteTable("follow_requests", {
+  requesterId: text("requester_id").notNull(),
+  targetId: text("target_id").notNull(),
+  status: text("status").notNull().default("pending"),
+  createdAt: integer("created_at").notNull(),
+  respondedAt: integer("responded_at"),
+}, (table) => [
+  primaryKey({ columns: [table.requesterId, table.targetId] }),
+  index("follow_requests_target_status_idx").on(table.targetId, table.status, table.createdAt),
+]);
+
 export const blocks = sqliteTable("blocks", {
   blockerId: text("blocker_id").notNull(),
   blockedId: text("blocked_id").notNull(),

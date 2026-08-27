@@ -11,11 +11,13 @@ VipKorner is an invitation-only, multi-user progressive web app for adults. It c
 - New members register with an active, unused invitation code.
 - Date of birth is checked server-side; under-18 registration is rejected and the date itself is not stored.
 - Email confirmation completes the pending profile, claims the invitation, establishes the session, and redirects into the app.
-- Profiles are public by default unless the member enables the private-account setting.
+- Profiles are public by default unless the member enables the private-account setting. Private profiles remain discoverable, but their posts and stories are visible only after the owner approves a follow request.
 - A signed-in member can open their own follower and following lists. Other members only see aggregate counts.
 - Avatars and identity rows in connections, activity, and Explore open the relevant member profile; Explore identity copy is left-aligned for easy scanning, and other members’ follower/following lists remain hidden.
 - Another member’s profile includes a message action that creates or reopens the private text conversation with that member.
-- Follow counts refresh immediately after follow/block actions, when the app regains focus, and periodically while it is visible.
+- Member profiles show a location and an image-led hero. Public profiles no longer carry a redundant status badge; private profiles show a request control until access is approved.
+- Private follows use an owner-approved request workflow. Owners can approve or decline from Activity, and the requester receives the decision as a notification.
+- Follow counts and activity refresh immediately after social actions, when the app regains focus, and periodically while it is visible.
 - Stories expire after 24 hours. The tray shows one unviewed story per member and removes that member once all of their current stories have been seen.
 - Posts support carousels of up to 10 mixed images and videos. A post has one primary caption, and each carousel item can optionally carry its own caption.
 - Follow actions use a full-screen animated confirmation instead of a persistent status banner.

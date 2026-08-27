@@ -47,6 +47,14 @@ Profile navigation from a connection or activity item requests only the selected
 
 For member-profile releases, verify Explore identity copy remains left-aligned, open another member’s profile, select the accessible message icon, and confirm the correct private conversation opens in Messages.
 
+## Private-profile request smoke test
+
+1. Mark a test member private and confirm their profile remains discoverable, shows its location and hero treatment, hides the post grid, and offers **Request to Follow** instead of a profile-status badge.
+2. Send a request and confirm it appears as pending for the requester and as an actionable Activity notification for the profile owner.
+3. Approve the request and confirm a `follows` row is created, the requester receives an approval notification, and the private posts and stories become visible.
+4. Repeat with a decline and confirm no `follows` row is created and the requester receives the decline notification.
+5. Cancel a pending request and block either participant; confirm pending request records cannot grant access afterward.
+
 ## Messaging and story-reaction smoke test
 
 1. Send a text message from one member to another and confirm the recipient sees the same unread badge on desktop navigation, compact navigation, and mobile navigation without manually refreshing the page.

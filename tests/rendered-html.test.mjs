@@ -177,3 +177,34 @@ test("carousel posts, viewed-story removal, and mobile conversation rows stay wi
   assert.match(architecture, /## Post carousels/);
   assert.match(operations, /Carousel and responsive UI smoke test/);
 });
+
+test("private profiles use approved follow requests and image-led member heroes", async () => {
+  const [page, layout, reskin, feedRoute, socialRoute, schema, storage, readme, architecture, operations] = await Promise.all([
+    read("app/page.tsx"),
+    read("design/system/vipkorner-layout.css"),
+    read("design/system/vipkorner-reskin.css"),
+    read("app/api/feed/route.ts"),
+    read("app/api/social/route.ts"),
+    read("db/schema.ts"),
+    read("db/storage.ts"),
+    read("README.md"),
+    read("docs/ARCHITECTURE.md"),
+    read("docs/OPERATIONS.md"),
+  ]);
+
+  assert.doesNotMatch(page, />Public profile</);
+  assert.match(page, /Request to Follow/);
+  assert.match(page, /className="member-profile-banner"/);
+  assert.match(page, /className="member-location"/);
+  assert.match(page, /follow-request-response/);
+  assert.match(layout, /\.member-profile-hero-content/);
+  assert.match(reskin, /linear-gradient\(180deg/);
+  assert.match(feedRoute, /AS requestStatus/);
+  assert.match(socialRoute, /INSERT INTO follow_requests/);
+  assert.match(socialRoute, /INSERT OR IGNORE INTO follows/);
+  assert.match(schema, /followRequests = sqliteTable\("follow_requests"/);
+  assert.match(storage, /CREATE TABLE IF NOT EXISTS follow_requests/);
+  assert.match(readme, /owner-approved request workflow/i);
+  assert.match(architecture, /Pending requests never satisfy media queries/);
+  assert.match(operations, /Private-profile request smoke test/);
+});

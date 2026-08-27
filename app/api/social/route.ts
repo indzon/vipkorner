@@ -24,6 +24,7 @@ export async function GET(request: Request) {
         u.is_public AS isPublic,
         EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = u.id) AS following,
         EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = u.id AND f.followed_id = ?) AS followsYou,
+        (SELECT fr.status FROM follow_requests fr WHERE fr.requester_id = ? AND fr.target_id = u.id) AS followRequestStatus,
         (SELECT COUNT(*) FROM follows f WHERE f.followed_id = u.id) AS followers,
         (SELECT COUNT(*) FROM follows f WHERE f.follower_id = u.id) AS followingCount,
         (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id) AS posts,
@@ -31,9 +32,13 @@ export async function GET(request: Request) {
         FROM users u WHERE u.id = ? AND u.status = 'active'
         AND NOT EXISTS(SELECT 1 FROM blocks b WHERE
           (b.blocker_id = ? AND b.blocked_id = u.id) OR (b.blocker_id = u.id AND b.blocked_id = ?))`)
-        .bind(viewer.id, viewer.id, viewer.id, profileId, viewer.id, viewer.id).first();
+        .bind(viewer.id, viewer.id, viewer.id, viewer.id, profileId, viewer.id, viewer.id).first<Record<string, unknown>>();
       if (!profile) return NextResponse.json({ error: "This profile is unavailable." }, { status: 404 });
-      return NextResponse.json({ profile });
+      const canViewPosts = Boolean(profile.isPublic) || Boolean(profile.following) || Boolean(profile.isSelf);
+      const hero = canViewPosts ? await DB.prepare(`SELECT p.image_key AS heroImageKey, p.image_url AS heroImageUrl
+        FROM posts p WHERE p.user_id = ? AND (p.image_key IS NOT NULL OR p.image_url IS NOT NULL)
+        ORDER BY p.created_at DESC LIMIT 1`).bind(profileId).first() : null;
+      return NextResponse.json({ profile: { ...profile, heroImageKey: hero?.heroImageKey || null, heroImageUrl: hero?.heroImageUrl || null } });
     }
     const list = params.get("list");
     if (list === "followers" || list === "following") {
@@ -52,14 +57,14 @@ export async function GET(request: Request) {
       u.image_key AS imageKey, u.image_url AS imageUrl, u.role, u.is_public AS isPublic,
       EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = u.id) AS following,
       EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = u.id AND f.followed_id = ?) AS followsYou,
+      (SELECT fr.status FROM follow_requests fr WHERE fr.requester_id = ? AND fr.target_id = u.id) AS followRequestStatus,
       (SELECT COUNT(*) FROM follows f WHERE f.followed_id = u.id) AS followers,
       (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id) AS posts,
       EXISTS(SELECT 1 FROM blocks b WHERE b.blocker_id = ? AND b.blocked_id = u.id) AS blocked,
       (u.id = ?) AS isSelf
       FROM users u WHERE u.status = 'active'
       AND (u.id = ? OR (
-        (u.is_public = 1 OR EXISTS(SELECT 1 FROM follows visible WHERE visible.follower_id = ? AND visible.followed_id = u.id))
-        AND NOT EXISTS(SELECT 1 FROM blocks b WHERE b.blocker_id = u.id AND b.blocked_id = ?)
+        NOT EXISTS(SELECT 1 FROM blocks b WHERE b.blocker_id = u.id AND b.blocked_id = ?)
       ))
       AND (? = '' OR lower(u.username) LIKE lower(?) OR lower(u.display_name) LIKE lower(?))
       ORDER BY followers DESC, u.created_at DESC LIMIT 40`)
@@ -84,18 +89,55 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     await ensureSchema(); const viewer = await requireUser(); const { DB } = bindings();
-    const input = await request.json() as { action?: string; targetId?: string; targetType?: string; reason?: string; mode?: string; reportId?: string; code?: string };
+    const input = await request.json() as { action?: string; targetId?: string; targetType?: string; reason?: string; mode?: string; reportId?: string; code?: string; decision?: string };
     const targetId = String(input.targetId || ""); const now = Date.now();
     if (input.action === "follow") {
       if (!targetId || targetId === viewer.id || await blockedBetween(viewer.id, targetId)) return NextResponse.json({ error: "This profile cannot be followed." }, { status: 403 });
+      const target = await DB.prepare("SELECT username, is_public AS isPublic FROM users WHERE id = ? AND status = 'active'").bind(targetId).first<{ username: string; isPublic: number }>();
+      if (!target) return NextResponse.json({ error: "This profile is unavailable." }, { status: 404 });
       const exists = await DB.prepare("SELECT 1 AS active FROM follows WHERE follower_id = ? AND followed_id = ?").bind(viewer.id, targetId).first();
-      if (exists) await DB.prepare("DELETE FROM follows WHERE follower_id = ? AND followed_id = ?").bind(viewer.id, targetId).run();
-      else {
+      if (exists) {
+        await DB.prepare("DELETE FROM follows WHERE follower_id = ? AND followed_id = ?").bind(viewer.id, targetId).run();
+        return NextResponse.json({ following: false, requested: false, counts: await connectionCounts(DB, viewer.id) });
+      }
+      if (!target.isPublic) {
+        const pending = await DB.prepare("SELECT status FROM follow_requests WHERE requester_id = ? AND target_id = ?").bind(viewer.id, targetId).first<{ status: string }>();
+        if (pending?.status === "pending") {
+          await DB.prepare("UPDATE follow_requests SET status = 'canceled', responded_at = ? WHERE requester_id = ? AND target_id = ? AND status = 'pending'").bind(now, viewer.id, targetId).run();
+          return NextResponse.json({ following: false, requested: false, counts: await connectionCounts(DB, viewer.id) });
+        }
+        await DB.batch([
+          DB.prepare(`INSERT INTO follow_requests (requester_id, target_id, status, created_at, responded_at)
+            VALUES (?, ?, 'pending', ?, NULL)
+            ON CONFLICT(requester_id, target_id) DO UPDATE SET status = 'pending', created_at = excluded.created_at, responded_at = NULL`).bind(viewer.id, targetId, now),
+          DB.prepare("INSERT INTO notifications (id, user_id, actor_id, type, entity_id, message, created_at) VALUES (?, ?, ?, 'follow_request', ?, ?, ?)")
+            .bind(crypto.randomUUID(), targetId, viewer.id, viewer.id, `@${viewer.username} requested to follow you.`, now),
+        ]);
+        return NextResponse.json({ following: false, requested: true, counts: await connectionCounts(DB, viewer.id) });
+      }
+      {
         await DB.prepare("INSERT INTO follows (follower_id, followed_id, created_at) VALUES (?, ?, ?)").bind(viewer.id, targetId, now).run();
         await DB.prepare("INSERT INTO notifications (id, user_id, actor_id, type, entity_id, message, created_at) VALUES (?, ?, ?, 'follow', ?, ?, ?)")
           .bind(crypto.randomUUID(), targetId, viewer.id, viewer.id, `@${viewer.username} followed you.`, now).run();
       }
-      return NextResponse.json({ following: !exists, counts: await connectionCounts(DB, viewer.id) });
+      return NextResponse.json({ following: true, requested: false, counts: await connectionCounts(DB, viewer.id) });
+    }
+    if (input.action === "follow-request-response") {
+      if (!targetId || !["approve", "decline"].includes(input.decision || "")) return NextResponse.json({ error: "Choose a follow request and response." }, { status: 400 });
+      const requestRow = await DB.prepare(`SELECT fr.status, requester.username
+        FROM follow_requests fr JOIN users requester ON requester.id = fr.requester_id
+        WHERE fr.requester_id = ? AND fr.target_id = ?`).bind(targetId, viewer.id).first<{ status: string; username: string }>();
+      if (!requestRow || requestRow.status !== "pending") return NextResponse.json({ error: "This follow request is no longer pending." }, { status: 409 });
+      const approved = input.decision === "approve";
+      const notification = DB.prepare("INSERT INTO notifications (id, user_id, actor_id, type, entity_id, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .bind(crypto.randomUUID(), targetId, viewer.id, approved ? "follow_request_approved" : "follow_request_declined", viewer.id, `@${viewer.username} ${approved ? "approved" : "declined"} your follow request.`, now);
+      const updates = [
+        DB.prepare("UPDATE follow_requests SET status = ?, responded_at = ? WHERE requester_id = ? AND target_id = ? AND status = 'pending'").bind(approved ? "approved" : "declined", now, targetId, viewer.id),
+        notification,
+      ];
+      if (approved) updates.unshift(DB.prepare("INSERT OR IGNORE INTO follows (follower_id, followed_id, created_at) VALUES (?, ?, ?)").bind(targetId, viewer.id, now));
+      await DB.batch(updates);
+      return NextResponse.json({ approved, counts: await connectionCounts(DB, viewer.id) });
     }
     if (input.action === "block") {
       if (!targetId || targetId === viewer.id) return NextResponse.json({ error: "Choose another profile." }, { status: 400 });
@@ -104,6 +146,7 @@ export async function POST(request: Request) {
       else await DB.batch([
         DB.prepare("INSERT INTO blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)").bind(viewer.id, targetId, now),
         DB.prepare("DELETE FROM follows WHERE (follower_id = ? AND followed_id = ?) OR (follower_id = ? AND followed_id = ?)").bind(viewer.id, targetId, targetId, viewer.id),
+        DB.prepare("DELETE FROM follow_requests WHERE (requester_id = ? AND target_id = ?) OR (requester_id = ? AND target_id = ?)").bind(viewer.id, targetId, targetId, viewer.id),
       ]);
       return NextResponse.json({ blocked: !exists, counts: await connectionCounts(DB, viewer.id) });
     }
