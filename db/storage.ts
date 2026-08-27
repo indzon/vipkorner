@@ -76,7 +76,7 @@ export async function ensureSchema() {
     DB.prepare(`CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, username TEXT NOT NULL UNIQUE,
       display_name TEXT NOT NULL, bio TEXT NOT NULL DEFAULT '', website TEXT NOT NULL DEFAULT '',
-      location TEXT NOT NULL DEFAULT '', image_key TEXT, image_url TEXT,
+      location TEXT NOT NULL DEFAULT '', image_key TEXT, image_url TEXT, hero_image_key TEXT, hero_image_url TEXT,
       role TEXT NOT NULL DEFAULT 'user', status TEXT NOT NULL DEFAULT 'active', is_public INTEGER NOT NULL DEFAULT 1,
       story_replies INTEGER NOT NULL DEFAULT 1, high_quality_uploads INTEGER NOT NULL DEFAULT 1,
       adult_confirmed_at INTEGER NOT NULL, created_at INTEGER NOT NULL
@@ -180,6 +180,14 @@ export async function ensureSchema() {
   }
   if (!profileColumns.results.some((column) => column.name === "image_url")) {
     await DB.prepare("ALTER TABLE profile ADD COLUMN image_url TEXT").run();
+  }
+
+  const userColumns = await DB.prepare("PRAGMA table_info(users)").all<{ name: string }>();
+  if (!userColumns.results.some((column) => column.name === "hero_image_key")) {
+    await DB.prepare("ALTER TABLE users ADD COLUMN hero_image_key TEXT").run();
+  }
+  if (!userColumns.results.some((column) => column.name === "hero_image_url")) {
+    await DB.prepare("ALTER TABLE users ADD COLUMN hero_image_url TEXT").run();
   }
 
   await DB.prepare(`INSERT OR IGNORE INTO profile (

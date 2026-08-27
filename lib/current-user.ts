@@ -11,6 +11,8 @@ export type AppUser = {
   location: string;
   imageKey: string | null;
   imageUrl: string | null;
+  heroImageKey: string | null;
+  heroImageUrl: string | null;
   role: "admin" | "user";
   status: "active" | "suspended";
   isPublic: number | boolean;
@@ -20,7 +22,7 @@ export type AppUser = {
 };
 
 const USER_SELECT = `id, email, username, display_name AS displayName, bio, website, location,
-  image_key AS imageKey, image_url AS imageUrl, role, status, is_public AS isPublic,
+  image_key AS imageKey, image_url AS imageUrl, hero_image_key AS heroImageKey, hero_image_url AS heroImageUrl, role, status, is_public AS isPublic,
   story_replies AS storyReplies, high_quality_uploads AS highQualityUploads, created_at AS createdAt`;
 
 export async function identityEmail() {
@@ -71,7 +73,8 @@ export async function blockedBetween(firstId: string, secondId: string) {
 export function publicUserFields(prefix = "") {
   const p = prefix ? `${prefix}.` : "";
   return `${p}id, ${p}username, ${p}display_name AS displayName, ${p}bio, ${p}website,
-    ${p}location, ${p}image_key AS imageKey, ${p}image_url AS imageUrl, ${p}role,
+    ${p}location, ${p}image_key AS imageKey, ${p}image_url AS imageUrl,
+    ${p}hero_image_key AS heroImageKey, ${p}hero_image_url AS heroImageUrl, ${p}role,
     ${p}status, ${p}is_public AS isPublic, ${p}story_replies AS storyReplies,
     ${p}high_quality_uploads AS highQualityUploads, ${p}created_at AS createdAt`;
 }

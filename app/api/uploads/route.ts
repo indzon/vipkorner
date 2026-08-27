@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     uploadId?: string;
     key?: string;
     parts?: UploadPart[];
-    contentKind?: "post" | "story" | "profile";
+    contentKind?: "post" | "story" | "profile" | "profile-hero";
     caption?: string;
     captionX?: number;
     captionY?: number;
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const media = inspectMediaMetadata(String(payload.fileName || ""), String(payload.fileType || ""), Uint8Array.from(payload.signature || []));
     const fileSize = Number(payload.fileSize || 0);
     if (!media || !fileSize) return NextResponse.json({ error: "This file is not a supported photo or video." }, { status: 400 });
-    if (payload.contentKind === "profile" && (media.kind !== "image" || media.extension === "gif")) return NextResponse.json({ error: "Choose a JPG, PNG or WebP profile photo." }, { status: 400 });
+    if ((payload.contentKind === "profile" || payload.contentKind === "profile-hero") && (media.kind !== "image" || media.extension === "gif")) return NextResponse.json({ error: "Choose a JPG, PNG or WebP profile image." }, { status: 400 });
     const limit = media.kind === "video" ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
     if (fileSize > limit) return NextResponse.json({ error: media.kind === "video" ? "Videos must be under 50 MB." : "Photos must be under 10 MB." }, { status: 400 });
 
@@ -51,12 +51,12 @@ export async function POST(request: Request) {
   if (payload.action === "complete") {
     const match = String(payload.key || "").match(KEY_PATTERN);
     const parts = Array.isArray(payload.parts) ? payload.parts : [];
-    if (!match || !payload.uploadId || !parts.length || !["post", "story", "profile"].includes(payload.contentKind || "")) {
+    if (!match || !payload.uploadId || !parts.length || !["post", "story", "profile", "profile-hero"].includes(payload.contentKind || "")) {
       return NextResponse.json({ error: "Upload could not be completed." }, { status: 400 });
     }
     const [, id, extension] = match;
     const mediaType = ["mp4", "webm", "mov"].includes(extension) ? "video" : "image";
-    if (payload.contentKind === "profile" && mediaType !== "image") return NextResponse.json({ error: "Profile photos must be images." }, { status: 400 });
+    if ((payload.contentKind === "profile" || payload.contentKind === "profile-hero") && mediaType !== "image") return NextResponse.json({ error: "Profile images must be images." }, { status: 400 });
     await MEDIA.resumeMultipartUpload(payload.key!, payload.uploadId).complete(parts);
     const createdAt = Date.now();
     const caption = String(payload.caption || "").trim();
@@ -65,6 +65,13 @@ export async function POST(request: Request) {
         const current = await DB.prepare("SELECT image_key AS imageKey FROM users WHERE id = ?").bind(user.id).first<{ imageKey: string | null }>();
         await DB.prepare("UPDATE users SET image_key = ?, image_url = NULL WHERE id = ?").bind(payload.key, user.id).run();
         if (current?.imageKey && current.imageKey !== payload.key) await MEDIA.delete(current.imageKey);
+        const profile = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE id = ?`).bind(user.id).first<Record<string, unknown>>();
+        return NextResponse.json({ ...profile, privateAccount: !Boolean(profile?.isPublic) }, { status: 201 });
+      }
+      if (payload.contentKind === "profile-hero") {
+        const current = await DB.prepare("SELECT hero_image_key AS heroImageKey FROM users WHERE id = ?").bind(user.id).first<{ heroImageKey: string | null }>();
+        await DB.prepare("UPDATE users SET hero_image_key = ?, hero_image_url = NULL WHERE id = ?").bind(payload.key, user.id).run();
+        if (current?.heroImageKey && current.heroImageKey !== payload.key) await MEDIA.delete(current.heroImageKey);
         const profile = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE id = ?`).bind(user.id).first<Record<string, unknown>>();
         return NextResponse.json({ ...profile, privateAccount: !Boolean(profile?.isPublic) }, { status: 201 });
       }

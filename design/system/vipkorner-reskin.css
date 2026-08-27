@@ -375,8 +375,15 @@ a {
   backdrop-filter: blur(10px);
 }
 
-.follow-feedback > div { width: min(220px, 54vw); }
+.follow-success-mark { position: relative; width: 104px; height: 104px; display: grid; place-items: center; border-radius: 50%; color: var(--vk-text-on-brand); background: var(--vk-brand-gradient); box-shadow: var(--vk-glow-brand); animation: follow-pop .48s cubic-bezier(.2,.9,.25,1.2) both; }
+.follow-success-mark > svg { width: 42px; height: 42px; }
+.follow-success-mark > i { position: absolute; width: 9px; height: 9px; border-radius: 50%; background: var(--vk-brand); animation: follow-spark .7s ease-out both; }
+.follow-success-mark > i:nth-of-type(1) { left: -18px; top: 24px; }
+.follow-success-mark > i:nth-of-type(2) { right: -20px; top: 34px; animation-delay: .08s; }
+.follow-success-mark > i:nth-of-type(3) { right: 5px; bottom: -18px; animation-delay: .14s; }
 .follow-feedback strong { font-family: var(--vk-font-serif); font-size: var(--vk-size-xl); }
+@keyframes follow-pop { from { opacity: 0; transform: scale(.52) rotate(-8deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes follow-spark { from { opacity: 0; transform: scale(.3); } 45% { opacity: 1; } to { opacity: 0; transform: scale(2.8); } }
 
 .carousel-arrow,
 .carousel-count,
@@ -416,6 +423,7 @@ a {
 }
 
 .profile-photo-row,
+.profile-hero-row,
 .profile-cropper,
 .settings-intro > span,
 .login-lock,
@@ -425,6 +433,32 @@ a {
   background: var(--vk-surface);
   border-color: var(--vk-border-subtle);
 }
+
+.profile-hero-preview { color: var(--vk-text-muted); background: var(--vk-media-bg); }
+.profile-hero-row > div:nth-of-type(2) span { color: var(--vk-text-muted); }
+.profile-hero-row > button { color: var(--vk-text-on-brand); background: var(--vk-brand); border: 1px solid var(--vk-brand); }
+
+.profile-modal .form-fields label > span { color: var(--vk-text); font-size: var(--vk-size-sm); font-weight: var(--vk-weight-semibold); }
+.profile-modal .form-fields input,
+.profile-modal .form-fields textarea { min-height: var(--vk-tap-target); color: var(--vk-text); background: var(--vk-surface-raised); border: 1px solid var(--vk-border-strong); border-radius: var(--vk-radius-md); padding: var(--vk-space-3); font-size: var(--vk-size-base); line-height: var(--vk-leading-normal); }
+.profile-modal .form-fields textarea { min-height: 96px; }
+.profile-modal .form-fields input:focus,
+.profile-modal .form-fields textarea:focus,
+.profile-modal .form-fields .input-prefix:focus-within { border-color: var(--vk-border-brand); outline: var(--vk-focus-width) solid var(--vk-focus-ring); outline-offset: var(--vk-focus-offset); }
+.profile-modal .form-fields .input-prefix { display: flex; align-items: center; color: var(--vk-text); background: var(--vk-surface-raised); border: 1px solid var(--vk-border-strong); border-radius: var(--vk-radius-md); padding-left: var(--vk-space-3); }
+.profile-modal .form-fields .input-prefix i { color: var(--vk-text-subtle); }
+.profile-modal .form-fields .input-prefix input { border: 0; outline: 0; background: transparent; }
+.profile-modal .form-fields label > small { color: var(--vk-text-subtle); }
+
+.member-profile-photo-button.has-unseen-story { background: conic-gradient(from 210deg, var(--vk-accent), var(--vk-brand), var(--vk-ember-500), var(--vk-accent)); box-shadow: 0 0 0 2px var(--vk-bg), var(--vk-glow-brand); }
+.member-follow-button { color: var(--vk-text-on-brand); background: var(--vk-brand); border: 1px solid var(--vk-brand); }
+.member-follow-button.following { color: var(--vk-brand); background: var(--vk-brand-subtle); border-color: var(--vk-border-brand); }
+.member-follow-error { color: var(--vk-danger); }
+
+.block-confirm-modal { color: var(--vk-text); background: var(--vk-surface); border: 1px solid var(--vk-border); box-shadow: var(--vk-elev-3); }
+.block-confirm-modal p { color: var(--vk-text-muted); }
+.block-confirm-modal > div button { color: var(--vk-text); background: var(--vk-surface-raised); border: 1px solid var(--vk-border); }
+.block-confirm-modal > div button.danger { color: var(--vk-text-on-danger); background: var(--vk-danger-fill); border-color: var(--vk-danger-fill); }
 
 .settings-intro > span,
 .login-lock,

@@ -9,7 +9,7 @@ VipKorner is a Vinext/React application deployed as a Cloudflare Worker. The sam
 | UI and API | Cloudflare Workers | React application, server routes, authorization, PWA assets |
 | Authentication | Supabase Auth | Email/password accounts, confirmation, session cookies |
 | Relational data | Cloudflare D1 | Users, invitations, posts, follows, messages, moderation |
-| Media | Cloudflare R2 | Profile photos, carousel post media, story media |
+| Media | Cloudflare R2 | Profile photos and hero backgrounds, carousel post media, story media |
 
 ## Authentication and registration
 
@@ -33,7 +33,7 @@ The app stays invitation-only while `app_meta.registration_mode` is `invite`.
 - A follow mutation creates a direct relationship only for a public profile. Private profiles create a pending request and owner notification; the owner can approve or decline from Activity, and the requester receives the decision as a notification.
 - The client refreshes the feed, activity, counts, and conversations every 15 seconds while visible and whenever the window regains focus.
 
-Member-profile post and story visibility continues to depend exclusively on `users.is_public`, self-ownership, or an approved `follows` row. Pending requests never satisfy media queries. The profile summary includes the member location and, when the viewer may see posts, a recent post image for the gradient-backed hero. Locked private profiles fall back to public avatar imagery and do not expose private post keys.
+Member-profile post and story visibility continues to depend exclusively on `users.is_public`, self-ownership, or an approved `follows` row. Pending requests never satisfy media queries. The profile summary includes the member location and an owner-selected hero image. If no explicit hero has been uploaded and the viewer may see posts, the latest visible post image is used as a fallback for the gradient-backed hero. Locked private profiles fall back to public avatar imagery and do not expose private post keys. Profile-hero uploads use the multipart R2 pipeline, but completion updates `users.hero_image_key` / `users.hero_image_url` and removes a replaced R2 object.
 
 Connection rows, notification actors, and Explore identities all use the same member-profile navigation path. Activity payloads include the actor’s public avatar fields so the UI does not substitute a generic activity icon. From another member’s profile, the message action posts `{ action: "start", targetId }` to `/api/messages`, then opens the returned conversation in the Messages view. The client loads conversation summaries at startup, on focus, and every 15 seconds while visible so the Messages navigation can display an aggregate unread count; opening a conversation marks its messages read and refreshes that count.
 
@@ -41,7 +41,7 @@ Connection rows, notification actors, and Explore identities all use the same me
 
 `story_reactions` stores at most one emoji per `(story_id, user_id)`. `/api/stories` validates reactions against the supported emoji set, rechecks story visibility and block rules, honors the story owner’s `story_replies` setting, and prevents self-reactions. Selecting a new emoji replaces the prior reaction; selecting the active emoji removes it. A current reaction creates one owner notification, and changing or removing the reaction replaces or removes that notification.
 
-The home story tray groups active stories by member and displays only members who still have an unviewed story for the current viewer. The story viewer retains the complete ordered story set so manual navigation and timed autoplay continue across items.
+The home story tray groups active stories by member and displays only members who still have an unviewed story for the current viewer. On a member profile, the avatar uses the same unseen-story state for its ring and opens the first unseen story (or the first remaining active story). The story viewer retains the complete ordered story set for that member so manual navigation and timed autoplay continue across items.
 
 ## Post carousels
 

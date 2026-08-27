@@ -15,12 +15,12 @@ VipKorner is an invitation-only, multi-user progressive web app for adults. It c
 - A signed-in member can open their own follower and following lists. Other members only see aggregate counts.
 - Avatars and identity rows in connections, activity, and Explore open the relevant member profile; Explore identity copy is left-aligned for easy scanning, and other members’ follower/following lists remain hidden.
 - Another member’s profile includes a message action that creates or reopens the private text conversation with that member.
-- Member profiles show a location and an image-led hero. Public profiles no longer carry a redundant status badge; private profiles show a request control until access is approved.
+- Member profiles show a location and an image-led hero that the owner can replace from Edit profile. An avatar receives the active-story ring only while that member has an unseen story, and the avatar opens that member’s story sequence. Public profiles no longer carry a redundant status badge; private profiles show a request control until access is approved.
 - Private follows use an owner-approved request workflow. Owners can approve or decline from Activity, and the requester receives the decision as a notification.
 - Follow counts and activity refresh immediately after social actions, when the app regains focus, and periodically while it is visible.
 - Stories expire after 24 hours. The tray shows one unviewed story per member and removes that member once all of their current stories have been seen.
 - Posts support carousels of up to 10 mixed images and videos. A post has one primary caption, and each carousel item can optionally carry its own caption.
-- Follow actions use a full-screen animated confirmation instead of a persistent status banner.
+- Follow and unfollow controls are available in Explore and on public member profiles. Successful new follows use a self-contained, full-screen VipKorner acknowledgement instead of a persistent status banner; block confirmation uses a branded in-app dialog instead of a browser prompt.
 - Members can react to another member’s story with a quick emoji when that story owner allows story replies; each member has one current reaction per story and can tap it again to remove it.
 - Direct messages are text-only and subject to follow/block privacy controls. Unread totals appear on the desktop, compact, and mobile Messages navigation and refresh while the app is visible. On mobile, conversations remain available in a horizontal row above the active thread.
 - The production community includes six clearly fictional adult seed profiles with generated avatars, 37 image posts, and 9 active story slots. These records enrich Explore and the feed without creating login credentials or email recipients.

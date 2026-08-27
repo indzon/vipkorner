@@ -98,6 +98,8 @@ export const users = sqliteTable("users", {
   location: text("location").notNull().default(""),
   imageKey: text("image_key"),
   imageUrl: text("image_url"),
+  heroImageKey: text("hero_image_key"),
+  heroImageUrl: text("hero_image_url"),
   role: text("role").notNull().default("user"),
   status: text("status").notNull().default("active"),
   isPublic: integer("is_public", { mode: "boolean" }).notNull().default(true),

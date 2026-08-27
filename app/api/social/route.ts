@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     if (profileId) {
       const profile = await DB.prepare(`SELECT u.id, u.username, u.display_name AS displayName,
         u.bio, u.website, u.location, u.image_key AS imageKey, u.image_url AS imageUrl,
+        u.hero_image_key AS heroImageKey, u.hero_image_url AS heroImageUrl,
         u.is_public AS isPublic,
         EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = u.id) AS following,
         EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = u.id AND f.followed_id = ?) AS followsYou,
@@ -35,10 +36,10 @@ export async function GET(request: Request) {
         .bind(viewer.id, viewer.id, viewer.id, viewer.id, profileId, viewer.id, viewer.id).first<Record<string, unknown>>();
       if (!profile) return NextResponse.json({ error: "This profile is unavailable." }, { status: 404 });
       const canViewPosts = Boolean(profile.isPublic) || Boolean(profile.following) || Boolean(profile.isSelf);
-      const hero = canViewPosts ? await DB.prepare(`SELECT p.image_key AS heroImageKey, p.image_url AS heroImageUrl
+      const hero = canViewPosts && !profile.heroImageKey && !profile.heroImageUrl ? await DB.prepare(`SELECT p.image_key AS heroImageKey, p.image_url AS heroImageUrl
         FROM posts p WHERE p.user_id = ? AND (p.image_key IS NOT NULL OR p.image_url IS NOT NULL)
         ORDER BY p.created_at DESC LIMIT 1`).bind(profileId).first() : null;
-      return NextResponse.json({ profile: { ...profile, heroImageKey: hero?.heroImageKey || null, heroImageUrl: hero?.heroImageUrl || null } });
+      return NextResponse.json({ profile: { ...profile, heroImageKey: profile.heroImageKey || hero?.heroImageKey || null, heroImageUrl: profile.heroImageUrl || hero?.heroImageUrl || null } });
     }
     const list = params.get("list");
     if (list === "followers" || list === "following") {

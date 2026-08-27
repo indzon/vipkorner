@@ -71,6 +71,15 @@ For member-profile releases, verify Explore identity copy remains left-aligned, 
 4. On a mobile viewport, open Messages and confirm conversation summaries form a horizontally scrollable row above the active thread.
 5. View every active story from one member and confirm that member disappears from the home story tray while other members with unviewed stories remain.
 6. Follow a new member and confirm the full-screen animated acknowledgement appears without a persistent “Profile updated” notice.
+7. Open a public member profile, follow and unfollow from the hero control, and confirm neither action blanks or reloads the application.
+8. Open a member with an unseen story, confirm the avatar has the colorful story ring, select it, and verify the viewer opens that member’s story sequence. After viewing all active stories, confirm the ring is removed.
+
+## Profile personalization and safety-dialog smoke test
+
+1. Open **Edit profile** and confirm every text input and textarea uses the design-system surface, border, spacing, radius, type, and focus treatment.
+2. Choose a landscape profile background, save, reopen the profile, and confirm the uploaded image is used in the member hero without exposing a raw R2 key.
+3. Replace the background and confirm the prior owned R2 object is removed.
+4. Choose **Block** from Explore, confirm the VipKorner-branded in-app dialog appears, cancel once, then confirm the action and verify both members are hidden from each other.
 
 ## Fictional community seed
 

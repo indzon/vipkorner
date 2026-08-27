@@ -164,7 +164,9 @@ test("carousel posts, viewed-story removal, and mobile conversation rows stay wi
   assert.match(page, /postMediaItems\(post\)/);
   assert.match(page, /filter\(\(story\) => !story\.viewed\)/);
   assert.match(page, /new Map<string, Story>/);
-  assert.match(page, /follow-success\.json/);
+  assert.match(page, /FollowSuccessFeedback/);
+  assert.match(page, /className="follow-success-mark"/);
+  assert.doesNotMatch(page, /follow-success\.json|lottie-react/);
   assert.match(layout, /grid-auto-flow: column/);
   assert.match(feedRoute, /FROM post_media/);
   assert.match(uploadRoute, /INSERT INTO post_media/);
@@ -199,8 +201,8 @@ test("private profiles use approved follow requests and image-led member heroes"
   assert.match(page, /follow-request-response/);
   assert.match(layout, /\.member-profile-hero-content/);
   assert.match(layout, /\.member-profile-hero \{[^}]*overflow: visible;[^}]*margin-bottom: 72px;/s);
-  assert.match(layout, /\.member-profile-hero \.member-profile-photo \{ transform: translateY\(44px\); \}/);
-  assert.match(layout, /@media \(max-width: 720px\)[\s\S]*\.member-profile-hero \.member-profile-photo \{ transform: translateY\(42px\); \}/);
+  assert.match(layout, /\.member-profile-photo-button \{[^}]*transform: translateY\(44px\);/s);
+  assert.match(layout, /@media \(max-width: 720px\)[\s\S]*\.member-profile-photo-button \{ transform: translateY\(42px\); \}/);
   assert.match(reskin, /\.member-profile-hero \{[^}]*background: transparent;[^}]*border: 0;[^}]*box-shadow: none;/s);
   assert.match(reskin, /linear-gradient\(90deg/);
   assert.match(reskin, /linear-gradient\(180deg/);
@@ -212,4 +214,35 @@ test("private profiles use approved follow requests and image-led member heroes"
   assert.match(readme, /owner-approved request workflow/i);
   assert.match(architecture, /Pending requests never satisfy media queries/);
   assert.match(operations, /Private-profile request smoke test/);
+});
+
+test("member story entry points, branded safety prompts, and custom profile heroes stay wired together", async () => {
+  const [page, layout, reskin, socialRoute, uploadRoute, currentUser, schema, storage] = await Promise.all([
+    read("app/page.tsx"),
+    read("design/system/vipkorner-layout.css"),
+    read("design/system/vipkorner-reskin.css"),
+    read("app/api/social/route.ts"),
+    read("app/api/uploads/route.ts"),
+    read("lib/current-user.ts"),
+    read("db/schema.ts"),
+    read("db/storage.ts"),
+  ]);
+
+  assert.match(page, /memberStories\.filter\(\(story\) => !story\.viewed\)/);
+  assert.match(page, /member-profile-photo-button \$\{unseenStories\.length \? "has-unseen-story"/);
+  assert.match(page, /onOpenStory\(unseenStories\[0\] \|\| memberStories\[0\]\)/);
+  assert.match(page, /className={`member-follow-button/);
+  assert.match(page, /className="brand-mark" aria-hidden="true">V/);
+  assert.doesNotMatch(page, /confirm\(`Block/);
+  assert.match(page, /"profile-hero"/);
+  assert.match(page, /Profile background/);
+  assert.match(layout, /\.profile-hero-row/);
+  assert.match(reskin, /\.member-profile-photo-button\.has-unseen-story/);
+  assert.match(reskin, /\.profile-modal \.form-fields input/);
+  assert.match(reskin, /\.block-confirm-modal/);
+  assert.match(socialRoute, /u\.hero_image_key AS heroImageKey/);
+  assert.match(uploadRoute, /payload\.contentKind === "profile-hero"/);
+  assert.match(currentUser, /hero_image_key AS heroImageKey/);
+  assert.match(schema, /heroImageKey: text\("hero_image_key"\)/);
+  assert.match(storage, /ADD COLUMN hero_image_key TEXT/);
 });
