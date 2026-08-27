@@ -377,6 +377,9 @@ a {
 
 .follow-success-mark { position: relative; width: 104px; height: 104px; display: grid; place-items: center; border-radius: 50%; color: var(--vk-text-on-brand); background: var(--vk-brand-gradient); box-shadow: var(--vk-glow-brand); animation: follow-pop .48s cubic-bezier(.2,.9,.25,1.2) both; }
 .follow-success-mark > svg { width: 42px; height: 42px; }
+.follow-lottie { position: absolute; z-index: 2; inset: -34px; pointer-events: none; }
+.follow-lottie svg { width: 100% !important; height: 100% !important; overflow: visible !important; }
+.follow-fallback-icon { position: relative; z-index: 1; }
 .follow-success-mark > i { position: absolute; width: 9px; height: 9px; border-radius: 50%; background: var(--vk-brand); animation: follow-spark .7s ease-out both; }
 .follow-success-mark > i:nth-of-type(1) { left: -18px; top: 24px; }
 .follow-success-mark > i:nth-of-type(2) { right: -20px; top: 34px; animation-delay: .08s; }

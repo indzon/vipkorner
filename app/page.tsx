@@ -807,7 +807,17 @@ function StoryViewer({ stories, activeId, onChange, onViewed, onClose, onDelete,
 }
 
 function FollowSuccessFeedback({ username }: { username: string }) {
-  return <div className="follow-feedback" role="status" aria-live="polite"><div className="follow-success-mark" aria-hidden="true"><UserPlus /><i /><i /><i /></div><strong>Now following @{username}</strong></div>;
+  const animationRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let animation: { destroy: () => void } | null = null;
+    let canceled = false;
+    void import("lottie-web").then(({ default: lottie }) => {
+      if (canceled || !animationRef.current) return;
+      animation = lottie.loadAnimation({ container: animationRef.current, renderer: "svg", loop: false, autoplay: true, path: "/lottie/follow-success.json" });
+    }).catch(() => undefined);
+    return () => { canceled = true; animation?.destroy(); };
+  }, []);
+  return <div className="follow-feedback" role="status" aria-live="polite"><div className="follow-success-mark" aria-hidden="true"><div ref={animationRef} className="follow-lottie" /><UserPlus className="follow-fallback-icon" /><i /><i /><i /></div><strong>Now following @{username}</strong></div>;
 }
 
 function MemberProfileView({ member, error, posts, stories, onBack, onMessage, onRefresh, onOpenStory, onOpenPost }: { member: MemberProfile | null; error: string; posts: Post[]; stories: Story[]; onBack: () => void; onMessage: (userId: string) => Promise<void>; onRefresh: (userId: string) => Promise<void>; onOpenStory: (story: Story) => void; onOpenPost: (post: Post) => void }) {

@@ -166,7 +166,9 @@ test("carousel posts, viewed-story removal, and mobile conversation rows stay wi
   assert.match(page, /new Map<string, Story>/);
   assert.match(page, /FollowSuccessFeedback/);
   assert.match(page, /className="follow-success-mark"/);
-  assert.doesNotMatch(page, /follow-success\.json|lottie-react/);
+  assert.match(page, /import\("lottie-web"\)/);
+  assert.match(page, /path: "\/lottie\/follow-success\.json"/);
+  assert.match(page, /animation\?\.destroy\(\)/);
   assert.match(layout, /grid-auto-flow: column/);
   assert.match(feedRoute, /FROM post_media/);
   assert.match(uploadRoute, /INSERT INTO post_media/);
