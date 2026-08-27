@@ -198,6 +198,11 @@ test("private profiles use approved follow requests and image-led member heroes"
   assert.match(page, /className="member-location"/);
   assert.match(page, /follow-request-response/);
   assert.match(layout, /\.member-profile-hero-content/);
+  assert.match(layout, /\.member-profile-hero \{[^}]*overflow: visible;[^}]*margin-bottom: 72px;/s);
+  assert.match(layout, /\.member-profile-hero \.member-profile-photo \{ transform: translateY\(44px\); \}/);
+  assert.match(layout, /@media \(max-width: 720px\)[\s\S]*\.member-profile-hero \.member-profile-photo \{ transform: translateY\(42px\); \}/);
+  assert.match(reskin, /\.member-profile-hero \{[^}]*background: transparent;[^}]*border: 0;[^}]*box-shadow: none;/s);
+  assert.match(reskin, /linear-gradient\(90deg/);
   assert.match(reskin, /linear-gradient\(180deg/);
   assert.match(feedRoute, /AS requestStatus/);
   assert.match(socialRoute, /INSERT INTO follow_requests/);

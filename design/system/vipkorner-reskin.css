@@ -312,14 +312,19 @@ a {
 
 .member-profile-hero {
   color: var(--vk-text);
-  background: var(--vk-media-bg);
-  border: 1px solid var(--vk-border-subtle);
-  box-shadow: var(--vk-elev-2);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .member-profile-banner img { filter: saturate(.86) contrast(1.03); }
-.member-profile-banner i { background: linear-gradient(180deg, rgba(8, 9, 12, .08) 0%, rgba(8, 9, 12, .36) 48%, var(--vk-bg) 100%); }
+.member-profile-banner i {
+  background:
+    linear-gradient(90deg, rgba(8, 9, 12, .08) 0%, rgba(8, 9, 12, .42) 52%, rgba(8, 9, 12, .68) 100%),
+    linear-gradient(180deg, rgba(8, 9, 12, .06) 0%, rgba(8, 9, 12, .5) 54%, var(--vk-bg) 100%);
+}
 .member-profile-hero .member-profile-photo { border: 4px solid var(--vk-bg); box-shadow: var(--vk-elev-3); }
+.member-profile-hero .profile-info { text-shadow: 0 2px 16px rgba(0, 0, 0, .58); }
 .member-profile-hero .profile-info p,
 .member-location { color: var(--vk-text-muted); }
 .member-location svg { color: var(--vk-brand); }
