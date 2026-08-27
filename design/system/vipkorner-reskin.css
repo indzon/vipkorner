@@ -1,0 +1,447 @@
+/*
+ * VipKorner visual compatibility layer
+ *
+ * The application keeps its proven layout contract in vipkorner-layout.css.
+ * This file intentionally changes presentation only: color, typography,
+ * borders and elevation. It must not set grid tracks, widths, heights,
+ * positioning or overflow for application components.
+ */
+
+:root {
+  --ink: var(--vk-text);
+  --muted: var(--vk-text-muted);
+  --line: var(--vk-border);
+  --paper: var(--vk-surface);
+  --cream: var(--vk-bg);
+  --accent: var(--vk-brand);
+  --coral: var(--vk-ember-500);
+  --plum: var(--vk-gold-700);
+  --shadow: var(--vk-elev-2);
+}
+
+html {
+  background: var(--vk-bg);
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--vk-bg);
+  background-image: var(--vk-bg-gradient);
+  background-attachment: fixed;
+  color: var(--vk-text);
+  font-family: var(--vk-font-sans);
+  font-size: var(--vk-size-base);
+  line-height: var(--vk-leading-normal);
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea,
+select {
+  color: inherit;
+}
+
+a {
+  color: var(--vk-brand);
+}
+
+:where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline-color: var(--vk-focus-ring);
+}
+
+::selection {
+  color: var(--vk-text);
+  background: var(--vk-brand-subtle);
+}
+
+.desktop-nav {
+  border-color: var(--vk-border-subtle);
+}
+
+.brand {
+  color: var(--vk-text);
+}
+
+.brand-mark {
+  color: var(--vk-text-on-brand);
+  background: var(--vk-brand-gradient);
+  box-shadow: var(--vk-glow-brand);
+}
+
+.nav-button {
+  color: var(--vk-text-muted);
+}
+
+.nav-button:hover,
+.nav-button.active {
+  color: var(--vk-text);
+  background: var(--vk-surface);
+}
+
+.nav-button.active svg,
+.eyebrow,
+.vk-micro {
+  color: var(--vk-brand);
+}
+
+.nav-badge,
+.message-badge,
+.conversation-list i {
+  color: var(--vk-text-on-accent);
+  background: var(--vk-accent-fill);
+  border-color: var(--vk-surface);
+}
+
+.install-button,
+.settings-install,
+.login-submit,
+.empty-state button,
+.person-actions .primary,
+.message-composer button {
+  color: var(--vk-text-on-brand);
+  background: var(--vk-brand);
+  border-color: var(--vk-brand);
+}
+
+.install-button:hover,
+.settings-install:hover,
+.login-submit:hover,
+.empty-state button:hover,
+.person-actions .primary:hover,
+.message-composer button:hover {
+  background: var(--vk-brand-hover);
+  border-color: var(--vk-brand-hover);
+}
+
+.feed-title > button,
+.post-card,
+.person-card,
+.messages-page,
+.message-thread,
+.daily-note,
+.empty-state,
+.saved-empty,
+.activity-empty,
+.profile-actions > button {
+  color: var(--vk-text);
+  background: var(--vk-surface);
+  border-color: var(--vk-border-subtle);
+  box-shadow: var(--vk-elev-1);
+}
+
+.post-menu,
+.post-menu button,
+.post-menu button:hover,
+.search-panel,
+.message-composer input,
+.profile-info button:not(.icon-button),
+.person-actions button,
+.admin-controls button,
+.settings-signout,
+.profile-photo-row > button,
+.login-field > input,
+.login-field .input-prefix,
+.composer textarea,
+.composer input,
+.form-field input,
+.form-field textarea {
+  color: var(--vk-text);
+  background: var(--vk-surface-raised);
+  border-color: var(--vk-border);
+}
+
+.post-menu button,
+.comment-row,
+.profile-tabs,
+.messages-page,
+.conversation-list,
+.conversation-list > button,
+.message-thread > header,
+.message-composer,
+.modal-header,
+.settings-list,
+.settings-list label,
+.admin-controls,
+.admin-controls details,
+.admin-controls details > p,
+.admin-controls details > article,
+.invite-row,
+.connection-list article,
+.activity-item,
+.viewer-stats {
+  border-color: var(--vk-border-subtle);
+}
+
+.post-menu button:hover,
+.icon-button:hover,
+.conversation-list > button:hover,
+.conversation-list > button.active,
+.profile-actions > button:hover {
+  background: var(--vk-surface-hover);
+}
+
+.post-image-wrap,
+.profile-grid button,
+.profile-grid .grid-add,
+.profile-crop-preview,
+.activity-media,
+.activity-video {
+  background: var(--vk-media-bg);
+}
+
+.story-ring {
+  background: var(--vk-alpha-14);
+  box-shadow: var(--vk-elev-1);
+}
+
+.story-ring.active-story {
+  background: conic-gradient(from -40deg, var(--vk-gold-300), var(--vk-accent), var(--vk-ember-500), var(--vk-gold-300));
+}
+
+.story-ring.active-story.viewed {
+  background: var(--vk-alpha-18);
+}
+
+.story-ring img,
+.story-ring video {
+  border-color: var(--vk-surface);
+}
+
+.story-ring i {
+  color: var(--vk-text-on-accent);
+  background: var(--vk-accent-fill);
+  border-color: var(--vk-bg);
+}
+
+.post-actions .liked,
+.activity-icon.like {
+  color: var(--vk-accent);
+}
+
+.post-copy time,
+.post-author span,
+.section-heading p,
+.person-card p,
+.person-card small,
+.conversation-list span,
+.message-thread > header span,
+.message-placeholder p,
+.profile-actions small,
+.profile-info p,
+.settings-intro p,
+.login-subtitle,
+.login-auth-switch,
+.login-footnote,
+.login-promise span,
+.admin-controls article p,
+.invite-empty,
+.desktop-profile footer {
+  color: var(--vk-text-muted);
+}
+
+.profile-info a,
+.login-auth-switch,
+.profile-photo-row > button {
+  color: var(--vk-brand);
+}
+
+.profile-modal,
+.composer,
+.delete-confirm,
+.story-delete-confirm {
+  color: var(--vk-text);
+  background: var(--vk-surface-overlay);
+  border: 1px solid var(--vk-border);
+  box-shadow: var(--vk-elev-4);
+}
+
+.upload-drop,
+.story-caption-tools {
+  color: var(--vk-text);
+  background: var(--vk-surface);
+  border-color: var(--vk-border-strong);
+}
+
+.upload-drop.drag-active,
+.preview-frame.drag-active {
+  background: var(--vk-brand-subtle);
+  border-color: var(--vk-brand);
+  box-shadow: inset 0 0 0 2px var(--vk-brand-subtle);
+}
+
+.upload-drop > span {
+  color: var(--vk-brand);
+  background: var(--vk-brand-subtle);
+}
+
+.upload-drop p,
+.caption-field small {
+  color: var(--vk-text-muted);
+}
+
+.upload-choices button {
+  color: var(--vk-text);
+  background: var(--vk-surface-raised);
+  border-color: var(--vk-border-strong);
+}
+
+.upload-choices button:last-child {
+  color: var(--vk-text-on-brand);
+  background: var(--vk-brand);
+  border-color: var(--vk-brand);
+}
+
+.preview-frame {
+  background: var(--vk-media-bg);
+}
+
+.modal-backdrop,
+.media-viewer,
+.story-viewer {
+  background: var(--vk-scrim-full);
+}
+
+.profile-photo-row,
+.profile-cropper,
+.settings-intro > span,
+.login-lock,
+.login-promise,
+.admin-controls details,
+.admin-controls details > .invite-list > .invite-row {
+  background: var(--vk-surface);
+  border-color: var(--vk-border-subtle);
+}
+
+.settings-intro > span,
+.login-lock,
+.note-icon {
+  color: var(--vk-brand);
+  background: var(--vk-brand-subtle);
+}
+
+.switch {
+  background: var(--vk-surface-disabled);
+}
+
+.switch.on,
+.switch[aria-checked="true"] {
+  background: var(--vk-brand);
+}
+
+.message-scroll > p {
+  color: var(--vk-text);
+  background: var(--vk-surface-raised);
+}
+
+.message-scroll > p.mine {
+  color: var(--vk-text-on-brand);
+  background: var(--vk-brand);
+}
+
+.message-scroll time {
+  color: currentColor;
+  opacity: .62;
+}
+
+.person-actions .following,
+.admin-controls .invite-toolbar button.active {
+  color: var(--vk-brand);
+  background: var(--vk-brand-subtle);
+  border-color: var(--vk-border-brand);
+}
+
+.person-actions .danger,
+.settings-signout,
+.login-error,
+.profile-error,
+.inline-error,
+.form-error {
+  color: var(--vk-red-300);
+}
+
+.invite-status.available {
+  color: var(--vk-success);
+  background: var(--vk-success-subtle);
+}
+
+.invite-status.claimed {
+  color: var(--vk-brand);
+  background: var(--vk-brand-subtle);
+}
+
+.invite-status.revoked {
+  color: var(--vk-red-300);
+  background: var(--vk-danger-subtle);
+}
+
+.login-page,
+.login-panel {
+  background: var(--vk-bg);
+}
+
+.login-story {
+  color: var(--vk-text-on-media);
+  background:
+    radial-gradient(90% 110% at 12% 0%, rgba(233, 80, 111, .34), transparent 56%),
+    radial-gradient(80% 100% at 92% 14%, rgba(232, 180, 85, .28), transparent 52%),
+    linear-gradient(155deg, #2a1218 0%, #140c0e 55%, #09080a 100%);
+}
+
+.login-card {
+  color: var(--vk-text);
+  background: var(--vk-surface);
+  border-color: var(--vk-border);
+  box-shadow: var(--vk-elev-3);
+}
+
+.login-story-copy > p,
+.login-kicker,
+.login-promise span {
+  color: var(--vk-text-muted);
+}
+
+.login-submit:disabled,
+.message-composer button:disabled {
+  color: var(--vk-text-disabled);
+  background: var(--vk-surface-disabled);
+  border-color: var(--vk-surface-disabled);
+}
+
+.mobile-header,
+.mobile-nav {
+  color: var(--vk-text);
+  background: var(--vk-surface-chrome);
+  border-color: var(--vk-border-subtle);
+}
+
+.media-viewer-card,
+.media-viewer-details {
+  color: var(--vk-text);
+  background: var(--vk-surface);
+  border-color: var(--vk-border-subtle);
+}
+
+.media-viewer-stage {
+  background: var(--vk-media-bg);
+}
+
+@media (max-width: 700px) {
+  body,
+  .login-page,
+  .login-panel {
+    background: var(--vk-bg);
+  }
+
+  .post-card {
+    box-shadow: none;
+  }
+
+  .conversation-empty {
+    display: none;
+  }
+
+  .conversation-list .section-heading {
+    text-align: center;
+  }
+}

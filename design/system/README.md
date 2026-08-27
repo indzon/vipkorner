@@ -1,6 +1,6 @@
 # VipKorner Design System — Midnight Marquee
 
-Version 1.0.0 · presentation only · no functional change to the app.
+Version 1.0.1 · presentation only · no functional change to the app.
 
 Open **`index.html`** in a browser for the full documentation. Its specimens are
 rendered by the two stylesheets in this folder, not by copies — if a component
@@ -11,7 +11,9 @@ looks wrong there, it is wrong in the app.
 | File | Role |
 | --- | --- |
 | `vipkorner-tokens.css` | Primitives + semantic aliases. The only place a colour, size, duration or z-index is invented. Ends with a legacy bridge for the nine variables `globals.css` uses today. |
-| `vipkorner-theme.css` | Every component, styled entirely from tokens. Keyed to the class names already in `app/globals.css` and `app/page.tsx` — no markup changes needed. |
+| `vipkorner-layout.css` | Proven responsive geometry restored from the pre-reskin app: page grids, sizing, positioning, overflow and mobile breakpoints. |
+| `vipkorner-reskin.css` | Visual-only compatibility layer for color, borders, type, elevation and control states. It deliberately does not redefine the app grid. |
+| `vipkorner-theme.css` | Full design-system reference stylesheet retained as a component specification; it is not imported by the production app. |
 | `tokens.json` | The same tokens, machine-readable, with contrast ratios recorded. For a Tailwind theme extension, a Figma sync, or a lint rule. |
 | `index.html` | Documentation, live specimens, contrast tables, adoption plan. |
 
@@ -21,15 +23,19 @@ looks wrong there, it is wrong in the app.
 /* app/globals.css */
 @import "tailwindcss";
 @import "../design/system/vipkorner-tokens.css";
-@import "../design/system/vipkorner-theme.css";
+@import "../design/system/vipkorner-layout.css";
+@import "../design/system/vipkorner-reskin.css";
 ```
 
-Order matters: tokens before theme, theme after Tailwind's preflight.
+Order matters: tokens precede both application layers, the layout loads before
+the reskin, and all three load after Tailwind's preflight. Do not replace the
+layout layer with the reference theme; the layout file is the compatibility
+contract for desktop, compact and mobile views.
 
 ## Coverage (verified, not asserted)
 
-- **210 / 210** class selectors in `app/globals.css` have a rule in the theme.
-- **175 / 175** distinct `className` values in `app/page.tsx` and `app/login/page.tsx` are covered.
+- **210 / 210** legacy class selectors remain covered by the layout plus reskin layers.
+- **175 / 175** distinct `className` values in `app/page.tsx` and `app/login/page.tsx` remain covered.
 - **0** raw hex values in the theme outside gradient stops.
 - **0** colours in the purple (255–330°) or teal (155–205°) hue bands. `--plum #7d3d6a` is retired and bridged to gold.
 - Contrast ratios computed for every text token against all four surfaces; two documented exceptions with named substitutes.
@@ -43,9 +49,9 @@ inline it.
 
 ## Known issues in the current app that this surfaces
 
-1. `.add-story`, `.login-loading` and `.member-profile-page` are applied in
-   `page.tsx` but have no rule anywhere in `globals.css`. They render unstyled
-   today. The theme defines them — audit whether they are dead markup.
+1. `.add-story`, `.login-loading` and `.member-profile-page` are compatibility
+   selectors supplied by the system layers even though the legacy stylesheet
+   did not define them.
 2. `font-family: var(--font-geist), Arial, sans-serif` has no fallback inside
    `var()`. If `next/font` has not injected the variable, the whole declaration
    is invalid and the app silently reverts to the browser default serif. The

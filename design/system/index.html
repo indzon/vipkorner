@@ -8,7 +8,8 @@
 <!-- The specimens below are rendered by the SHIPPED stylesheets, not a copy.
      If a component looks wrong here, it is wrong in the app. -->
 <link rel="stylesheet" href="vipkorner-tokens.css" />
-<link rel="stylesheet" href="vipkorner-theme.css" />
+<link rel="stylesheet" href="vipkorner-layout.css" />
+<link rel="stylesheet" href="vipkorner-reskin.css" />
 
 <style>
 /* Documentation chrome only. Every rule is .doc-* prefixed so it can never
@@ -159,9 +160,9 @@ ul.doc-list strong{color:var(--vk-text);font-weight:var(--vk-weight-semibold);}
   <main class="doc-main">
 
     <header class="doc-hero">
-      <div class="eyebrow">✦ VipKorner Design System · v1.0.0</div>
+      <div class="eyebrow">✦ VipKorner Design System · v1.0.1</div>
       <h1>Midnight Marquee</h1>
-      <p>A production design system for vipkorner.app: a token layer, a theme layer keyed to the class names the app already uses, and the rules that keep them coherent. Content is the only bright thing on screen. Gold is the metal. Everything else recedes.</p>
+      <p>A production design system for vipkorner.app: tokens, a proven responsive layout layer, and a visual compatibility layer keyed to the class names the app already uses. Content is the only bright thing on screen. Gold is the metal. Everything else recedes.</p>
       <div class="doc-meta">
         <span class="doc-pill"><b>210 / 210</b> classes in globals.css covered</span>
         <span class="doc-pill"><b>175 / 175</b> classNames in page.tsx covered</span>
@@ -173,13 +174,15 @@ ul.doc-list strong{color:var(--vk-text);font-weight:var(--vk-weight-semibold);}
 
     <!-- ============ OVERVIEW ============ -->
     <section id="overview">
-      <div class="doc-h2"><h2>Overview</h2><span>Three files</span></div>
-      <p class="doc-lede">The system ships as three files plus this page. Nothing in <code class="doc-code">app/</code>, <code class="doc-code">lib/</code>, <code class="doc-code">worker/</code> or <code class="doc-code">db/</code> is modified by adopting it — the theme targets the selectors that are already there.</p>
+      <div class="doc-h2"><h2>Overview</h2><span>Layered CSS</span></div>
+      <p class="doc-lede">The production app separates responsive geometry from appearance. The layout layer preserves the tested desktop, compact and mobile behavior; the reskin targets those same selectors without redefining the app grid.</p>
       <table class="doc-t">
         <thead><tr><th>File</th><th>What it is</th><th>When you touch it</th></tr></thead>
         <tbody>
           <tr><td><code class="doc-code">vipkorner-tokens.css</code></td><td>Primitives and semantic aliases. The only place a colour, size, duration or z-index is invented.</td><td>Adding or retiring a design decision. Rare, and reviewed.</td></tr>
-          <tr><td><code class="doc-code">vipkorner-theme.css</code></td><td>Every component in the app, styled entirely from tokens. Same selectors as today's <code class="doc-code">globals.css</code>.</td><td>Building or changing a component.</td></tr>
+          <tr><td><code class="doc-code">vipkorner-layout.css</code></td><td>Responsive page geometry, sizing, positioning, overflow and breakpoints restored from the proven pre-reskin app.</td><td>Changing layout or responsive behavior.</td></tr>
+          <tr><td><code class="doc-code">vipkorner-reskin.css</code></td><td>Visual-only compatibility rules for color, borders, type and elevation.</td><td>Changing appearance without changing geometry.</td></tr>
+          <tr><td><code class="doc-code">vipkorner-theme.css</code></td><td>Original full reference theme retained as the component specification; production does not import it.</td><td>Auditing component coverage.</td></tr>
           <tr><td><code class="doc-code">tokens.json</code></td><td>The same tokens, machine-readable — for a Tailwind theme extension, a Figma sync, or a lint rule.</td><td>Wiring tooling.</td></tr>
           <tr><td><code class="doc-code">index.html</code></td><td>This page. Its specimens are rendered by the two stylesheets above, not by copies.</td><td>Reviewing. If a specimen looks wrong here, it is wrong in the app.</td></tr>
         </tbody>
@@ -212,11 +215,12 @@ ul.doc-list strong{color:var(--vk-text);font-weight:var(--vk-weight-semibold);}
 <pre class="doc-pre"><i>/* app/globals.css */</i>
 @import "tailwindcss";
 @import "../design/system/vipkorner-tokens.css";   <i>/* primitives + semantics */</i>
-@import "../design/system/vipkorner-theme.css";    <i>/* components            */</i>
+@import "../design/system/vipkorner-layout.css";   <i>/* responsive geometry   */</i>
+@import "../design/system/vipkorner-reskin.css";   <i>/* visual compatibility  */</i>
 
 <i>/* Nothing else. Any rule that survives below this line is a migration
    leftover — track it down and delete it. */</i></pre>
-      <p class="doc-p">Tokens must load before the theme, and the theme must load after Tailwind's preflight so the base resets don't win. The token file ends with a <b>legacy bridge</b> that maps the nine variables the current stylesheet uses (<code class="doc-code">--ink</code>, <code class="doc-code">--accent</code>, <code class="doc-code">--plum</code>…) onto the new system — so the existing <code class="doc-code">globals.css</code> renders correctly on the dark canvas from the first commit, before a single component is migrated. Delete the bridge when nothing references those names.</p>
+      <p class="doc-p">Tokens must load after Tailwind's preflight, followed by the responsive layout and then the visual reskin. The token file ends with a <b>legacy bridge</b> that maps the nine variables the layout uses (<code class="doc-code">--ink</code>, <code class="doc-code">--accent</code>, <code class="doc-code">--plum</code>…) onto the new system. The split is intentional: the layout owns geometry; the reskin owns appearance.</p>
       <p class="doc-p"><code class="doc-code">--plum</code> is deliberately bridged to gold. If any purple appears after installation, something is bypassing the token layer.</p>
       <p class="doc-rule doc-warn"><b>One gotcha found while building this.</b> The current stylesheet writes <code class="doc-code">font-family: var(--font-geist), Arial, sans-serif</code>. <code class="doc-code">--font-geist</code> is injected by <code class="doc-code">next/font</code> at runtime — and if it is ever absent (a static export, a stylesheet loaded outside a Next render, a font-loading failure), <code class="doc-code">var()</code> with no fallback makes the <em>entire</em> declaration invalid at computed-value time and every element in the app silently reverts to the browser's default serif. The token file writes <code class="doc-code">var(--font-geist, system-ui)</code> instead. Worth fixing in <code class="doc-code">globals.css</code> today regardless of whether this system ships.</p>
     </section>
@@ -484,7 +488,7 @@ ul.doc-list strong{color:var(--vk-text);font-weight:var(--vk-weight-semibold);}
     <!-- ============ BUTTONS ============ -->
     <section id="buttons">
       <div class="doc-h2"><h2>Buttons</h2><span>Components</span></div>
-      <p class="doc-lede">One primary per screen. Everything below is rendered by <code class="doc-code">vipkorner-theme.css</code> — these are the real controls.</p>
+      <p class="doc-lede">One primary per screen. Everything below is rendered by the production token, layout and reskin layers — these are the real controls.</p>
       <div class="doc-demo">
         <span class="doc-demo-label">Live</span>
         <div class="doc-row">
@@ -812,8 +816,8 @@ ul.doc-list strong{color:var(--vk-text);font-weight:var(--vk-weight-semibold);}
     <section id="adoption">
       <div class="doc-h2"><h2>Adoption plan</h2><span>Five phases, each shippable</span></div>
       <p class="doc-lede">Each phase leaves the app in a working, deployable state. No phase requires the next one to land in the same release.</p>
-      <div class="doc-phase"><b>1</b><div><h5>Install the token layer behind the legacy bridge</h5><p>Add <code class="doc-code">vipkorner-tokens.css</code> and the two import lines. The existing <code class="doc-code">globals.css</code> stays untouched — the bridge maps its nine variables onto the new palette, so the app flips to the dark canvas in one commit and one revert. This is the phase that proves the direction with real user media before anything is rewritten. <b>Ship it behind a flag if you can.</b></p></div></div>
-      <div class="doc-phase"><b>2</b><div><h5>Swap in the theme layer</h5><p>Replace the body of <code class="doc-code">globals.css</code> with <code class="doc-code">vipkorner-theme.css</code>. Same 210 selectors, same DOM, no markup edits. Expect a day of visual QA on the components with the most hard-coded values today — the story viewer, the media viewer, and the admin invite panel.</p></div></div>
+      <div class="doc-phase"><b>1</b><div><h5>Install tokens and preserve the proven layout</h5><p>Load <code class="doc-code">vipkorner-tokens.css</code> before <code class="doc-code">vipkorner-layout.css</code>. The bridge maps the legacy variables onto the new palette while the tested responsive geometry remains intact.</p></div></div>
+      <div class="doc-phase"><b>2</b><div><h5>Apply the visual compatibility layer</h5><p>Load <code class="doc-code">vipkorner-reskin.css</code> last. It may change color, type, borders and elevation, but must not redefine the app shell grid, page widths or responsive breakpoints. Validate every page at desktop and mobile widths before deployment.</p></div></div>
       <div class="doc-phase"><b>3</b><div><h5>Fix the type floor</h5><p>The 9px and 10px text becomes 11px micro labels or 12px meta. This is a real visual change: some rows get taller and some truncation thresholds move. Do it as its own PR so it can be reviewed on its merits rather than buried in a redesign.</p></div></div>
       <div class="doc-phase"><b>4</b><div><h5>Split <code class="doc-code">page.tsx</code> and do the component-level accessibility work</h5><p>One file per view, one file per modal. While the components are open: alt text, focus trapping and restoration, <kbd>Esc</kbd> handling, live regions for unread counts and toasts, story pause. These are the three failing rows in the table above.</p></div></div>
       <div class="doc-phase"><b>5</b><div><h5>Delete the bridge and add the guard</h5><p>Remove the legacy variable block. Add a lint rule (Stylelint <code class="doc-code">declaration-property-value-disallowed-list</code>, or a CI grep) that fails any raw hex or raw px outside the token file. Without this step the system erodes within two sprints — that is how the current 155 literals accumulated.</p></div></div>
@@ -851,8 +855,8 @@ ul.doc-list strong{color:var(--vk-text);font-weight:var(--vk-weight-semibold);}
         <li><strong>Not yet decided:</strong> the marquee promotion rule; whether the story player has a pause control today; whether the three unstyled classes are dead markup or missing features.</li>
       </ul>
       <p class="doc-foot">
-        VipKorner Design System v1.0.0 · Midnight Marquee · generated August 2026.<br>
-        Every specimen on this page is rendered by <code class="doc-code">vipkorner-tokens.css</code> and <code class="doc-code">vipkorner-theme.css</code> — the same two files the app would ship. Contrast ratios were computed, not estimated. No file in <code class="doc-code">app/</code>, <code class="doc-code">lib/</code>, <code class="doc-code">worker/</code>, <code class="doc-code">db/</code> or <code class="doc-code">public/</code> was modified to produce it.
+        VipKorner Design System v1.0.1 · Midnight Marquee · generated August 2026.<br>
+        Every specimen on this page is rendered by <code class="doc-code">vipkorner-tokens.css</code>, <code class="doc-code">vipkorner-layout.css</code> and <code class="doc-code">vipkorner-reskin.css</code> — the same layers the app ships. Contrast ratios were computed, not estimated. No application behavior was modified to produce the reskin.
       </p>
     </section>
 

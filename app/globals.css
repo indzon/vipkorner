@@ -1,3 +1,4 @@
 @import "tailwindcss";
 @import "../design/system/vipkorner-tokens.css";
-@import "../design/system/vipkorner-theme.css";
+@import "../design/system/vipkorner-layout.css";
+@import "../design/system/vipkorner-reskin.css";

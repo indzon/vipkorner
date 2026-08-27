@@ -25,10 +25,11 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system details and [docs/OP
 ## Design system
 
 The application UI uses the **VipKorner Midnight Marquee** design system. Its
-machine-readable tokens, CSS token layer, component theme, and live specimen
-documentation are maintained together in [`design/system`](design/system).
-`app/globals.css` is intentionally limited to importing Tailwind, the token
-layer, and the theme layer so presentation changes remain separate from app
+machine-readable tokens, responsive layout layer, visual reskin, and live
+specimen documentation are maintained together in
+[`design/system`](design/system). `app/globals.css` imports these layers in a
+fixed order: Tailwind, tokens, the proven responsive layout, then the visual
+reskin. The separation keeps the dark theme from changing page geometry or app
 behavior.
 
 ## Local development

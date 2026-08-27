@@ -3,7 +3,31 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
-const readAppStyles = () => read("design/system/vipkorner-theme.css");
+const readAppStyles = async () => {
+  const [layout, reskin] = await Promise.all([
+    read("design/system/vipkorner-layout.css"),
+    read("design/system/vipkorner-reskin.css"),
+  ]);
+
+  return `${layout}\n${reskin}`;
+};
+
+test("the visual theme preserves the proven responsive layout layer", async () => {
+  const [globals, layout, reskin] = await Promise.all([
+    read("app/globals.css"),
+    read("design/system/vipkorner-layout.css"),
+    read("design/system/vipkorner-reskin.css"),
+  ]);
+
+  assert.match(globals, /vipkorner-tokens\.css/);
+  assert.match(globals, /vipkorner-layout\.css/);
+  assert.match(globals, /vipkorner-reskin\.css/);
+  assert.doesNotMatch(globals, /vipkorner-theme\.css/);
+  assert.match(layout, /\.app-shell\s*\{/);
+  assert.match(layout, /@media\s*\(max-width:\s*720px\)/);
+  assert.match(reskin, /visual compatibility layer/i);
+  assert.doesNotMatch(reskin, /grid-template-columns/);
+});
 
 test("connection lists remain scoped to the authenticated member", async () => {
   const socialRoute = await read("app/api/social/route.ts");
@@ -40,7 +64,7 @@ test("member identity surfaces open profiles with activity avatars", async () =>
   assert.match(page, /onMessage\(member\.id\)/);
   assert.match(page, /aria-label={`Message @\$\{member\.username\}`}/);
   assert.match(css, /\.profile-stats \{ display: flex;/);
-  assert.match(css, /\.person-identity \{[^}]*align-items: center;[^}]*text-align: left;/);
+  assert.match(css, /\.person-identity \{[^}]*align-items: flex-start;[^}]*text-align: left;/);
   assert.match(css, /\.member-message-button/);
   assert.match(feedRoute, /n\.actor_id AS actorId/);
   assert.match(feedRoute, /u\.display_name AS actorDisplayName/);
