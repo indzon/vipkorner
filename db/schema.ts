@@ -105,6 +105,7 @@ export const users = sqliteTable("users", {
   isPublic: integer("is_public", { mode: "boolean" }).notNull().default(true),
   storyReplies: integer("story_replies", { mode: "boolean" }).notNull().default(true),
   highQualityUploads: integer("high_quality_uploads", { mode: "boolean" }).notNull().default(true),
+  savedCollectionPublic: integer("saved_collection_public", { mode: "boolean" }).notNull().default(false),
   adultConfirmedAt: integer("adult_confirmed_at").notNull(),
   createdAt: integer("created_at").notNull(),
 });

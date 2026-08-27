@@ -18,12 +18,15 @@ export async function GET() {
         p.likes + (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
         EXISTS(SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.user_id = ?) AS liked,
         EXISTS(SELECT 1 FROM post_saves s WHERE s.post_id = p.id AND s.user_id = ?) AS saved,
-        u.username, u.display_name AS displayName, u.location, u.image_key AS authorImageKey, u.image_url AS authorImageUrl
+        u.username, u.display_name AS displayName, u.location, u.is_public AS authorIsPublic,
+        EXISTS(SELECT 1 FROM follows af WHERE af.follower_id = ? AND af.followed_id = p.user_id) AS authorFollowing,
+        (SELECT fr.status FROM follow_requests fr WHERE fr.requester_id = ? AND fr.target_id = p.user_id) AS authorFollowRequestStatus,
+        u.image_key AS authorImageKey, u.image_url AS authorImageUrl
         FROM posts p JOIN users u ON u.id = p.user_id
         WHERE u.status = 'active' AND (u.is_public = 1 OR p.user_id = ? OR EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = p.user_id)) AND NOT EXISTS (
           SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = p.user_id)
           OR (b.blocker_id = p.user_id AND b.blocked_id = ?)
-        ) ORDER BY p.created_at DESC LIMIT 100`).bind(viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id).all(),
+        ) ORDER BY p.created_at DESC LIMIT 100`).bind(viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id).all(),
       DB.prepare(`SELECT m.id, m.post_id AS postId, m.position, m.caption,
         m.image_key AS imageKey, m.image_url AS imageUrl, m.media_type AS mediaType
         FROM post_media m JOIN posts p ON p.id = m.post_id JOIN users u ON u.id = p.user_id
@@ -75,7 +78,7 @@ export async function GET() {
     const postsWithComments = posts.results.map((post) => ({
       ...post,
       media: mediaByPost[String(post.id)] || [],
-      author: { id: post.userId, username: post.username, displayName: post.displayName, location: post.location, imageKey: post.authorImageKey, imageUrl: post.authorImageUrl },
+      author: { id: post.userId, username: post.username, displayName: post.displayName, location: post.location, isPublic: post.authorIsPublic, following: post.authorFollowing, followRequestStatus: post.authorFollowRequestStatus, imageKey: post.authorImageKey, imageUrl: post.authorImageUrl },
       comments: commentsByPost[String(post.id)] || [],
       owned: post.userId === viewer.id,
     }));
@@ -84,7 +87,7 @@ export async function GET() {
       author: { id: story.userId, username: story.username, displayName: story.displayName, imageKey: story.authorImageKey, imageUrl: story.authorImageUrl },
       owned: story.userId === viewer.id,
     }));
-    const profile = { ...viewer, privateAccount: !Boolean(viewer.isPublic), following: following?.total || 0, followers: followers?.total || 0 };
+    const profile = { ...viewer, privateAccount: !Boolean(viewer.isPublic), savedCollectionPublic: Boolean(viewer.savedCollectionPublic), following: following?.total || 0, followers: followers?.total || 0 };
     return NextResponse.json({ posts: postsWithComments, stories: storyResults, profile, activities: notifications.results });
   } catch (error) {
     return authErrorResponse(error) || NextResponse.json({ error: "Could not load the feed." }, { status: 500 });

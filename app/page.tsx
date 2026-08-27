@@ -62,7 +62,7 @@ type Post = {
   media: PostMedia[];
 };
 
-type PublicUser = { id: string; username: string; displayName: string; location?: string; bio?: string; imageKey: string | null; imageUrl: string | null };
+type PublicUser = { id: string; username: string; displayName: string; location?: string; bio?: string; imageKey: string | null; imageUrl: string | null; isPublic?: number | boolean; following?: number | boolean; followRequestStatus?: FollowRequestStatus };
 type Comment = { id: string; postId: string; body: string; createdAt: number; author: PublicUser };
 type FollowRequestStatus = "pending" | "approved" | "declined" | "canceled" | null;
 type Activity = { id: string; type: "like" | "comment" | "follow" | "message" | "story_reaction" | "follow_request" | "follow_request_approved" | "follow_request_declined"; postId: string | null; message: string; createdAt: number; readAt?: number | null; actorId?: string | null; actorUsername?: string | null; actorDisplayName?: string | null; actorImageKey?: string | null; actorImageUrl?: string | null; requestStatus?: FollowRequestStatus };
@@ -81,6 +81,7 @@ type Profile = {
   privateAccount: number | boolean;
   storyReplies: number | boolean;
   highQualityUploads: number | boolean;
+  savedCollectionPublic: number | boolean;
   role: "admin" | "user";
   following: number;
   followers: number;
@@ -106,7 +107,7 @@ type Story = {
 };
 
 type DiscoveryUser = PublicUser & { isPublic: number | boolean; following: number | boolean; followsYou: number | boolean; followRequestStatus?: FollowRequestStatus; blocked: number | boolean; followers: number; posts: number; role: string; isSelf: number | boolean };
-type MemberProfile = PublicUser & { website?: string; isPublic: number | boolean; following: number | boolean; followsYou: number | boolean; followRequestStatus?: FollowRequestStatus; followers: number; followingCount: number; posts: number; isSelf: number | boolean; heroImageKey?: string | null; heroImageUrl?: string | null };
+type MemberProfile = PublicUser & { website?: string; isPublic: number | boolean; following: number | boolean; followsYou: number | boolean; followRequestStatus?: FollowRequestStatus; followers: number; followingCount: number; posts: number; isSelf: number | boolean; heroImageKey?: string | null; heroImageUrl?: string | null; savedCollectionPublic?: number | boolean; savedPostIds?: string[] };
 type ConnectionCounts = { following: number; followers: number };
 type ConnectionUser = PublicUser & { connectedAt: number };
 type Conversation = { id: string; status: "pending" | "accepted"; requestedBy: string; updatedAt: number; otherId: string; username: string; displayName: string; imageKey: string | null; imageUrl: string | null; lastMessage: string | null; unread: number };
@@ -368,21 +369,35 @@ export default function HomePage() {
     [conversations],
   );
 
-  async function togglePost(id: string, action: "like" | "save") {
+  async function togglePost(id: string, action: "like" | "save", desired?: boolean) {
+    const currentPost = posts.find((post) => post.id === id);
+    if (!currentPost) return;
+    const currentValue = action === "like" ? Boolean(currentPost.liked) : Boolean(currentPost.saved);
+    const nextValue = desired ?? !currentValue;
+    if (currentValue === nextValue) return;
     setPosts((current) => current.map((post) => {
       if (post.id !== id) return post;
       if (action === "like") {
         const liked = Boolean(post.liked);
-        return { ...post, liked: !liked, likes: Math.max(0, post.likes + (liked ? -1 : 1)) };
+        return { ...post, liked: nextValue, likes: Math.max(0, post.likes + (nextValue ? 1 : -1)) };
       }
-      return { ...post, saved: !Boolean(post.saved) };
+      return { ...post, saved: nextValue };
     }));
     try {
-      await fetch("/api/posts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action }) });
+      const response = await fetch("/api/posts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action, value: nextValue }) });
+      await readApiResponse(response, `Could not ${action === "like" ? "update this like" : "save this post"}.`);
       if (action === "like") await loadFeed();
     } catch {
-      loadFeed();
+      void loadFeed();
     }
+  }
+
+  async function toggleFeedFollow(author: PublicUser) {
+    const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "follow", targetId: author.id }) });
+    const result = await readApiResponse<{ following?: boolean; requested?: boolean }>(response, "Could not update this follow.");
+    setPosts((current) => current.map((post) => post.author.id === author.id ? { ...post, author: { ...post.author, following: Boolean(result.following), followRequestStatus: result.requested ? "pending" : null } } : post));
+    void loadSocialCounts();
+    return result;
   }
 
   async function addComment(postId: string, body: string) {
@@ -474,7 +489,7 @@ export default function HomePage() {
             <StoriesTray stories={stories} profile={profile} onAdd={() => setComposer("story")} onOpen={(story) => { setActiveStoryAuthorId(null); setActiveStoryId(story.id); }} />
             <div className="feed-title"><div><span className="eyebrow">YOUR FEED</span><h1>Good afternoon, {profile.displayName.split(" ")[0]}</h1></div><button onClick={() => setComposer("post")}><Plus size={17} /> New post</button></div>
             <section className="feed" aria-label="Posts">
-              {loading ? <FeedSkeleton /> : filteredPosts.length ? filteredPosts.map((post) => <PostCard key={post.id} post={post} profile={profile} onToggle={togglePost} onComment={addComment} onCaptionUpdate={updateCaption} onDelete={deletePost} />) : <EmptyState searched={Boolean(query)} onCreate={() => setComposer("post")} />}
+              {loading ? <FeedSkeleton /> : filteredPosts.length ? filteredPosts.map((post) => <PostCard key={post.id} post={post} profile={profile} hasUnseenShorts={stories.some((story) => story.userId === post.userId && !story.viewed)} onViewProfile={openMemberProfile} onFollow={toggleFeedFollow} onToggle={togglePost} onComment={addComment} onCaptionUpdate={updateCaption} onDelete={deletePost} />) : <EmptyState searched={Boolean(query)} onCreate={() => setComposer("post")} />}
             </section>
           </>
         ) : view === "profile" ? (
@@ -540,7 +555,47 @@ function StoriesTray({ stories, profile, onAdd, onOpen }: { stories: Story[]; pr
   );
 }
 
-function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate, onDelete }: { post: Post; profile: Profile; onToggle: (id: string, action: "like" | "save") => void; onComment: (postId: string, body: string) => Promise<void>; onCaptionUpdate: (postId: string, caption: string) => Promise<void>; onDelete: (postId: string) => Promise<void> }) {
+function LikeSuccessFeedback() {
+  const animationRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let animation: { destroy: () => void } | null = null;
+    let canceled = false;
+    void import("lottie-web").then(({ default: lottie }) => {
+      if (canceled || !animationRef.current) return;
+      animation = lottie.loadAnimation({ container: animationRef.current, renderer: "svg", loop: false, autoplay: true, path: "/lottie/like-success.json" });
+    }).catch(() => undefined);
+    return () => { canceled = true; animation?.destroy(); };
+  }, []);
+  return <div className="like-feedback" aria-hidden="true"><div ref={animationRef} /><Heart className="like-feedback-fallback" fill="currentColor" /></div>;
+}
+
+function SharePostModal({ post, onClose }: { post: Post; onClose: () => void }) {
+  const [users, setUsers] = useState<DiscoveryUser[]>([]);
+  const [busyId, setBusyId] = useState("");
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    fetch("/api/social").then((response) => readApiResponse<{ users: DiscoveryUser[] }>(response, "Could not load people."))
+      .then((data) => setUsers((data.users || []).filter((user) => !user.isSelf && !user.blocked)))
+      .catch((reason) => setError(reason instanceof Error ? reason.message : "Could not load people."));
+  }, []);
+  async function sendTo(user: DiscoveryUser) {
+    setBusyId(user.id); setError(""); setNotice("");
+    try {
+      const start = await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", targetId: user.id }) });
+      const conversation = await readApiResponse<{ id: string }>(start, "Could not start this conversation.");
+      const url = `${location.origin}/?post=${post.id}`;
+      const caption = post.caption.length > 110 ? `${post.caption.slice(0, 107)}…` : post.caption;
+      const response = await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send", conversationId: conversation.id, body: `Shared @${post.author.username}'s post: “${caption}”\n${url}` }) });
+      await readApiResponse(response, "Could not send this post.");
+      setNotice(`Sent to @${user.username}.`);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not send this post."); }
+    finally { setBusyId(""); }
+  }
+  return <div className="modal-backdrop share-post-backdrop" role="dialog" aria-modal="true" aria-label="Send post" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="profile-modal share-post-modal"><ModalHeader eyebrow="SHARE" title="Send post" onClose={onClose} /><div className="share-post-preview"><img src={imageSource(postMediaItems(post)[0])} alt="" /><p><strong>@{post.author.username}</strong>{post.caption}</p></div>{notice && <p className="panel-notice" role="status">{notice}</p>}{error && <p className="inline-error" role="alert">{error}</p>}<div className="share-user-list">{users.map((user) => <article key={user.id}><img src={profileImage(user)} alt="" /><div><strong>{user.displayName}</strong><span>@{user.username}</span></div><button type="button" disabled={Boolean(busyId)} onClick={() => void sendTo(user)}><Send /> {busyId === user.id ? "Sending…" : "Send"}</button></article>)}{!users.length && !error && <p>Loading people…</p>}</div></section></div>;
+}
+
+function PostCard({ post, profile, hasUnseenShorts, onViewProfile, onFollow, onToggle, onComment, onCaptionUpdate, onDelete }: { post: Post; profile: Profile; hasUnseenShorts: boolean; onViewProfile: (userId: string) => void; onFollow: (author: PublicUser) => Promise<{ following?: boolean; requested?: boolean }>; onToggle: (id: string, action: "like" | "save", desired?: boolean) => void; onComment: (postId: string, body: string) => Promise<void>; onCaptionUpdate: (postId: string, caption: string) => Promise<void>; onDelete: (postId: string) => Promise<void> }) {
   const mediaItems = postMediaItems(post);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const activeMedia = mediaItems[activeMediaIndex] || mediaItems[0];
@@ -553,7 +608,50 @@ function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate, onDelet
   const [actionError, setActionError] = useState("");
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [videoMuted, setVideoMuted] = useState(true);
+  const [likeFeedback, setLikeFeedback] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [followFeedback, setFollowFeedback] = useState(false);
   const inlineVideoRef = useRef<HTMLVideoElement>(null);
+  const lastTouchTapRef = useRef(0);
+
+  useEffect(() => {
+    if (!likeFeedback) return;
+    const timeout = window.setTimeout(() => setLikeFeedback(false), 900);
+    return () => window.clearTimeout(timeout);
+  }, [likeFeedback]);
+  useEffect(() => {
+    if (!followFeedback) return;
+    const timeout = window.setTimeout(() => setFollowFeedback(false), 1600);
+    return () => window.clearTimeout(timeout);
+  }, [followFeedback]);
+
+  function likePost() {
+    if (!post.liked) onToggle(post.id, "like", true);
+    setLikeFeedback(false);
+    window.requestAnimationFrame(() => setLikeFeedback(true));
+  }
+
+  function handleMediaPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== "touch") return;
+    const now = Date.now();
+    if (now - lastTouchTapRef.current < 340) {
+      event.preventDefault();
+      lastTouchTapRef.current = 0;
+      likePost();
+      return;
+    }
+    lastTouchTapRef.current = now;
+  }
+
+  async function toggleFollow() {
+    setFollowBusy(true); setActionError("");
+    try {
+      const result = await onFollow(post.author);
+      if (result.following) setFollowFeedback(true);
+    } catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not update this follow."); }
+    finally { setFollowBusy(false); }
+  }
 
   function showMedia(index: number) {
     inlineVideoRef.current?.pause();
@@ -612,15 +710,18 @@ function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate, onDelet
 
   return (
     <article className="post-card">
-      <header className="post-header"><div className="post-author"><img src={profileImage(post.author)} alt="" /><div><strong>{post.author.username}</strong><span>{post.author.location}</span></div></div><div className="post-menu-wrap"><button className="icon-button" aria-label="Post options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><MoreHorizontal /></button>{optionsOpen && <div className="post-menu">{post.owned && <button onClick={() => { setCaptionDraft(post.caption); setEditingCaption(true); setOptionsOpen(false); }}>Edit caption</button>}<button onClick={async () => { await navigator.clipboard?.writeText(`${location.origin}/?post=${post.id}`); setOptionsOpen(false); }}>Copy post link</button>{post.owned ? <button className="post-menu-danger" onClick={async () => { if (!window.confirm("Delete this post permanently?")) return; setOptionsOpen(false); try { await onDelete(post.id); } catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not delete post."); } }}>Delete post</button> : <button className="post-menu-danger" onClick={reportPost}><Flag /> Report post</button>}<button onClick={() => setOptionsOpen(false)}>Cancel</button></div>}</div></header>
-      <div className={`post-image-wrap ${activeMedia.mediaType === "video" ? "has-video" : ""}`} onClick={toggleVideoPlayback} onDoubleClick={() => activeMedia.mediaType === "image" && !post.liked && onToggle(post.id, "like")} onKeyDown={(event) => { if (activeMedia.mediaType === "video" && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); toggleVideoPlayback(); } }} tabIndex={activeMedia.mediaType === "video" ? 0 : undefined} role={activeMedia.mediaType === "video" ? "button" : undefined} aria-label={activeMedia.mediaType === "video" ? `${videoPlaying ? "Pause" : "Play"} video: ${activeMedia.caption || post.caption}` : undefined}>
+      <header className="post-header"><div className="post-author"><button type="button" className={`post-author-avatar ${hasUnseenShorts ? "has-unseen-short" : ""}`} onClick={() => onViewProfile(post.author.id)} aria-label={`View @${post.author.username}'s profile`}><img src={profileImage(post.author)} alt="" /></button><button type="button" className="post-author-name" onClick={() => onViewProfile(post.author.id)}><strong>{post.author.username}</strong><span>{post.author.location}</span></button></div><div className="post-header-actions">{!post.owned && <button type="button" className={`post-follow-button ${post.author.following || post.author.followRequestStatus === "pending" ? "following" : ""}`} disabled={followBusy} onClick={() => void toggleFollow()}>{followBusy ? "…" : post.author.following ? "Following" : post.author.followRequestStatus === "pending" ? "Requested" : "Follow"}</button>}<div className="post-menu-wrap"><button className="icon-button" aria-label="Post options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><MoreHorizontal /></button>{optionsOpen && <div className="post-menu">{post.owned && <button onClick={() => { setCaptionDraft(post.caption); setEditingCaption(true); setOptionsOpen(false); }}>Edit caption</button>}<button onClick={async () => { await navigator.clipboard?.writeText(`${location.origin}/?post=${post.id}`); setOptionsOpen(false); }}>Copy post link</button>{post.owned ? <button className="post-menu-danger" onClick={async () => { if (!window.confirm("Delete this post permanently?")) return; setOptionsOpen(false); try { await onDelete(post.id); } catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not delete post."); } }}>Delete post</button> : <button className="post-menu-danger" onClick={reportPost}><Flag /> <span>Report post</span></button>}<button onClick={() => setOptionsOpen(false)}>Cancel</button></div>}</div></div></header>
+      <div className={`post-image-wrap ${activeMedia.mediaType === "video" ? "has-video" : ""}`} onClick={toggleVideoPlayback} onDoubleClick={(event) => { event.preventDefault(); likePost(); }} onPointerUp={handleMediaPointerUp} onKeyDown={(event) => { if (activeMedia.mediaType === "video" && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); toggleVideoPlayback(); } }} tabIndex={activeMedia.mediaType === "video" ? 0 : undefined} role={activeMedia.mediaType === "video" ? "button" : undefined} aria-label={activeMedia.mediaType === "video" ? `${videoPlaying ? "Pause" : "Play"} video: ${activeMedia.caption || post.caption}` : undefined}>
         {activeMedia.mediaType === "video" ? <><video key={activeMedia.id} ref={inlineVideoRef} className="post-image post-video" src={imageSource(activeMedia)} muted={videoMuted} playsInline preload="metadata" aria-label={activeMedia.caption || post.caption} onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />{!videoPlaying && <span className="post-play-indicator" aria-hidden="true"><Play fill="currentColor" /></span>}<button type="button" className="post-audio-toggle" onClick={toggleVideoSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <img className="post-image" src={imageSource(activeMedia)} alt={activeMedia.caption || post.caption} />}
         {mediaItems.length > 1 && <><button type="button" className="carousel-arrow carousel-previous" onClick={(event) => { event.stopPropagation(); showMedia((activeMediaIndex - 1 + mediaItems.length) % mediaItems.length); }} aria-label="Previous carousel item"><ChevronLeft /></button><button type="button" className="carousel-arrow carousel-next" onClick={(event) => { event.stopPropagation(); showMedia((activeMediaIndex + 1) % mediaItems.length); }} aria-label="Next carousel item"><ChevronRight /></button><span className="carousel-count">{activeMediaIndex + 1}/{mediaItems.length}</span></>}
       </div>
       {mediaItems.length > 1 && <div className="carousel-dots" aria-label={`Carousel item ${activeMediaIndex + 1} of ${mediaItems.length}`}>{mediaItems.map((item, index) => <button type="button" key={item.id} className={index === activeMediaIndex ? "active" : ""} onClick={() => showMedia(index)} aria-label={`Show item ${index + 1}`} />)}</div>}
-      <div className="post-actions"><div><button className={`icon-button ${post.liked ? "liked" : ""}`} onClick={() => onToggle(post.id, "like")} aria-label={post.liked ? "Unlike" : "Like"}><Heart fill={post.liked ? "currentColor" : "none"} /></button><button className="icon-button" onClick={() => setCommentOpen((open) => !open)} aria-label="Comment"><MessageCircle /></button><button className="icon-button" onClick={() => navigator.share?.({ title: "VipKorner", text: post.caption, url: location.href })} aria-label="Share"><Send /></button></div><button className={`icon-button ${post.saved ? "saved" : ""}`} onClick={() => onToggle(post.id, "save")} aria-label={post.saved ? "Unsave" : "Save"}><Bookmark fill={post.saved ? "currentColor" : "none"} /></button></div>
+      <div className="post-actions"><div><button className={`icon-button ${post.liked ? "liked" : ""}`} onClick={() => { if (!post.liked) likePost(); else onToggle(post.id, "like", false); }} aria-label={post.liked ? "Unlike" : "Like"} aria-pressed={Boolean(post.liked)}><Heart fill={post.liked ? "currentColor" : "none"} /></button><button className="icon-button" onClick={() => setCommentOpen((open) => !open)} aria-label="Comment"><MessageCircle /></button><button className="icon-button" onClick={() => setShareOpen(true)} aria-label="Share"><Send /></button></div><button className={`icon-button ${post.saved ? "saved" : ""}`} onClick={() => onToggle(post.id, "save")} aria-label={post.saved ? "Unsave" : "Save"} aria-pressed={Boolean(post.saved)}><Bookmark fill={post.saved ? "currentColor" : "none"} /></button></div>
       <div className="post-copy"><strong>{post.likes.toLocaleString()} likes</strong>{editingCaption ? <form className="caption-editor" onSubmit={saveCaption}><textarea autoFocus value={captionDraft} onChange={(event) => setCaptionDraft(event.target.value.slice(0, 500))} rows={2} /><div><button type="button" onClick={() => setEditingCaption(false)}>Cancel</button><button>Save</button></div></form> : <p><b>{post.author.username}</b> {post.caption}</p>}{activeMedia.caption && <p className="post-item-caption"><b>Item {activeMediaIndex + 1}</b> {activeMedia.caption}</p>}{post.comments?.length > 0 && <div className="post-comments">{post.comments.slice(-2).map((item) => <div className="comment-item" key={item.id}><img src={profileImage(item.author)} alt="" /><p><b>{item.author.username}</b> {item.body}</p></div>)}{post.comments.length > 2 && <small>View all {post.comments.length} comments</small>}</div>}<time>{relativeTime(post.createdAt)}</time>{actionError && <span className="inline-error">{actionError}</span>}</div>
       {commentOpen && <form className="comment-row" onSubmit={submitComment}><img src={profileImage(profile)} alt="" /><input autoFocus value={comment} onChange={(event) => setComment(event.target.value.slice(0, 280))} placeholder="Add a comment…" aria-label="Comment" /><button disabled={!comment.trim() || commentBusy}>{commentBusy ? "Posting…" : "Post"}</button></form>}
+      {likeFeedback && <LikeSuccessFeedback />}
+      {followFeedback && <FollowSuccessFeedback username={post.author.username} />}
+      {shareOpen && <SharePostModal post={post} onClose={() => setShareOpen(false)} />}
     </article>
   );
 }
@@ -832,6 +933,7 @@ function MemberProfileView({ member, error, posts, stories, onBack, onMessage, o
   const [requestBusy, setRequestBusy] = useState(false);
   const [requestError, setRequestError] = useState("");
   const [followFeedback, setFollowFeedback] = useState("");
+  const [activeTab, setActiveTab] = useState<"posts" | "saved">("posts");
   useEffect(() => {
     if (!followFeedback) return;
     const timeout = window.setTimeout(() => setFollowFeedback(""), 1600);
@@ -840,7 +942,9 @@ function MemberProfileView({ member, error, posts, stories, onBack, onMessage, o
   if (error) return <section className="member-profile-state"><span><UserRound /></span><h1>Profile unavailable</h1><p>{error}</p><button onClick={onBack}>Back to Explore</button></section>;
   if (!member) return <section className="member-profile-state" role="status"><span><UserRound /></span><h1>Loading profile…</h1></section>;
   const privateAndLocked = !Boolean(member.isPublic) && !Boolean(member.following);
-  const visiblePosts = privateAndLocked ? [] : posts.filter((post) => post.userId === member.id);
+  const ownPosts = privateAndLocked ? [] : posts.filter((post) => post.userId === member.id);
+  const savedPosts = posts.filter((post) => member.savedPostIds?.includes(post.id));
+  const visiblePosts = activeTab === "saved" ? savedPosts : ownPosts;
   const memberStories = privateAndLocked ? [] : stories.filter((story) => story.userId === member.id);
   const unseenStories = memberStories.filter((story) => !story.viewed);
   const requestPending = member.followRequestStatus === "pending";
@@ -867,6 +971,7 @@ function MemberProfileView({ member, error, posts, stories, onBack, onMessage, o
     </header>
     {privateAndLocked && <div className="member-follow-request"><div><strong>Private profile</strong><span>Only approved followers can see this member’s posts and shorts.</span></div><button type="button" className={requestPending ? "requested" : ""} disabled={requestBusy} onClick={() => void toggleFollow()}>{requestBusy ? "Updating…" : requestPending ? "Request sent · Cancel" : "Request to Follow"}</button>{requestError && <p role="alert">{requestError}</p>}</div>}
     {!privateAndLocked && requestError && <p className="member-follow-error" role="alert">{requestError}</p>}
+    {!privateAndLocked && Boolean(member.savedCollectionPublic) && <div className="profile-tabs member-profile-tabs"><button type="button" className={activeTab === "posts" ? "active" : ""} onClick={() => setActiveTab("posts")}><ImagePlus /> Posts</button><button type="button" className={activeTab === "saved" ? "active" : ""} onClick={() => setActiveTab("saved")}><Bookmark /> Saved</button></div>}
     {visiblePosts.length ? <div className="profile-grid">{visiblePosts.map((post) => <button key={post.id} onClick={() => onOpenPost(post)} aria-label={`Open ${post.mediaType}: ${post.caption}`}>{post.mediaType === "video" ? <><video src={imageSource(post)} muted playsInline preload="metadata" aria-label={post.caption} /><i className="video-badge"><Video /></i></> : <img src={imageSource(post)} alt={post.caption} />}<span><Heart fill="currentColor" size={17} /> {post.likes}</span></button>)}</div> : <div className="saved-empty"><span><ImagePlus /></span><h3>No posts to show</h3><p>{member.isPublic || member.following ? "This member hasn’t shared a post yet." : "This member’s posts are private."}</p></div>}
     {followFeedback && <FollowSuccessFeedback username={followFeedback} />}
   </section>;
@@ -1126,7 +1231,7 @@ function SettingsModal({ profile, installPrompt, onInstallGuide, onClose, onSave
   const [draft, setDraft] = useState(profile);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const toggle = (key: "privateAccount" | "storyReplies" | "highQualityUploads") => setDraft((current) => ({ ...current, [key]: !Boolean(current[key]) }));
+  const toggle = (key: "privateAccount" | "storyReplies" | "highQualityUploads" | "savedCollectionPublic") => setDraft((current) => ({ ...current, [key]: !Boolean(current[key]) }));
 
   async function save() {
     setBusy(true); setError("");
@@ -1151,6 +1256,7 @@ function SettingsModal({ profile, installPrompt, onInstallGuide, onClose, onSave
             <SettingRow title="Private account" description="Only approved followers can see your posts and shorts." checked={Boolean(draft.privateAccount)} onChange={() => toggle("privateAccount")} />
             <SettingRow title="Short replies" description="Allow quick replies while viewing shorts." checked={Boolean(draft.storyReplies)} onChange={() => toggle("storyReplies")} />
             <SettingRow title="High-quality uploads" description="Keep original detail in photos and videos." checked={Boolean(draft.highQualityUploads)} onChange={() => toggle("highQualityUploads")} />
+            <SettingRow title="Public saved collection" description="Allow other members to see the posts you bookmark." checked={Boolean(draft.savedCollectionPublic)} onChange={() => toggle("savedCollectionPublic")} />
           </div>
           <button className="settings-install" onClick={() => installPrompt?.prompt ? installPrompt.prompt() : onInstallGuide()}><Sparkles /> Install VipKorner on this device</button>
           {profile.role === "admin" && <AdminControls />}

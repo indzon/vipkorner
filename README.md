@@ -20,6 +20,8 @@ VipKorner is an invitation-only, multi-user progressive web app for adults. It c
 - Follow counts and activity refresh immediately after social actions, when the app regains focus, and periodically while it is visible.
 - Shorts expire after 24 hours. The tray shows one unviewed Short per member and removes that member once all of their current Shorts have been seen.
 - Posts support carousels of up to 10 mixed images and videos. A post has one primary caption, and each carousel item can optionally carry its own caption.
+- Feed avatars open the author profile and use the active-Short ring when that author has unseen Shorts. Members can follow from a post header, double-tap media or use the heart to like with animated feedback, bookmark posts into their Saved collection, and send posts through private messaging.
+- Saved collections are private by default. A member can make their Saved tab visible from Settings; the server still filters out posts the visitor is not authorized to view.
 - Follow and unfollow controls are available in Explore and on public member profiles. Successful new follows use a self-contained, full-screen VipKorner acknowledgement instead of a persistent status banner; block confirmation uses a branded in-app dialog instead of a browser prompt.
 - Members can react to another member’s Short with a quick emoji when that Short owner allows Short replies; each member has one current reaction per Short and can tap it again to remove it.
 - Direct messages are text-only and subject to follow/block privacy controls. Unread totals appear on the desktop, compact, and mobile Messages navigation and refresh while the app is visible. On mobile, conversations remain available in a horizontal row above the active thread.

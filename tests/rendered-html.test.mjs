@@ -269,3 +269,31 @@ test("member story entry points, branded safety prompts, and custom profile hero
   assert.match(schema, /heroImageKey: text\("hero_image_key"\)/);
   assert.match(storage, /ADD COLUMN hero_image_key TEXT/);
 });
+
+test("feed identity, reactions, saves, follows, reports, and in-app sharing stay wired together", async () => {
+  const [page, feedRoute, postsRoute, profileRoute, socialRoute, storage, theme] = await Promise.all([
+    read("app/page.tsx"),
+    read("app/api/feed/route.ts"),
+    read("app/api/posts/route.ts"),
+    read("app/api/profile/route.ts"),
+    read("app/api/social/route.ts"),
+    read("db/storage.ts"),
+    read("design/system/vipkorner-reskin.css"),
+  ]);
+
+  assert.match(page, /post-author-avatar/);
+  assert.match(page, /hasUnseenShorts/);
+  assert.match(page, /onPointerUp=\{handleMediaPointerUp\}/);
+  assert.match(page, /like-success\.json/);
+  assert.match(page, /function SharePostModal/);
+  assert.match(page, /Shared @\$\{post\.author\.username\}'s post/);
+  assert.match(page, /post-follow-button/);
+  assert.match(page, /<Flag \/> <span>Report post<\/span>/);
+  assert.match(page, /Public saved collection/);
+  assert.match(feedRoute, /authorFollowRequestStatus/);
+  assert.match(postsRoute, /value === undefined \? !current : value/);
+  assert.match(profileRoute, /savedCollectionPublic/);
+  assert.match(socialRoute, /savedPostIds/);
+  assert.match(storage, /saved_collection_public/);
+  assert.match(theme, /post-menu \.post-menu-danger \{ display: flex; align-items: center/);
+});

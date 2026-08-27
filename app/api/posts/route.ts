@@ -31,7 +31,7 @@ export async function PATCH(request: Request) {
   try {
     await ensureSchema();
     const user = await requireUser();
-    const { id, action, caption } = await request.json() as { id?: string; action?: "like" | "save" | "caption"; caption?: string };
+    const { id, action, caption, value } = await request.json() as { id?: string; action?: "like" | "save" | "caption"; caption?: string; value?: boolean };
     if (!id || !["like", "save", "caption"].includes(action || "")) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
     const { DB } = bindings();
     const post = await DB.prepare("SELECT user_id AS userId, caption FROM posts WHERE id = ?").bind(id).first<{ userId: string; caption: string }>();
@@ -46,9 +46,10 @@ export async function PATCH(request: Request) {
     } else {
       const table = action === "like" ? "post_likes" : "post_saves";
       const current = await DB.prepare(`SELECT 1 AS active FROM ${table} WHERE post_id = ? AND user_id = ?`).bind(id, user.id).first();
-      if (current) await DB.prepare(`DELETE FROM ${table} WHERE post_id = ? AND user_id = ?`).bind(id, user.id).run();
-      else await DB.prepare(`INSERT INTO ${table} (post_id, user_id, created_at) VALUES (?, ?, ?)`).bind(id, user.id, Date.now()).run();
-      if (action === "like" && !current && post.userId !== user.id) {
+      const shouldActivate = value === undefined ? !current : value;
+      if (current && !shouldActivate) await DB.prepare(`DELETE FROM ${table} WHERE post_id = ? AND user_id = ?`).bind(id, user.id).run();
+      else if (!current && shouldActivate) await DB.prepare(`INSERT INTO ${table} (post_id, user_id, created_at) VALUES (?, ?, ?)`).bind(id, user.id, Date.now()).run();
+      if (action === "like" && !current && shouldActivate && post.userId !== user.id) {
         await DB.prepare("INSERT INTO notifications (id, user_id, actor_id, type, entity_id, message, created_at) VALUES (?, ?, ?, 'like', ?, ?, ?)")
           .bind(crypto.randomUUID(), post.userId, user.id, id, `@${user.username} liked your post.`, Date.now()).run();
       }

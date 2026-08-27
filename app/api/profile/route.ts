@@ -15,13 +15,14 @@ export async function PATCH(request: Request) {
     const isPublic = input.privateAccount === undefined ? Number(Boolean(user.isPublic)) : Number(!Boolean(input.privateAccount));
     const storyReplies = input.storyReplies === undefined ? Number(Boolean(user.storyReplies)) : Number(Boolean(input.storyReplies));
     const highQualityUploads = input.highQualityUploads === undefined ? Number(Boolean(user.highQualityUploads)) : Number(Boolean(input.highQualityUploads));
+    const savedCollectionPublic = input.savedCollectionPublic === undefined ? Number(Boolean(user.savedCollectionPublic)) : Number(Boolean(input.savedCollectionPublic));
     if (username.length < 3 || !displayName) return NextResponse.json({ error: "Name and a valid username are required." }, { status: 400 });
     const { DB } = bindings();
     const taken = await DB.prepare("SELECT id FROM users WHERE lower(username) = lower(?) AND id != ?").bind(username, user.id).first();
     if (taken) return NextResponse.json({ error: "That username is already taken." }, { status: 409 });
     await DB.prepare(`UPDATE users SET username = ?, display_name = ?, bio = ?, website = ?, location = ?,
-      is_public = ?, story_replies = ?, high_quality_uploads = ? WHERE id = ?`)
-      .bind(username, displayName, bio, website, location, isPublic, storyReplies, highQualityUploads, user.id).run();
+      is_public = ?, story_replies = ?, high_quality_uploads = ?, saved_collection_public = ? WHERE id = ?`)
+      .bind(username, displayName, bio, website, location, isPublic, storyReplies, highQualityUploads, savedCollectionPublic, user.id).run();
     const profile = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE id = ?`).bind(user.id).first<Record<string, unknown>>();
     return NextResponse.json({ ...profile, privateAccount: !Boolean(profile?.isPublic) });
   } catch (error) { return authErrorResponse(error) || NextResponse.json({ error: "Could not update this profile." }, { status: 500 }); }

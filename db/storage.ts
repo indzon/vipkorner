@@ -79,6 +79,7 @@ export async function ensureSchema() {
       location TEXT NOT NULL DEFAULT '', image_key TEXT, image_url TEXT, hero_image_key TEXT, hero_image_url TEXT,
       role TEXT NOT NULL DEFAULT 'user', status TEXT NOT NULL DEFAULT 'active', is_public INTEGER NOT NULL DEFAULT 1,
       story_replies INTEGER NOT NULL DEFAULT 1, high_quality_uploads INTEGER NOT NULL DEFAULT 1,
+      saved_collection_public INTEGER NOT NULL DEFAULT 0,
       adult_confirmed_at INTEGER NOT NULL, created_at INTEGER NOT NULL
     )`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS invites (
@@ -188,6 +189,9 @@ export async function ensureSchema() {
   }
   if (!userColumns.results.some((column) => column.name === "hero_image_url")) {
     await DB.prepare("ALTER TABLE users ADD COLUMN hero_image_url TEXT").run();
+  }
+  if (!userColumns.results.some((column) => column.name === "saved_collection_public")) {
+    await DB.prepare("ALTER TABLE users ADD COLUMN saved_collection_public INTEGER NOT NULL DEFAULT 0").run();
   }
 
   await DB.prepare(`INSERT OR IGNORE INTO profile (

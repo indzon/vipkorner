@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       const profile = await DB.prepare(`SELECT u.id, u.username, u.display_name AS displayName,
         u.bio, u.website, u.location, u.image_key AS imageKey, u.image_url AS imageUrl,
         u.hero_image_key AS heroImageKey, u.hero_image_url AS heroImageUrl,
-        u.is_public AS isPublic,
+        u.is_public AS isPublic, u.saved_collection_public AS savedCollectionPublic,
         EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = u.id) AS following,
         EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = u.id AND f.followed_id = ?) AS followsYou,
         (SELECT fr.status FROM follow_requests fr WHERE fr.requester_id = ? AND fr.target_id = u.id) AS followRequestStatus,
@@ -39,7 +39,11 @@ export async function GET(request: Request) {
       const hero = canViewPosts && !profile.heroImageKey && !profile.heroImageUrl ? await DB.prepare(`SELECT p.image_key AS heroImageKey, p.image_url AS heroImageUrl
         FROM posts p WHERE p.user_id = ? AND (p.image_key IS NOT NULL OR p.image_url IS NOT NULL)
         ORDER BY p.created_at DESC LIMIT 1`).bind(profileId).first() : null;
-      return NextResponse.json({ profile: { ...profile, heroImageKey: profile.heroImageKey || hero?.heroImageKey || null, heroImageUrl: profile.heroImageUrl || hero?.heroImageUrl || null } });
+      const savedPostIds = (Boolean(profile.isSelf) || Boolean(profile.savedCollectionPublic)) ? (await DB.prepare(`SELECT ps.post_id AS postId FROM post_saves ps JOIN posts p ON p.id = ps.post_id JOIN users owner ON owner.id = p.user_id
+        WHERE ps.user_id = ? AND owner.status = 'active' AND (owner.is_public = 1 OR p.user_id = ? OR EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = p.user_id))
+        AND NOT EXISTS(SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = p.user_id) OR (b.blocker_id = p.user_id AND b.blocked_id = ?))
+        ORDER BY ps.created_at DESC`).bind(profileId, viewer.id, viewer.id, viewer.id, viewer.id).all()).results.map((row) => String(row.postId)) : [];
+      return NextResponse.json({ profile: { ...profile, savedPostIds, heroImageKey: profile.heroImageKey || hero?.heroImageKey || null, heroImageUrl: profile.heroImageUrl || hero?.heroImageUrl || null } });
     }
     const list = params.get("list");
     if (list === "followers" || list === "following") {
