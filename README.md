@@ -19,6 +19,7 @@ VipKorner is an invitation-only, multi-user progressive web app for adults. It c
 - Stories expire after 24 hours. Posts and stories support images and videos.
 - Members can react to another member’s story with a quick emoji when that story owner allows story replies; each member has one current reaction per story and can tap it again to remove it.
 - Direct messages are text-only and subject to follow/block privacy controls. Unread totals appear on the desktop, compact, and mobile Messages navigation and refresh while the app is visible.
+- The production community includes six clearly fictional adult seed profiles with generated avatars, 37 image posts, and 9 active story slots. These records enrich Explore and the feed without creating login credentials or email recipients.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system details and [docs/OPERATIONS.md](docs/OPERATIONS.md) for deployment and configuration.
 
@@ -53,6 +54,10 @@ pnpm run build
 ```
 
 Use `pnpm run db:generate` after changing `db/schema.ts`. Review every generated migration before deployment.
+
+The repeatable, idempotent community seed is documented in
+[`seed/vipkorner-community`](seed/vipkorner-community). Generated media lives in
+the `seed/community/` R2 prefix and is intentionally excluded from git.
 
 ## Data and security
 

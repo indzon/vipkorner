@@ -44,3 +44,7 @@ next-env.d.ts
 /outputs/
 /work/
 /artifacts/
+
+# Generated community seed media is uploaded to R2. Keep the repeatable SQL and
+# documentation in git without adding 100+ MB of local source/derivative files.
+/seed/vipkorner-community/assets/

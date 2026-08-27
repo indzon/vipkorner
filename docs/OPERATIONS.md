@@ -54,3 +54,20 @@ For member-profile releases, verify Explore identity copy remains left-aligned, 
 3. Open another member’s active story, choose an emoji, and confirm it becomes selected and the reaction count updates.
 4. Choose a different emoji and confirm it replaces the first; choose the selected emoji again and confirm it is removed.
 5. Disable story replies on the story owner’s account and confirm reaction controls are no longer offered to other members.
+
+## Fictional community seed
+
+The six production seed profiles are application-data records only. They are
+not Supabase Auth users and cannot sign in. Their reserved `.invalid` email
+addresses must never be changed to deliverable addresses.
+
+- Source: `seed/vipkorner-community/seed.sql`
+- D1 record prefix: `seed-`
+- R2 object prefix: `seed/community/`
+- Expected totals: 6 profiles, 37 posts, 9 active stories
+
+Before applying the seed, query D1 for username collisions. Upload the 52
+optimized JPEG assets to the documented R2 keys, then run the SQL remotely.
+The SQL only replaces `seed-post-*`, `seed-story-*`, and follow relationships
+involving `seed-*` users; unrelated member data is not touched. Re-running it
+refreshes the 24-hour story windows.
