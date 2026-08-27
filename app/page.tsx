@@ -32,8 +32,19 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
+import Lottie from "lottie-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { inspectMediaUpload } from "@/lib/media-upload";
+import followSuccessAnimation from "@/public/lottie/follow-success.json";
+
+type PostMedia = {
+  id: string;
+  position: number;
+  caption: string;
+  imageKey: string | null;
+  imageUrl: string | null;
+  mediaType: "image" | "video";
+};
 
 type Post = {
   id: string;
@@ -49,6 +60,7 @@ type Post = {
   userId: string;
   owned: boolean;
   author: PublicUser;
+  media: PostMedia[];
 };
 
 type PublicUser = { id: string; username: string; displayName: string; location?: string; bio?: string; imageKey: string | null; imageUrl: string | null };
@@ -109,6 +121,10 @@ function imageSource(item: { imageKey: string | null; imageUrl: string | null })
   return item.imageKey ? `/api/media?key=${encodeURIComponent(item.imageKey)}` : item.imageUrl || "";
 }
 
+function postMediaItems(post: Post): PostMedia[] {
+  return post.media?.length ? post.media : [{ id: `${post.id}-primary`, position: 0, caption: "", imageKey: post.imageKey, imageUrl: post.imageUrl, mediaType: post.mediaType }];
+}
+
 function isVideoFile(file: File) {
   return file.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(file.name);
 }
@@ -123,7 +139,7 @@ async function readApiResponse<T>(response: Response, fallback: string): Promise
   return data as T;
 }
 
-async function uploadMediaInParts(file: File, contentKind: UploadContentKind, caption: string, onProgress: (value: number) => void, captionPosition?: { x: number; y: number }) {
+async function uploadMediaInParts(file: File, contentKind: UploadContentKind, caption: string, onProgress: (value: number) => void, captionPosition?: { x: number; y: number }, postMeta?: { postId: string; position: number; itemCaption: string }) {
   const inspected = await inspectMediaUpload(file);
   if (!inspected) throw new Error("This file is not a supported photo or video.");
   if (contentKind === "profile" && (inspected.kind !== "image" || inspected.extension === "gif")) throw new Error("Choose a JPG, PNG or WebP profile photo.");
@@ -141,7 +157,7 @@ async function uploadMediaInParts(file: File, contentKind: UploadContentKind, ca
       parts.push(await readApiResponse<{ partNumber: number; etag: string }>(partResponse, `Could not upload part ${partNumber}.`));
       onProgress(Math.round((partNumber / totalParts) * 90));
     }
-    const completeResponse = await fetch("/api/uploads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", key: started.key, uploadId: started.uploadId, parts, contentKind, caption, captionX: captionPosition?.x, captionY: captionPosition?.y }) });
+    const completeResponse = await fetch("/api/uploads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", key: started.key, uploadId: started.uploadId, parts, contentKind, caption, captionX: captionPosition?.x, captionY: captionPosition?.y, ...postMeta }) });
     const result = await readApiResponse(completeResponse, "Could not finish upload.");
     onProgress(100);
     return result;
@@ -486,6 +502,15 @@ function NavButton({ icon, label, badge = 0, active, onClick }: { icon: React.Re
 }
 
 function StoriesTray({ stories, profile, onAdd, onOpen }: { stories: Story[]; profile: Profile; onAdd: () => void; onOpen: (story: Story) => void }) {
+  const visibleStories = Array.from(
+    stories
+      .filter((story) => !story.viewed)
+      .reduce((byAuthor, story) => {
+        if (!byAuthor.has(story.author.id)) byAuthor.set(story.author.id, story);
+        return byAuthor;
+      }, new Map<string, Story>())
+      .values(),
+  );
   return (
     <section className="stories-section" aria-label="Stories">
       <div className="stories-heading"><span>Stories</span><small>24h moments</small></div>
@@ -493,7 +518,7 @@ function StoriesTray({ stories, profile, onAdd, onOpen }: { stories: Story[]; pr
         <button className="story-item add-story" onClick={onAdd}>
           <span className="story-ring"><img src={profileImage(profile)} alt="" /><i><Plus size={14} /></i></span><span>Add story</span>
         </button>
-        {stories.map((story, index) => (
+        {visibleStories.map((story, index) => (
           <button className="story-item" key={story.id} onClick={() => onOpen(story)}>
             <span className={`story-ring active-story ${story.viewed ? "viewed" : ""}`}>{story.mediaType === "video" ? <><video src={imageSource(story)} muted playsInline preload="metadata" aria-label={`${story.author.username}'s video story`} /><i className="story-video-badge"><Video /></i></> : <img src={imageSource(story)} alt={`${story.author.username}'s story`} />}</span><span>{story.owned && index === 0 ? "Your story" : story.author.username}</span>
           </button>
@@ -504,6 +529,9 @@ function StoriesTray({ stories, profile, onAdd, onOpen }: { stories: Story[]; pr
 }
 
 function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate, onDelete }: { post: Post; profile: Profile; onToggle: (id: string, action: "like" | "save") => void; onComment: (postId: string, body: string) => Promise<void>; onCaptionUpdate: (postId: string, caption: string) => Promise<void>; onDelete: (postId: string) => Promise<void> }) {
+  const mediaItems = postMediaItems(post);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const activeMedia = mediaItems[activeMediaIndex] || mediaItems[0];
   const [commentOpen, setCommentOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
@@ -515,8 +543,15 @@ function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate, onDelet
   const [videoMuted, setVideoMuted] = useState(true);
   const inlineVideoRef = useRef<HTMLVideoElement>(null);
 
+  function showMedia(index: number) {
+    inlineVideoRef.current?.pause();
+    setActiveMediaIndex(index);
+    setVideoPlaying(false);
+    setVideoMuted(true);
+  }
+
   function toggleVideoPlayback() {
-    if (post.mediaType !== "video" || !inlineVideoRef.current) return;
+    if (activeMedia.mediaType !== "video" || !inlineVideoRef.current) return;
     if (inlineVideoRef.current.paused) inlineVideoRef.current.play().catch(() => setActionError("Tap play again to start this video."));
     else inlineVideoRef.current.pause();
   }
@@ -566,18 +601,22 @@ function PostCard({ post, profile, onToggle, onComment, onCaptionUpdate, onDelet
   return (
     <article className="post-card">
       <header className="post-header"><div className="post-author"><img src={profileImage(post.author)} alt="" /><div><strong>{post.author.username}</strong><span>{post.author.location}</span></div></div><div className="post-menu-wrap"><button className="icon-button" aria-label="Post options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><MoreHorizontal /></button>{optionsOpen && <div className="post-menu">{post.owned && <button onClick={() => { setCaptionDraft(post.caption); setEditingCaption(true); setOptionsOpen(false); }}>Edit caption</button>}<button onClick={async () => { await navigator.clipboard?.writeText(`${location.origin}/?post=${post.id}`); setOptionsOpen(false); }}>Copy post link</button>{post.owned ? <button className="post-menu-danger" onClick={async () => { if (!window.confirm("Delete this post permanently?")) return; setOptionsOpen(false); try { await onDelete(post.id); } catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not delete post."); } }}>Delete post</button> : <button className="post-menu-danger" onClick={reportPost}><Flag /> Report post</button>}<button onClick={() => setOptionsOpen(false)}>Cancel</button></div>}</div></header>
-      <div className={`post-image-wrap ${post.mediaType === "video" ? "has-video" : ""}`} onClick={toggleVideoPlayback} onDoubleClick={() => post.mediaType === "image" && !post.liked && onToggle(post.id, "like")} onKeyDown={(event) => { if (post.mediaType === "video" && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); toggleVideoPlayback(); } }} tabIndex={post.mediaType === "video" ? 0 : undefined} role={post.mediaType === "video" ? "button" : undefined} aria-label={post.mediaType === "video" ? `${videoPlaying ? "Pause" : "Play"} video: ${post.caption}` : undefined}>
-        {post.mediaType === "video" ? <><video ref={inlineVideoRef} className="post-image post-video" src={imageSource(post)} muted={videoMuted} playsInline preload="metadata" aria-label={post.caption} onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />{!videoPlaying && <span className="post-play-indicator" aria-hidden="true"><Play fill="currentColor" /></span>}<button type="button" className="post-audio-toggle" onClick={toggleVideoSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <img className="post-image" src={imageSource(post)} alt={post.caption} />}
+      <div className={`post-image-wrap ${activeMedia.mediaType === "video" ? "has-video" : ""}`} onClick={toggleVideoPlayback} onDoubleClick={() => activeMedia.mediaType === "image" && !post.liked && onToggle(post.id, "like")} onKeyDown={(event) => { if (activeMedia.mediaType === "video" && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); toggleVideoPlayback(); } }} tabIndex={activeMedia.mediaType === "video" ? 0 : undefined} role={activeMedia.mediaType === "video" ? "button" : undefined} aria-label={activeMedia.mediaType === "video" ? `${videoPlaying ? "Pause" : "Play"} video: ${activeMedia.caption || post.caption}` : undefined}>
+        {activeMedia.mediaType === "video" ? <><video key={activeMedia.id} ref={inlineVideoRef} className="post-image post-video" src={imageSource(activeMedia)} muted={videoMuted} playsInline preload="metadata" aria-label={activeMedia.caption || post.caption} onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />{!videoPlaying && <span className="post-play-indicator" aria-hidden="true"><Play fill="currentColor" /></span>}<button type="button" className="post-audio-toggle" onClick={toggleVideoSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <img className="post-image" src={imageSource(activeMedia)} alt={activeMedia.caption || post.caption} />}
+        {mediaItems.length > 1 && <><button type="button" className="carousel-arrow carousel-previous" onClick={(event) => { event.stopPropagation(); showMedia((activeMediaIndex - 1 + mediaItems.length) % mediaItems.length); }} aria-label="Previous carousel item"><ChevronLeft /></button><button type="button" className="carousel-arrow carousel-next" onClick={(event) => { event.stopPropagation(); showMedia((activeMediaIndex + 1) % mediaItems.length); }} aria-label="Next carousel item"><ChevronRight /></button><span className="carousel-count">{activeMediaIndex + 1}/{mediaItems.length}</span></>}
       </div>
+      {mediaItems.length > 1 && <div className="carousel-dots" aria-label={`Carousel item ${activeMediaIndex + 1} of ${mediaItems.length}`}>{mediaItems.map((item, index) => <button type="button" key={item.id} className={index === activeMediaIndex ? "active" : ""} onClick={() => showMedia(index)} aria-label={`Show item ${index + 1}`} />)}</div>}
       <div className="post-actions"><div><button className={`icon-button ${post.liked ? "liked" : ""}`} onClick={() => onToggle(post.id, "like")} aria-label={post.liked ? "Unlike" : "Like"}><Heart fill={post.liked ? "currentColor" : "none"} /></button><button className="icon-button" onClick={() => setCommentOpen((open) => !open)} aria-label="Comment"><MessageCircle /></button><button className="icon-button" onClick={() => navigator.share?.({ title: "VipKorner", text: post.caption, url: location.href })} aria-label="Share"><Send /></button></div><button className={`icon-button ${post.saved ? "saved" : ""}`} onClick={() => onToggle(post.id, "save")} aria-label={post.saved ? "Unsave" : "Save"}><Bookmark fill={post.saved ? "currentColor" : "none"} /></button></div>
-      <div className="post-copy"><strong>{post.likes.toLocaleString()} likes</strong>{editingCaption ? <form className="caption-editor" onSubmit={saveCaption}><textarea autoFocus value={captionDraft} onChange={(event) => setCaptionDraft(event.target.value.slice(0, 500))} rows={2} /><div><button type="button" onClick={() => setEditingCaption(false)}>Cancel</button><button>Save</button></div></form> : <p><b>{post.author.username}</b> {post.caption}</p>}{post.comments?.length > 0 && <div className="post-comments">{post.comments.slice(-2).map((item) => <div className="comment-item" key={item.id}><img src={profileImage(item.author)} alt="" /><p><b>{item.author.username}</b> {item.body}</p></div>)}{post.comments.length > 2 && <small>View all {post.comments.length} comments</small>}</div>}<time>{relativeTime(post.createdAt)}</time>{actionError && <span className="inline-error">{actionError}</span>}</div>
+      <div className="post-copy"><strong>{post.likes.toLocaleString()} likes</strong>{editingCaption ? <form className="caption-editor" onSubmit={saveCaption}><textarea autoFocus value={captionDraft} onChange={(event) => setCaptionDraft(event.target.value.slice(0, 500))} rows={2} /><div><button type="button" onClick={() => setEditingCaption(false)}>Cancel</button><button>Save</button></div></form> : <p><b>{post.author.username}</b> {post.caption}</p>}{activeMedia.caption && <p className="post-item-caption"><b>Item {activeMediaIndex + 1}</b> {activeMedia.caption}</p>}{post.comments?.length > 0 && <div className="post-comments">{post.comments.slice(-2).map((item) => <div className="comment-item" key={item.id}><img src={profileImage(item.author)} alt="" /><p><b>{item.author.username}</b> {item.body}</p></div>)}{post.comments.length > 2 && <small>View all {post.comments.length} comments</small>}</div>}<time>{relativeTime(post.createdAt)}</time>{actionError && <span className="inline-error">{actionError}</span>}</div>
       {commentOpen && <form className="comment-row" onSubmit={submitComment}><img src={profileImage(profile)} alt="" /><input autoFocus value={comment} onChange={(event) => setComment(event.target.value.slice(0, 280))} placeholder="Add a comment…" aria-label="Comment" /><button disabled={!comment.trim() || commentBusy}>{commentBusy ? "Posting…" : "Post"}</button></form>}
     </article>
   );
 }
 
 function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story"; profile: Profile; onClose: () => void; onCreated: (message: string) => void }) {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [itemCaptions, setItemCaptions] = useState<string[]>([]);
   const [caption, setCaption] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -588,24 +627,40 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
   const inputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
-  const preview = useMemo(() => file ? URL.createObjectURL(file) : "", [file]);
+  const previews = useMemo(() => files.map((item) => URL.createObjectURL(item)), [files]);
+  const file = files[selectedIndex] || null;
+  const preview = previews[selectedIndex] || "";
 
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  useEffect(() => () => { previews.forEach((item) => URL.revokeObjectURL(item)); }, [previews]);
 
-  function selectFile(nextFile: File | null) {
-    if (!nextFile) return;
-    const validVideo = isVideoFile(nextFile);
-    const validImage = !validVideo && (nextFile.type.startsWith("image/") || /\.(jpe?g|png|webp|gif)$/i.test(nextFile.name));
-    if (!validImage && !validVideo) { setError("Drop a photo or video file."); return; }
-    if (validImage && nextFile.size > 10 * 1024 * 1024) { setError("Photos must be under 10 MB."); return; }
-    if (validVideo && nextFile.size > 50 * 1024 * 1024) { setError("Videos must be under 50 MB."); return; }
-    setFile(nextFile); setError(""); setDragActive(false);
+  function selectFiles(nextFiles: File[]) {
+    if (!nextFiles.length) return;
+    const incoming = type === "story" ? nextFiles.slice(0, 1) : nextFiles.slice(0, 10 - files.length);
+    for (const nextFile of incoming) {
+      const validVideo = isVideoFile(nextFile);
+      const validImage = !validVideo && (nextFile.type.startsWith("image/") || /\.(jpe?g|png|webp|gif)$/i.test(nextFile.name));
+      if (!validImage && !validVideo) { setError("Choose only supported photo or video files."); return; }
+      if (validImage && nextFile.size > 10 * 1024 * 1024) { setError(`${nextFile.name} is larger than 10 MB.`); return; }
+      if (validVideo && nextFile.size > 50 * 1024 * 1024) { setError(`${nextFile.name} is larger than 50 MB.`); return; }
+    }
+    const next = type === "story" ? incoming : [...files, ...incoming];
+    setFiles(next);
+    setItemCaptions((current) => type === "story" ? [current[0] || ""] : [...current, ...incoming.map(() => "")]);
+    setSelectedIndex(type === "story" ? 0 : Math.max(0, next.length - incoming.length));
+    setError(nextFiles.length > incoming.length ? "A post can contain up to 10 items." : "");
+    setDragActive(false);
   }
 
   function handleDrop(event: React.DragEvent<HTMLElement>) {
     event.preventDefault();
     setDragActive(false);
-    selectFile(event.dataTransfer.files?.[0] || null);
+    selectFiles(Array.from(event.dataTransfer.files || []));
+  }
+
+  function removeSelectedFile() {
+    setFiles((current) => current.filter((_, index) => index !== selectedIndex));
+    setItemCaptions((current) => current.filter((_, index) => index !== selectedIndex));
+    setSelectedIndex((current) => Math.max(0, current - 1));
   }
 
   function updateCaptionPosition(event: React.PointerEvent<HTMLParagraphElement>) {
@@ -626,10 +681,22 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!file) { setError("Choose a photo or video first."); return; }
+    if (!files.length) { setError("Choose a photo or video first."); return; }
     setBusy(true); setError("");
     try {
-      await uploadMediaInParts(file, type, caption, setUploadProgress, type === "story" ? captionPosition : undefined);
+      if (type === "story") {
+        await uploadMediaInParts(files[0], type, caption, setUploadProgress, captionPosition);
+      } else {
+        const postId = crypto.randomUUID();
+        try {
+          for (let index = 0; index < files.length; index += 1) {
+            await uploadMediaInParts(files[index], "post", caption, (value) => setUploadProgress(Math.round(((index + value / 100) / files.length) * 100)), undefined, { postId, position: index, itemCaption: itemCaptions[index] || "" });
+          }
+        } catch (reason) {
+          await fetch(`/api/posts?id=${encodeURIComponent(postId)}`, { method: "DELETE" }).catch(() => undefined);
+          throw reason;
+        }
+      }
       onCreated(type === "post" ? "Your post is live." : "Story shared for 24 hours.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Something went wrong.");
@@ -641,15 +708,16 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Create ${type}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <form className="composer" onSubmit={submit}>
-        <header><button type="button" className="icon-button composer-close" onClick={onClose} aria-label="Close"><X /></button><div><span>CREATE</span><h2>New {type}</h2></div><button className="share-button" disabled={!file || busy}>{busy ? `Uploading ${uploadProgress}%` : "Share"}</button></header>
-        <input ref={inputRef} className="file-input" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.gif" onChange={(event) => selectFile(event.target.files?.[0] || null)} />
-        <input ref={videoInputRef} className="file-input" type="file" accept="video/*,.mp4,.webm,.mov,.m4v" onChange={(event) => selectFile(event.target.files?.[0] || null)} />
+        <header><button type="button" className="icon-button composer-close" onClick={onClose} aria-label="Close"><X /></button><div><span>CREATE</span><h2>New {type}</h2></div><button className="share-button" disabled={!files.length || busy}>{busy ? `Uploading ${uploadProgress}%` : "Share"}</button></header>
+        <input ref={inputRef} className="file-input" type="file" multiple={type === "post"} accept="image/*,.jpg,.jpeg,.png,.webp,.gif" onChange={(event) => { selectFiles(Array.from(event.target.files || [])); event.target.value = ""; }} />
+        <input ref={videoInputRef} className="file-input" type="file" multiple={type === "post"} accept="video/*,.mp4,.webm,.mov,.m4v" onChange={(event) => { selectFiles(Array.from(event.target.files || [])); event.target.value = ""; }} />
         {preview ? (
-          <div ref={previewRef} className={`preview-frame ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop}>{file && isVideoFile(file) ? <video src={preview} autoPlay loop muted playsInline aria-label="Selected video preview" /> : <img src={preview} alt="Selected preview" />}{type === "story" && caption.trim() && <p className={`story-caption-preview ${captionDragging ? "dragging" : ""}`} style={{ left: `${captionPosition.x}%`, top: `${captionPosition.y}%` }} onPointerDown={updateCaptionPosition} onPointerMove={updateCaptionPosition} onPointerUp={(event) => { event.currentTarget.releasePointerCapture(event.pointerId); setCaptionDragging(false); }} onPointerCancel={() => setCaptionDragging(false)}>{caption}</p>}<button type="button" className="preview-change" onClick={() => file && isVideoFile(file) ? videoInputRef.current?.click() : inputRef.current?.click()}>Change {file && isVideoFile(file) ? "video" : "photo"}</button></div>
+          <><div ref={previewRef} className={`preview-frame ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop}>{file && isVideoFile(file) ? <video src={preview} autoPlay loop muted playsInline aria-label={`Selected video ${selectedIndex + 1} of ${files.length}`} /> : <img src={preview} alt={`Selected item ${selectedIndex + 1} of ${files.length}`} />}{type === "story" && caption.trim() && <p className={`story-caption-preview ${captionDragging ? "dragging" : ""}`} style={{ left: `${captionPosition.x}%`, top: `${captionPosition.y}%` }} onPointerDown={updateCaptionPosition} onPointerMove={updateCaptionPosition} onPointerUp={(event) => { event.currentTarget.releasePointerCapture(event.pointerId); setCaptionDragging(false); }} onPointerCancel={() => setCaptionDragging(false)}>{caption}</p>}{type === "post" && files.length > 1 && <><button type="button" className="carousel-arrow carousel-previous" onClick={() => setSelectedIndex((index) => (index - 1 + files.length) % files.length)} aria-label="Previous selected item"><ChevronLeft /></button><button type="button" className="carousel-arrow carousel-next" onClick={() => setSelectedIndex((index) => (index + 1) % files.length)} aria-label="Next selected item"><ChevronRight /></button><span className="carousel-count">{selectedIndex + 1}/{files.length}</span></>}<div className="preview-actions"><button type="button" onClick={() => file && isVideoFile(file) ? videoInputRef.current?.click() : inputRef.current?.click()}>{type === "post" ? "Add media" : `Change ${file && isVideoFile(file) ? "video" : "photo"}`}</button>{type === "post" && <button type="button" className="preview-remove" onClick={removeSelectedFile}><Trash2 /> Remove</button>}</div></div>{type === "post" && <div className="composer-media-strip" aria-label={`${files.length} selected media items`}>{files.map((item, index) => <button type="button" key={`${item.name}-${item.lastModified}-${index}`} className={selectedIndex === index ? "active" : ""} onClick={() => setSelectedIndex(index)}>{isVideoFile(item) ? <video src={previews[index]} muted playsInline /> : <img src={previews[index]} alt="" />}<span>{index + 1}</span></button>)}</div>}</>
         ) : (
-          <div className={`upload-drop ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop}><span><Video /></span><h3>{dragActive ? "Drop it here" : "Choose or drop a photo or video"}</h3><p>Photos up to 10 MB · MP4, WebM, MOV or M4V up to 50 MB</p><div className="upload-choices"><button type="button" onClick={() => inputRef.current?.click()}>Choose photo</button><button type="button" onClick={() => videoInputRef.current?.click()}>Choose video</button></div></div>
+          <div className={`upload-drop ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop}><span><Video /></span><h3>{dragActive ? "Drop it here" : `Choose or drop ${type === "post" ? "up to 10 photos or videos" : "a photo or video"}`}</h3><p>Photos up to 10 MB each · MP4, WebM, MOV or M4V up to 50 MB each</p><div className="upload-choices"><button type="button" onClick={() => inputRef.current?.click()}>Choose photo{type === "post" ? "s" : ""}</button><button type="button" onClick={() => videoInputRef.current?.click()}>Choose video{type === "post" ? "s" : ""}</button></div></div>
         )}
-        <div className={`caption-field ${type === "story" ? "story-caption-field" : ""}`}><img src={profileImage(profile)} alt={profile.displayName} /><textarea value={caption} onChange={(event) => setCaption(event.target.value.slice(0, type === "story" ? 280 : 500))} onKeyDown={(event) => { if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return; event.preventDefault(); if (!file) { setError("Choose a photo or video first."); return; } if (!busy) event.currentTarget.form?.requestSubmit(); }} placeholder={type === "story" ? "Add a story caption…" : "Write a caption…"} rows={type === "story" ? 2 : 3} /><small>{caption.length}/{type === "story" ? 280 : 500}</small></div>
+        <div className={`caption-field ${type === "story" ? "story-caption-field" : ""}`}><img src={profileImage(profile)} alt={profile.displayName} /><textarea value={caption} onChange={(event) => setCaption(event.target.value.slice(0, type === "story" ? 280 : 500))} onKeyDown={(event) => { if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return; event.preventDefault(); if (!files.length) { setError("Choose a photo or video first."); return; } if (!busy) event.currentTarget.form?.requestSubmit(); }} placeholder={type === "story" ? "Add a story caption…" : "Write a post caption…"} rows={type === "story" ? 2 : 3} /><small>{caption.length}/{type === "story" ? 280 : 500}</small></div>
+        {type === "post" && file && <label className="item-caption-field"><span>Caption for item {selectedIndex + 1} <i>Optional</i></span><textarea value={itemCaptions[selectedIndex] || ""} onChange={(event) => setItemCaptions((current) => current.map((value, index) => index === selectedIndex ? event.target.value.slice(0, 280) : value))} placeholder="Add context for this photo or video…" rows={2} /><small>{(itemCaptions[selectedIndex] || "").length}/280</small></label>}
         {type === "story" && caption.trim() && <div className="story-caption-tools"><div><strong>Caption position</strong><span>Drag the caption on the preview, or choose a preset.</span></div><div><button type="button" onClick={() => setCaptionPosition({ x: 50, y: 22 })}>Top</button><button type="button" onClick={() => setCaptionPosition({ x: 50, y: 52 })}>Middle</button><button type="button" onClick={() => setCaptionPosition({ x: 50, y: 82 })}>Bottom</button></div></div>}
         {type === "story" && <div className="expiry-note"><span>24h</span><p><strong>Made for the moment.</strong>Your story will disappear automatically after 24 hours.</p></div>}
         {error && <p className="form-error">{error}</p>}
@@ -749,6 +817,12 @@ function MemberProfileView({ member, error, posts, onBack, onMessage, onOpenPost
 function ExploreView({ users, onRefresh, onCounts, onMessage, onViewProfile, onViewSelf }: { users: DiscoveryUser[]; onRefresh: () => Promise<void>; onCounts: (counts: ConnectionCounts) => void; onMessage: (conversationId: string) => void; onViewProfile: (userId: string) => void; onViewSelf: () => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [followFeedback, setFollowFeedback] = useState<string | null>(null);
+  useEffect(() => {
+    if (!followFeedback) return;
+    const timeout = window.setTimeout(() => setFollowFeedback(null), 1600);
+    return () => window.clearTimeout(timeout);
+  }, [followFeedback]);
   async function action(user: DiscoveryUser, name: "follow" | "block" | "message" | "report") {
     setBusyId(user.id); setNotice("");
     try {
@@ -763,12 +837,13 @@ function ExploreView({ users, onRefresh, onCounts, onMessage, onViewProfile, onV
       const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: name, targetId: user.id, targetType: "profile", reason }) });
       const result = await readApiResponse<{ counts?: ConnectionCounts }>(response, "Could not update this profile.");
       if (result.counts) onCounts(result.counts);
-      setNotice(name === "report" ? "Report sent to the administrator." : "Profile updated.");
+      if (name === "report") setNotice("Report sent to the administrator.");
+      else if (name === "follow" && !user.following) setFollowFeedback(user.username);
       await onRefresh();
     } catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not complete this action."); }
     finally { setBusyId(null); }
   }
-  return <section className="explore-page"><div className="section-heading"><span className="eyebrow">DISCOVER</span><h1>Find your people</h1><p>Public profiles from the VipKorner community.</p></div>{notice && <p className="panel-notice">{notice}</p>}<div className="people-grid">{users.length ? users.map((user) => <article className="person-card" key={user.id}><button className="person-avatar-button" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)} aria-label={`View @${user.username}'s profile`}><img src={profileImage(user)} alt="" /></button><button className="person-identity" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)}><h2>{user.displayName}</h2><strong>@{user.username}</strong><p>{user.bio || "New to VipKorner."}</p><small>{user.posts} posts · {user.followers} followers{user.isSelf ? " · This is you" : user.followsYou ? " · Follows you" : ""}</small></button><div className="person-actions">{user.isSelf ? <button className="primary" onClick={onViewSelf}><UserRound /> View your profile</button> : <><button className={user.following ? "following" : "primary"} disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "follow")}>{user.following ? "Following" : <><UserPlus /> Follow</>}</button><button disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "message")}><Mail /> Message</button><button className={user.blocked ? "danger" : ""} disabled={busyId === user.id} onClick={() => action(user, "block")}><Ban /> {user.blocked ? "Unblock" : "Block"}</button><button disabled={busyId === user.id} onClick={() => action(user, "report")}><Flag /> Report</button></>}</div></article>) : <div className="empty-state"><span><Compass /></span><h2>No profiles found</h2><p>Try a different name or username.</p></div>}</div></section>;
+  return <section className="explore-page"><div className="section-heading"><span className="eyebrow">DISCOVER</span><h1>Find your people</h1><p>Public profiles from the VipKorner community.</p></div>{notice && <p className="panel-notice">{notice}</p>}{followFeedback && <div className="follow-feedback" role="status" aria-live="polite"><Lottie animationData={followSuccessAnimation} loop={false} /><strong>Now following @{followFeedback}</strong></div>}<div className="people-grid">{users.length ? users.map((user) => <article className="person-card" key={user.id}><button className="person-avatar-button" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)} aria-label={`View @${user.username}'s profile`}><img src={profileImage(user)} alt="" /></button><button className="person-identity" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)}><h2>{user.displayName}</h2><strong>@{user.username}</strong><p>{user.bio || "New to VipKorner."}</p><small>{user.posts} posts · {user.followers} followers{user.isSelf ? " · This is you" : user.followsYou ? " · Follows you" : ""}</small></button><div className="person-actions">{user.isSelf ? <button className="primary" onClick={onViewSelf}><UserRound /> View your profile</button> : <><button className={user.following ? "following" : "primary"} disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "follow")}>{user.following ? "Following" : <><UserPlus /> Follow</>}</button><button disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "message")}><Mail /> Message</button><button className={user.blocked ? "danger" : ""} disabled={busyId === user.id} onClick={() => action(user, "block")}><Ban /> {user.blocked ? "Unblock" : "Block"}</button><button disabled={busyId === user.id} onClick={() => action(user, "report")}><Flag /> Report</button></>}</div></article>) : <div className="empty-state"><span><Compass /></span><h2>No profiles found</h2><p>Try a different name or username.</p></div>}</div></section>;
 }
 
 function MessagesView({ profile, conversations, initialConversationId, onRefresh }: { profile: Profile; conversations: Conversation[]; initialConversationId: string | null; onRefresh: () => Promise<void> }) {
@@ -833,6 +908,9 @@ function ConnectionListModal({ kind, total, onCounts, onViewProfile, onClose }: 
 }
 
 function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete, onToggle, onComment }: { post: Post; profile: Profile; onClose: () => void; onCaptionUpdate: (postId: string, caption: string) => Promise<void>; onDelete: (postId: string) => Promise<void>; onToggle: (id: string, action: "like" | "save") => Promise<void>; onComment: (postId: string, body: string) => Promise<void> }) {
+  const mediaItems = postMediaItems(post);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const activeMedia = mediaItems[activeMediaIndex] || mediaItems[0];
   const [caption, setCaption] = useState(post.caption);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -853,9 +931,13 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete, onTogg
     return () => { document.body.style.overflow = previousOverflow; };
   }, []);
 
-  useEffect(() => {
-    if (post.mediaType === "video") videoRef.current?.play().catch(() => undefined);
-  }, [post.id, post.mediaType, post.imageKey, post.imageUrl]);
+  function showMedia(index: number) {
+    videoRef.current?.pause();
+    setActiveMediaIndex(index);
+    setFitMode("fit");
+    setZoom(1);
+    setVideoMuted(true);
+  }
 
   async function saveCaption(event: FormEvent) {
     event.preventDefault();
@@ -891,11 +973,11 @@ function MediaViewer({ post, profile, onClose, onCaptionUpdate, onDelete, onTogg
   return (
     <div className="media-viewer" role="dialog" aria-modal="true" aria-label="Post media viewer" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <button className="media-viewer-close" onClick={onClose} aria-label="Close full-screen media"><X /></button>
-      <section className={`media-viewer-card ${post.mediaType === "video" ? "video-viewer-card" : "image-viewer-card"}`}>
-        <div className={`media-viewer-stage ${fitMode === "fill" ? "viewer-fill" : "viewer-fit"}`}>{post.mediaType === "video" ? <><video ref={videoRef} key={`${post.id}-${post.imageKey || post.imageUrl}`} src={imageSource(post)} autoPlay muted={videoMuted} controls playsInline preload="auto" onCanPlay={(event) => event.currentTarget.play().catch(() => undefined)} /><button type="button" className="media-audio-toggle" onClick={toggleViewerSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <><img src={imageSource(post)} alt={post.caption} style={{ transform: `scale(${zoom})` }} /><div className="viewer-media-controls" aria-label="Image display controls"><button type="button" className={fitMode === "fit" ? "active" : ""} aria-pressed={fitMode === "fit"} onClick={() => { setFitMode("fit"); setZoom(1); }}>Fit</button><button type="button" className={fitMode === "fill" ? "active" : ""} aria-pressed={fitMode === "fill"} onClick={() => { setFitMode("fill"); setZoom(1); }}>Fill</button><button type="button" onClick={() => setZoom((value) => Math.min(3, value + .25))} aria-label="Zoom in">+</button><button type="button" onClick={() => setZoom((value) => Math.max(1, value - .25))} aria-label="Zoom out">−</button><button type="button" onClick={() => { setFitMode("fit"); setZoom(1); }}>Reset</button></div></>}</div>
+      <section className={`media-viewer-card ${activeMedia.mediaType === "video" ? "video-viewer-card" : "image-viewer-card"}`}>
+        <div className={`media-viewer-stage ${fitMode === "fill" ? "viewer-fill" : "viewer-fit"}`}>{activeMedia.mediaType === "video" ? <><video ref={videoRef} key={activeMedia.id} src={imageSource(activeMedia)} autoPlay muted={videoMuted} controls playsInline preload="auto" onCanPlay={(event) => event.currentTarget.play().catch(() => undefined)} /><button type="button" className="media-audio-toggle" onClick={toggleViewerSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <><img key={activeMedia.id} src={imageSource(activeMedia)} alt={activeMedia.caption || post.caption} style={{ transform: `scale(${zoom})` }} /><div className="viewer-media-controls" aria-label="Image display controls"><button type="button" className={fitMode === "fit" ? "active" : ""} aria-pressed={fitMode === "fit"} onClick={() => { setFitMode("fit"); setZoom(1); }}>Fit</button><button type="button" className={fitMode === "fill" ? "active" : ""} aria-pressed={fitMode === "fill"} onClick={() => { setFitMode("fill"); setZoom(1); }}>Fill</button><button type="button" onClick={() => setZoom((value) => Math.min(3, value + .25))} aria-label="Zoom in">+</button><button type="button" onClick={() => setZoom((value) => Math.max(1, value - .25))} aria-label="Zoom out">−</button><button type="button" onClick={() => { setFitMode("fit"); setZoom(1); }}>Reset</button></div></>}{mediaItems.length > 1 && <><button type="button" className="carousel-arrow carousel-previous" onClick={() => showMedia((activeMediaIndex - 1 + mediaItems.length) % mediaItems.length)} aria-label="Previous carousel item"><ChevronLeft /></button><button type="button" className="carousel-arrow carousel-next" onClick={() => showMedia((activeMediaIndex + 1) % mediaItems.length)} aria-label="Next carousel item"><ChevronRight /></button><span className="carousel-count">{activeMediaIndex + 1}/{mediaItems.length}</span></>}</div>
         <aside className="media-viewer-details">
           <header><img src={profileImage(post.author)} alt="" /><div><strong>{post.author.username}</strong><span>{post.author.location}</span></div></header>
-          {editing ? <form className="viewer-caption-form" onSubmit={saveCaption}><label htmlFor="viewer-caption">Edit caption</label><textarea id="viewer-caption" autoFocus value={caption} onChange={(event) => setCaption(event.target.value.slice(0, 500))} rows={6} /><small>{caption.length}/500</small><div><button type="button" onClick={() => { setCaption(post.caption); setEditing(false); }}>Cancel</button><button disabled={busy || !caption.trim()}>{busy ? "Saving…" : "Save caption"}</button></div></form> : <div className="viewer-caption"><p><b>{post.author.username}</b> {post.caption}</p><time>{relativeTime(post.createdAt)}</time>{commentOpen && <div className="viewer-comments">{post.comments.length ? post.comments.map((item) => <div className="comment-item" key={item.id}><img src={profileImage(item.author)} alt="" /><p><b>{item.author.username}</b> {item.body}</p></div>) : <p className="viewer-comments-empty">Be the first to comment.</p>}<form onSubmit={submitViewerComment}><img src={profileImage(profile)} alt="" /><input ref={commentInputRef} value={comment} onChange={(event) => setComment(event.target.value.slice(0, 280))} placeholder="Add a comment…" aria-label="Add a comment" /><button disabled={!comment.trim() || commentBusy}>{commentBusy ? "Posting…" : "Post"}</button></form></div>}</div>}
+          {editing ? <form className="viewer-caption-form" onSubmit={saveCaption}><label htmlFor="viewer-caption">Edit caption</label><textarea id="viewer-caption" autoFocus value={caption} onChange={(event) => setCaption(event.target.value.slice(0, 500))} rows={6} /><small>{caption.length}/500</small><div><button type="button" onClick={() => { setCaption(post.caption); setEditing(false); }}>Cancel</button><button disabled={busy || !caption.trim()}>{busy ? "Saving…" : "Save caption"}</button></div></form> : <div className="viewer-caption"><p><b>{post.author.username}</b> {post.caption}</p>{activeMedia.caption && <p className="post-item-caption"><b>Item {activeMediaIndex + 1}</b> {activeMedia.caption}</p>}<time>{relativeTime(post.createdAt)}</time>{commentOpen && <div className="viewer-comments">{post.comments.length ? post.comments.map((item) => <div className="comment-item" key={item.id}><img src={profileImage(item.author)} alt="" /><p><b>{item.author.username}</b> {item.body}</p></div>) : <p className="viewer-comments-empty">Be the first to comment.</p>}<form onSubmit={submitViewerComment}><img src={profileImage(profile)} alt="" /><input ref={commentInputRef} value={comment} onChange={(event) => setComment(event.target.value.slice(0, 280))} placeholder="Add a comment…" aria-label="Add a comment" /><button disabled={!comment.trim() || commentBusy}>{commentBusy ? "Posting…" : "Post"}</button></form></div>}</div>}
           <div className="viewer-stats"><button className={post.liked ? "liked" : ""} onClick={() => onToggle(post.id, "like")} aria-label={post.liked ? "Unlike post" : "Like post"}><Heart fill={post.liked ? "currentColor" : "none"} /> {post.likes.toLocaleString()} likes</button><button onClick={() => { const next = !commentOpen; setCommentOpen(next); if (next) window.setTimeout(() => commentInputRef.current?.focus(), 0); }} aria-expanded={commentOpen}><MessageCircle /> {post.comments.length} comments</button></div>
           {post.owned && <div className="viewer-actions"><button onClick={() => setEditing(true)}>Edit caption</button>{confirmDelete ? <div className="delete-confirm"><p>Delete this post permanently?</p><button onClick={() => setConfirmDelete(false)}>Cancel</button><button onClick={remove} disabled={busy}>{busy ? "Deleting…" : "Yes, delete"}</button></div> : <button className="danger" onClick={() => setConfirmDelete(true)}><Trash2 /> Delete post</button>}</div>}
           {error && <p className="viewer-error">{error}</p>}

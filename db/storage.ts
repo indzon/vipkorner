@@ -33,6 +33,13 @@ export async function ensureSchema() {
       expires_at INTEGER NOT NULL
     )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS posts_created_idx ON posts (created_at DESC)"),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS post_media (
+      id TEXT PRIMARY KEY, post_id TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0,
+      caption TEXT NOT NULL DEFAULT '', image_key TEXT, image_url TEXT,
+      media_type TEXT NOT NULL DEFAULT 'image', created_at INTEGER NOT NULL,
+      UNIQUE (post_id, position)
+    )`),
+    DB.prepare("CREATE UNIQUE INDEX IF NOT EXISTS post_media_post_position_uidx ON post_media (post_id, position)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS stories_expires_idx ON stories (expires_at)"),
     DB.prepare(`CREATE TABLE IF NOT EXISTS profile (
       id TEXT PRIMARY KEY,

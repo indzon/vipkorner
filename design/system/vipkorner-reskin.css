@@ -280,6 +280,82 @@ a {
   color: var(--vk-text-muted);
 }
 
+.member-back {
+  color: var(--vk-text);
+  background: var(--vk-surface-raised);
+  border-color: var(--vk-border-strong);
+}
+
+.member-back:hover {
+  color: var(--vk-text-on-brand);
+  background: var(--vk-brand);
+  border-color: var(--vk-brand);
+}
+
+.member-message-button {
+  color: var(--vk-text-on-brand);
+  background: var(--vk-brand);
+  border-color: var(--vk-brand);
+}
+
+.member-message-button:hover {
+  color: var(--vk-text-on-brand);
+  background: var(--vk-brand-hover);
+  border-color: var(--vk-brand-hover);
+}
+
+.member-profile-note {
+  color: var(--vk-text-muted);
+  background: var(--vk-surface-raised);
+  border-color: var(--vk-border-strong);
+}
+
+.caption-field textarea,
+.item-caption-field textarea {
+  color: var(--vk-text);
+  background: var(--vk-surface-raised);
+  border: 1px solid var(--vk-border);
+  border-radius: var(--vk-radius-md);
+}
+
+.caption-field textarea:focus,
+.item-caption-field textarea:focus {
+  border-color: var(--vk-border-brand);
+  outline: var(--vk-focus-width) solid var(--vk-focus-ring);
+  outline-offset: var(--vk-focus-offset);
+}
+
+.follow-feedback {
+  position: fixed;
+  z-index: var(--vk-z-toast);
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--vk-space-3);
+  color: var(--vk-text);
+  background: var(--vk-scrim-full);
+  backdrop-filter: blur(10px);
+}
+
+.follow-feedback > div { width: min(220px, 54vw); }
+.follow-feedback strong { font-family: var(--vk-font-serif); font-size: var(--vk-size-xl); }
+
+.carousel-arrow,
+.carousel-count,
+.preview-actions {
+  color: var(--vk-text-on-media);
+  background: rgba(8, 8, 10, .74);
+  border-color: var(--vk-alpha-18);
+}
+
+.carousel-dots button { background: var(--vk-text-disabled); }
+.carousel-dots button.active { background: var(--vk-brand); }
+.composer-media-strip button { background: var(--vk-media-bg); border-color: var(--vk-border); }
+.composer-media-strip button.active { border-color: var(--vk-border-brand); }
+.item-caption-field { color: var(--vk-text-muted); }
+.item-caption-field i, .item-caption-field small { color: var(--vk-text-subtle); }
+
 .upload-choices button {
   color: var(--vk-text);
   background: var(--vk-surface-raised);
@@ -442,6 +518,6 @@ a {
   }
 
   .conversation-list .section-heading {
-    text-align: center;
+    text-align: left;
   }
 }

@@ -12,7 +12,7 @@ export async function GET() {
     await DB.prepare("DELETE FROM story_views WHERE story_id NOT IN (SELECT id FROM stories)").run();
     await DB.prepare("DELETE FROM story_reactions WHERE story_id NOT IN (SELECT id FROM stories)").run();
 
-    const [posts, stories, comments, notifications, following, followers] = await Promise.all([
+    const [posts, postMedia, stories, comments, notifications, following, followers] = await Promise.all([
       DB.prepare(`SELECT p.id, p.caption, p.image_key AS imageKey, p.image_url AS imageUrl,
         p.media_type AS mediaType, p.created_at AS createdAt, p.user_id AS userId,
         p.likes + (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
@@ -24,6 +24,13 @@ export async function GET() {
           SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = p.user_id)
           OR (b.blocker_id = p.user_id AND b.blocked_id = ?)
         ) ORDER BY p.created_at DESC LIMIT 100`).bind(viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id).all(),
+      DB.prepare(`SELECT m.id, m.post_id AS postId, m.position, m.caption,
+        m.image_key AS imageKey, m.image_url AS imageUrl, m.media_type AS mediaType
+        FROM post_media m JOIN posts p ON p.id = m.post_id JOIN users u ON u.id = p.user_id
+        WHERE u.status = 'active' AND (u.is_public = 1 OR p.user_id = ? OR EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = p.user_id)) AND NOT EXISTS (
+          SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = p.user_id)
+          OR (b.blocker_id = p.user_id AND b.blocked_id = ?)
+        ) ORDER BY m.post_id, m.position`).bind(viewer.id, viewer.id, viewer.id, viewer.id).all(),
       DB.prepare(`SELECT s.id, s.caption, s.image_key AS imageKey, s.image_url AS imageUrl,
         s.media_type AS mediaType, s.created_at AS createdAt, s.expires_at AS expiresAt,
         s.caption_x AS captionX, s.caption_y AS captionY, s.user_id AS userId,
@@ -59,8 +66,14 @@ export async function GET() {
       });
       return grouped;
     }, {});
+    const mediaByPost = postMedia.results.reduce<Record<string, unknown[]>>((grouped, media) => {
+      const postId = String(media.postId);
+      (grouped[postId] ||= []).push(media);
+      return grouped;
+    }, {});
     const postsWithComments = posts.results.map((post) => ({
       ...post,
+      media: mediaByPost[String(post.id)] || [],
       author: { id: post.userId, username: post.username, displayName: post.displayName, location: post.location, imageKey: post.authorImageKey, imageUrl: post.authorImageUrl },
       comments: commentsByPost[String(post.id)] || [],
       owned: post.userId === viewer.id,

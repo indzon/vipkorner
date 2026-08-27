@@ -9,7 +9,7 @@ VipKorner is a Vinext/React application deployed as a Cloudflare Worker. The sam
 | UI and API | Cloudflare Workers | React application, server routes, authorization, PWA assets |
 | Authentication | Supabase Auth | Email/password accounts, confirmation, session cookies |
 | Relational data | Cloudflare D1 | Users, invitations, posts, follows, messages, moderation |
-| Media | Cloudflare R2 | Profile photos, post media, story media |
+| Media | Cloudflare R2 | Profile photos, carousel post media, story media |
 
 ## Authentication and registration
 
@@ -38,6 +38,12 @@ Connection rows, notification actors, and Explore identities all use the same me
 
 `story_reactions` stores at most one emoji per `(story_id, user_id)`. `/api/stories` validates reactions against the supported emoji set, rechecks story visibility and block rules, honors the story owner’s `story_replies` setting, and prevents self-reactions. Selecting a new emoji replaces the prior reaction; selecting the active emoji removes it. A current reaction creates one owner notification, and changing or removing the reaction replaces or removes that notification.
 
+The home story tray groups active stories by member and displays only members who still have an unviewed story for the current viewer. The story viewer retains the complete ordered story set so manual navigation and timed autoplay continue across items.
+
+## Post carousels
+
+`posts` remains the parent record and preserves the first media item in its legacy media columns for compatibility with existing grids and seeded content. `post_media` stores the ordered carousel items, their R2 keys or external URLs, media types, and optional item captions. New posts accept 1–10 mixed images and videos. The API rejects positions outside `0–9`, checks ownership and item count for subsequent uploads, and enforces one media item per `(post_id, position)` at the database layer. The first completed upload creates the parent. Deleting a post removes every related `post_media` record and R2 object.
+
 ## Main application routes
 
 | Route | Purpose |
@@ -48,7 +54,7 @@ Connection rows, notification actors, and Explore identities all use the same me
 | `/api/social` | Discovery, follows, blocks, reports, invitations, connection lists |
 | `/api/messages` | Text-only conversations, message requests, and unread totals |
 | `/api/stories` | Story creation, views, reactions, and owner deletion |
-| `/api/uploads` | Validated R2 uploads |
+| `/api/uploads` | Validated multipart R2 uploads, including ordered post-carousel completion |
 | `/api/media` | Authorized media delivery |
 
 ## Schema workflow

@@ -1,4 +1,4 @@
-import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
@@ -17,6 +17,17 @@ export const posts = sqliteTable("posts", {
   createdAt: integer("created_at").notNull(),
   userId: text("user_id"),
 });
+
+export const postMedia = sqliteTable("post_media", {
+  id: text("id").primaryKey(),
+  postId: text("post_id").notNull(),
+  position: integer("position").notNull().default(0),
+  caption: text("caption").notNull().default(""),
+  imageKey: text("image_key"),
+  imageUrl: text("image_url"),
+  mediaType: text("media_type").notNull().default("image"),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [uniqueIndex("post_media_post_position_uidx").on(table.postId, table.position)]);
 
 export const profile = sqliteTable("profile", {
   id: text("id").primaryKey(),

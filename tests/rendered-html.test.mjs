@@ -144,3 +144,36 @@ test("unread navigation badges and persisted story reactions stay wired together
   assert.match(architecture, /one emoji per `\(story_id, user_id\)`/);
   assert.match(operations, /Messaging and story-reaction smoke test/);
 });
+
+test("carousel posts, viewed-story removal, and mobile conversation rows stay wired together", async () => {
+  const [page, layout, feedRoute, uploadRoute, postsRoute, schema, storage, readme, architecture, operations] = await Promise.all([
+    read("app/page.tsx"),
+    read("design/system/vipkorner-layout.css"),
+    read("app/api/feed/route.ts"),
+    read("app/api/uploads/route.ts"),
+    read("app/api/posts/route.ts"),
+    read("db/schema.ts"),
+    read("db/storage.ts"),
+    read("README.md"),
+    read("docs/ARCHITECTURE.md"),
+    read("docs/OPERATIONS.md"),
+  ]);
+
+  assert.match(page, /slice\(0, 10 - files\.length\)/);
+  assert.match(page, /itemCaptions/);
+  assert.match(page, /postMediaItems\(post\)/);
+  assert.match(page, /filter\(\(story\) => !story\.viewed\)/);
+  assert.match(page, /new Map<string, Story>/);
+  assert.match(page, /follow-success\.json/);
+  assert.match(layout, /grid-auto-flow: column/);
+  assert.match(feedRoute, /FROM post_media/);
+  assert.match(uploadRoute, /INSERT INTO post_media/);
+  assert.match(uploadRoute, /position > 9/);
+  assert.match(postsRoute, /DELETE FROM post_media/);
+  assert.match(schema, /postMedia = sqliteTable\("post_media"/);
+  assert.match(schema, /post_media_post_position_uidx/);
+  assert.match(storage, /CREATE TABLE IF NOT EXISTS post_media/);
+  assert.match(readme, /carousels of up to 10 mixed images and videos/i);
+  assert.match(architecture, /## Post carousels/);
+  assert.match(operations, /Carousel and responsive UI smoke test/);
+});

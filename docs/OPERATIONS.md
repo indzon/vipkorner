@@ -55,6 +55,15 @@ For member-profile releases, verify Explore identity copy remains left-aligned, 
 4. Choose a different emoji and confirm it replaces the first; choose the selected emoji again and confirm it is removed.
 5. Disable story replies on the story owner’s account and confirm reaction controls are no longer offered to other members.
 
+## Carousel and responsive UI smoke test
+
+1. Create a post with 10 mixed supported photos and videos, leaving some item captions blank and adding captions to others.
+2. Confirm the feed card and full-screen viewer can move through every item, video playback resets between items, and the optional item caption changes with the active item.
+3. Delete the post and confirm its parent record, ordered media rows, and uploaded R2 objects are removed.
+4. On a mobile viewport, open Messages and confirm conversation summaries form a horizontally scrollable row above the active thread.
+5. View every active story from one member and confirm that member disappears from the home story tray while other members with unviewed stories remain.
+6. Follow a new member and confirm the full-screen animated acknowledgement appears without a persistent “Profile updated” notice.
+
 ## Fictional community seed
 
 The six production seed profiles are application-data records only. They are

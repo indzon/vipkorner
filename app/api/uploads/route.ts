@@ -9,6 +9,8 @@ const KEY_PATTERN = /^([0-9a-f-]{36})\.(jpg|png|webp|gif|mp4|webm|mov)$/;
 
 type UploadPart = { partNumber: number; etag: string };
 
+class UploadInputError extends Error {}
+
 export async function POST(request: Request) {
   try {
   await ensureSchema();
@@ -26,6 +28,9 @@ export async function POST(request: Request) {
     caption?: string;
     captionX?: number;
     captionY?: number;
+    postId?: string;
+    position?: number;
+    itemCaption?: string;
   };
   const { DB, MEDIA } = bindings();
 
@@ -72,10 +77,25 @@ export async function POST(request: Request) {
           .bind(id, user.id, storyCaption, payload.key, mediaType, createdAt, expiresAt, captionX, captionY).run();
         return NextResponse.json({ id, userId: user.id, caption: storyCaption, captionX, captionY, imageKey: payload.key, imageUrl: null, mediaType, createdAt, expiresAt, owned: true }, { status: 201 });
       }
+      const postId = String(payload.postId || id);
+      const position = Number(payload.position ?? 0);
+      if (!Number.isInteger(position) || position < 0 || position > 9) {
+        throw new UploadInputError("A carousel can contain up to 10 items.");
+      }
       const postCaption = caption.slice(0, 500) || "A new moment.";
-      await DB.prepare("INSERT INTO posts (id, user_id, caption, image_key, media_type, likes, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)")
-        .bind(id, user.id, postCaption, payload.key, mediaType, createdAt).run();
-      return NextResponse.json({ id, userId: user.id, caption: postCaption, imageKey: payload.key, imageUrl: null, mediaType, likes: 0, liked: 0, saved: 0, createdAt, owned: true }, { status: 201 });
+      const itemCaption = String(payload.itemCaption || "").trim().slice(0, 280);
+      if (position === 0) {
+        await DB.prepare("INSERT INTO posts (id, user_id, caption, image_key, media_type, likes, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)")
+          .bind(postId, user.id, postCaption, payload.key, mediaType, createdAt).run();
+      } else {
+        const parent = await DB.prepare("SELECT user_id AS userId FROM posts WHERE id = ?").bind(postId).first<{ userId: string }>();
+        if (!parent || parent.userId !== user.id) throw new Error("The carousel post could not be found.");
+        const count = await DB.prepare("SELECT COUNT(*) AS count FROM post_media WHERE post_id = ?").bind(postId).first<{ count: number }>();
+        if (Number(count?.count || 0) >= 10) throw new UploadInputError("A carousel can contain up to 10 items.");
+      }
+      await DB.prepare("INSERT INTO post_media (id, post_id, position, caption, image_key, media_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .bind(id, postId, position, itemCaption, payload.key, mediaType, createdAt).run();
+      return NextResponse.json({ id: postId, mediaId: id, userId: user.id, caption: postCaption, itemCaption, position, imageKey: payload.key, imageUrl: null, mediaType, likes: 0, liked: 0, saved: 0, createdAt, owned: true }, { status: 201 });
     } catch (error) {
       await MEDIA.delete(payload.key!);
       throw error;
@@ -83,7 +103,7 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ error: "Unknown upload action." }, { status: 400 });
-  } catch (error) { return authErrorResponse(error) || NextResponse.json({ error: "Could not process this upload." }, { status: 500 }); }
+  } catch (error) { return authErrorResponse(error) || (error instanceof UploadInputError ? NextResponse.json({ error: error.message }, { status: 400 }) : NextResponse.json({ error: "Could not process this upload." }, { status: 500 })); }
 }
 
 export async function PUT(request: Request) {

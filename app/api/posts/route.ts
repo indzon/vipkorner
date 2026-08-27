@@ -92,13 +92,16 @@ export async function DELETE(request: Request) {
     const post = await DB.prepare("SELECT user_id AS userId, image_key AS imageKey FROM posts WHERE id = ?").bind(id).first<{ userId: string; imageKey: string | null }>();
     if (!post) return NextResponse.json({ error: "Post not found." }, { status: 404 });
     if (post.userId !== user.id) return NextResponse.json({ error: "Only the original poster can delete this post." }, { status: 403 });
+    const media = await DB.prepare("SELECT image_key AS imageKey FROM post_media WHERE post_id = ?").bind(id).all<{ imageKey: string | null }>();
     await DB.batch([
       DB.prepare("DELETE FROM comments WHERE post_id = ?").bind(id),
       DB.prepare("DELETE FROM post_likes WHERE post_id = ?").bind(id),
       DB.prepare("DELETE FROM post_saves WHERE post_id = ?").bind(id),
+      DB.prepare("DELETE FROM post_media WHERE post_id = ?").bind(id),
       DB.prepare("DELETE FROM posts WHERE id = ?").bind(id),
     ]);
-    if (post.imageKey) await MEDIA.delete(post.imageKey);
+    const keys = Array.from(new Set([post.imageKey, ...media.results.map((item) => item.imageKey)].filter((key): key is string => Boolean(key))));
+    await Promise.all(keys.map((key) => MEDIA.delete(key)));
     return NextResponse.json({ deleted: true });
   } catch (error) { return authErrorResponse(error) || NextResponse.json({ error: "Could not delete this post." }, { status: 500 }); }
 }
