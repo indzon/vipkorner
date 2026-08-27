@@ -205,6 +205,14 @@ function relativeTime(timestamp: number) {
   return value === "just now" ? value : `${value} ago`;
 }
 
+function productMessage(message: string) {
+  return message
+    .replace(/\bStories\b/g, "Shorts")
+    .replace(/\bstories\b/g, "shorts")
+    .replace(/\bStory\b/g, "Short")
+    .replace(/\bstory\b/g, "short");
+}
+
 export default function HomePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
@@ -404,9 +412,9 @@ export default function HomePage() {
   async function deleteStory(storyId: string) {
     const response = await fetch(`/api/stories?id=${encodeURIComponent(storyId)}`, { method: "DELETE" });
     const data = await response.json() as { error?: string };
-    if (!response.ok) throw new Error(data.error || "Could not delete story.");
+    if (!response.ok) throw new Error(data.error || "Could not delete short.");
     setStories((current) => current.filter((story) => story.id !== storyId));
-    setToast("Story deleted.");
+    setToast("Short deleted.");
   }
 
   async function reactToStory(storyId: string, emoji: string) {
@@ -415,7 +423,7 @@ export default function HomePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "react", id: storyId, emoji }),
     });
-    const result = await readApiResponse<{ reaction: string | null; reactionCount: number }>(response, "Could not react to this story.");
+    const result = await readApiResponse<{ reaction: string | null; reactionCount: number }>(response, "Could not react to this short.");
     setStories((current) => current.map((story) => story.id === storyId ? { ...story, reaction: result.reaction, reactionCount: result.reactionCount } : story));
   }
 
@@ -516,15 +524,15 @@ function StoriesTray({ stories, profile, onAdd, onOpen }: { stories: Story[]; pr
       .values(),
   );
   return (
-    <section className="stories-section" aria-label="Stories">
-      <div className="stories-heading"><span>Stories</span><small>24h moments</small></div>
+    <section className="stories-section" aria-label="Shorts">
+      <div className="stories-heading"><span>Shorts</span><small>24h moments</small></div>
       <div className="stories-scroll">
         <button className="story-item add-story" onClick={onAdd}>
-          <span className="story-ring"><img src={profileImage(profile)} alt="" /><i><Plus size={14} /></i></span><span>Add story</span>
+          <span className="story-ring"><img src={profileImage(profile)} alt="" /><i><Plus size={14} /></i></span><span>Add short</span>
         </button>
         {visibleStories.map((story, index) => (
           <button className="story-item" key={story.id} onClick={() => onOpen(story)}>
-            <span className={`story-ring active-story ${story.viewed ? "viewed" : ""}`}>{story.mediaType === "video" ? <><video src={imageSource(story)} muted playsInline preload="metadata" aria-label={`${story.author.username}'s video story`} /><i className="story-video-badge"><Video /></i></> : <img src={imageSource(story)} alt={`${story.author.username}'s story`} />}</span><span>{story.owned && index === 0 ? "Your story" : story.author.username}</span>
+            <span className={`story-ring active-story ${story.viewed ? "viewed" : ""}`}>{story.mediaType === "video" ? <><video src={imageSource(story)} muted playsInline preload="metadata" aria-label={`${story.author.username}'s video short`} /><i className="story-video-badge"><Video /></i></> : <img src={imageSource(story)} alt={`${story.author.username}'s short`} />}</span><span>{story.owned && index === 0 ? "Your short" : story.author.username}</span>
           </button>
         ))}
       </div>
@@ -701,7 +709,7 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
           throw reason;
         }
       }
-      onCreated(type === "post" ? "Your post is live." : "Story shared for 24 hours.");
+      onCreated(type === "post" ? "Your post is live." : "Short shared for 24 hours.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Something went wrong.");
       setBusy(false);
@@ -710,9 +718,9 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
   }
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Create ${type}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Create ${type === "story" ? "short" : type}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <form className="composer" onSubmit={submit}>
-        <header><button type="button" className="icon-button composer-close" onClick={onClose} aria-label="Close"><X /></button><div><span>CREATE</span><h2>New {type}</h2></div><button className="share-button" disabled={!files.length || busy}>{busy ? `Uploading ${uploadProgress}%` : "Share"}</button></header>
+        <header><button type="button" className="icon-button composer-close" onClick={onClose} aria-label="Close"><X /></button><div><span>CREATE</span><h2>New {type === "story" ? "short" : type}</h2></div><button className="share-button" disabled={!files.length || busy}>{busy ? `Uploading ${uploadProgress}%` : "Share"}</button></header>
         <input ref={inputRef} className="file-input" type="file" multiple={type === "post"} accept="image/*,.jpg,.jpeg,.png,.webp,.gif" onChange={(event) => { selectFiles(Array.from(event.target.files || [])); event.target.value = ""; }} />
         <input ref={videoInputRef} className="file-input" type="file" multiple={type === "post"} accept="video/*,.mp4,.webm,.mov,.m4v" onChange={(event) => { selectFiles(Array.from(event.target.files || [])); event.target.value = ""; }} />
         {preview ? (
@@ -720,10 +728,10 @@ function Composer({ type, profile, onClose, onCreated }: { type: "post" | "story
         ) : (
           <div className={`upload-drop ${type} ${dragActive ? "drag-active" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragActive(false)} onDrop={handleDrop}><span><Video /></span><h3>{dragActive ? "Drop it here" : `Choose or drop ${type === "post" ? "up to 10 photos or videos" : "a photo or video"}`}</h3><p>Photos up to 10 MB each · MP4, WebM, MOV or M4V up to 50 MB each</p><div className="upload-choices"><button type="button" onClick={() => inputRef.current?.click()}>Choose photo{type === "post" ? "s" : ""}</button><button type="button" onClick={() => videoInputRef.current?.click()}>Choose video{type === "post" ? "s" : ""}</button></div></div>
         )}
-        <div className={`caption-field ${type === "story" ? "story-caption-field" : ""}`}><img src={profileImage(profile)} alt={profile.displayName} /><textarea value={caption} onChange={(event) => setCaption(event.target.value.slice(0, type === "story" ? 280 : 500))} onKeyDown={(event) => { if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return; event.preventDefault(); if (!files.length) { setError("Choose a photo or video first."); return; } if (!busy) event.currentTarget.form?.requestSubmit(); }} placeholder={type === "story" ? "Add a story caption…" : "Write a post caption…"} rows={type === "story" ? 2 : 3} /><small>{caption.length}/{type === "story" ? 280 : 500}</small></div>
+        <div className={`caption-field ${type === "story" ? "story-caption-field" : ""}`}><img src={profileImage(profile)} alt={profile.displayName} /><textarea value={caption} onChange={(event) => setCaption(event.target.value.slice(0, type === "story" ? 280 : 500))} onKeyDown={(event) => { if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return; event.preventDefault(); if (!files.length) { setError("Choose a photo or video first."); return; } if (!busy) event.currentTarget.form?.requestSubmit(); }} placeholder={type === "story" ? "Add a short caption…" : "Write a post caption…"} rows={type === "story" ? 2 : 3} /><small>{caption.length}/{type === "story" ? 280 : 500}</small></div>
         {type === "post" && file && <label className="item-caption-field"><span>Caption for item {selectedIndex + 1} <i>Optional</i></span><textarea value={itemCaptions[selectedIndex] || ""} onChange={(event) => setItemCaptions((current) => current.map((value, index) => index === selectedIndex ? event.target.value.slice(0, 280) : value))} placeholder="Add context for this photo or video…" rows={2} /><small>{(itemCaptions[selectedIndex] || "").length}/280</small></label>}
         {type === "story" && caption.trim() && <div className="story-caption-tools"><div><strong>Caption position</strong><span>Drag the caption on the preview, or choose a preset.</span></div><div><button type="button" onClick={() => setCaptionPosition({ x: 50, y: 22 })}>Top</button><button type="button" onClick={() => setCaptionPosition({ x: 50, y: 52 })}>Middle</button><button type="button" onClick={() => setCaptionPosition({ x: 50, y: 82 })}>Bottom</button></div></div>}
-        {type === "story" && <div className="expiry-note"><span>24h</span><p><strong>Made for the moment.</strong>Your story will disappear automatically after 24 hours.</p></div>}
+        {type === "story" && <div className="expiry-note"><span>24h</span><p><strong>Made for the moment.</strong>Your short will disappear automatically after 24 hours.</p></div>}
         {error && <p className="form-error">{error}</p>}
       </form>
     </div>
@@ -774,7 +782,7 @@ function StoryViewer({ stories, activeId, onChange, onViewed, onClose, onDelete,
       await onDelete(story!.id);
       if (fallback) onChange(fallback.id); else onClose();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not delete story.");
+      setError(reason instanceof Error ? reason.message : "Could not delete short.");
       setDeleteBusy(false);
     }
   }
@@ -785,22 +793,22 @@ function StoryViewer({ stories, activeId, onChange, onViewed, onClose, onDelete,
     try {
       await onReact(story!.id, emoji);
     } catch (reason) {
-      setReactionError(reason instanceof Error ? reason.message : "Could not react to this story.");
+      setReactionError(reason instanceof Error ? reason.message : "Could not react to this short.");
     } finally {
       setReactionBusy(false);
     }
   }
 
   return (
-    <div className="story-viewer" role="dialog" aria-modal="true" aria-label="Story">
+    <div className="story-viewer" role="dialog" aria-modal="true" aria-label="Short">
       <div className="story-frame">
         <div className="story-progress" aria-hidden="true">{stories.map((item, index) => <i key={item.id} className={index < currentIndex ? "done" : index === currentIndex ? "current" : ""}><span style={index === currentIndex && story.mediaType === "video" ? { animationDuration: "30s" } : undefined} /></i>)}</div>
-        <header><div><img src={profileImage(story.author)} alt="" /><strong>{story.author.username}</strong><span>{timeAgo(story.createdAt)}</span></div><div className="story-header-actions">{story.mediaType === "video" && <button onClick={() => setStoryMuted((muted) => !muted)} aria-label={storyMuted ? "Turn story sound on" : "Mute story"}>{storyMuted ? <VolumeX /> : <Volume2 />}</button>}{story.owned && <button onClick={() => setConfirmDelete(true)} aria-label="Delete story"><Trash2 /></button>}<button onClick={onClose} aria-label="Close story"><X /></button></div></header>
-        {story.mediaType === "video" ? <video ref={videoRef} key={story.id} className="story-full-image" src={imageSource(story)} autoPlay muted={storyMuted} playsInline onClick={() => setStoryMuted((muted) => !muted)} onEnded={goNext} aria-label={story.caption || "Your video story"} /> : <img className="story-full-image" src={imageSource(story)} alt={story.caption || "Your story"} />}
-        {currentIndex > 0 && <button className="story-nav previous" onClick={() => onChange(stories[currentIndex - 1].id)} aria-label="Previous story"><ChevronLeft /></button>}
-        {currentIndex < stories.length - 1 && <button className="story-nav next" onClick={goNext} aria-label="Next story"><ChevronRight /></button>}
-        <footer>{story.caption && <p style={{ left: `${story.captionX}%`, top: `${story.captionY}%` }}>{story.caption}</p>}{!story.owned && Boolean(story.reactionsAllowed) && <div className="story-reactions" aria-label="React to story">{STORY_REACTION_EMOJIS.map((emoji) => <button type="button" key={emoji} className={story.reaction === emoji ? "active" : ""} disabled={reactionBusy} aria-label={`React ${emoji}`} aria-pressed={story.reaction === emoji} onClick={() => void react(emoji)}>{emoji}</button>)}</div>}{reactionError && <span className="story-reaction-error" role="alert">{reactionError}</span>}<span>Story expires automatically within 24 hours{story.reactionCount > 0 ? ` · ${story.reactionCount} reaction${story.reactionCount === 1 ? "" : "s"}` : ""}</span></footer>
-        {confirmDelete && <div className="story-delete-confirm"><strong>Delete this story?</strong><p>This removes it immediately instead of waiting for it to expire.</p>{error && <span>{error}</span>}<div><button onClick={() => setConfirmDelete(false)}>Cancel</button><button onClick={removeStory} disabled={deleteBusy}>{deleteBusy ? "Deleting…" : "Delete"}</button></div></div>}
+        <header><div><img src={profileImage(story.author)} alt="" /><strong>{story.author.username}</strong><span>{timeAgo(story.createdAt)}</span></div><div className="story-header-actions">{story.mediaType === "video" && <button onClick={() => setStoryMuted((muted) => !muted)} aria-label={storyMuted ? "Turn short sound on" : "Mute short"}>{storyMuted ? <VolumeX /> : <Volume2 />}</button>}{story.owned && <button onClick={() => setConfirmDelete(true)} aria-label="Delete short"><Trash2 /></button>}<button onClick={onClose} aria-label="Close short"><X /></button></div></header>
+        {story.mediaType === "video" ? <video ref={videoRef} key={story.id} className="story-full-image" src={imageSource(story)} autoPlay muted={storyMuted} playsInline onClick={() => setStoryMuted((muted) => !muted)} onEnded={goNext} aria-label={story.caption || "Your video short"} /> : <img className="story-full-image" src={imageSource(story)} alt={story.caption || "Your short"} />}
+        {currentIndex > 0 && <button className="story-nav previous" onClick={() => onChange(stories[currentIndex - 1].id)} aria-label="Previous short"><ChevronLeft /></button>}
+        {currentIndex < stories.length - 1 && <button className="story-nav next" onClick={goNext} aria-label="Next short"><ChevronRight /></button>}
+        <footer>{story.caption && <p style={{ left: `${story.captionX}%`, top: `${story.captionY}%` }}>{story.caption}</p>}{!story.owned && Boolean(story.reactionsAllowed) && <div className="story-reactions" aria-label="React to short">{STORY_REACTION_EMOJIS.map((emoji) => <button type="button" key={emoji} className={story.reaction === emoji ? "active" : ""} disabled={reactionBusy} aria-label={`React ${emoji}`} aria-pressed={story.reaction === emoji} onClick={() => void react(emoji)}>{emoji}</button>)}</div>}{reactionError && <span className="story-reaction-error" role="alert">{reactionError}</span>}<span>Short expires automatically within 24 hours{story.reactionCount > 0 ? ` · ${story.reactionCount} reaction${story.reactionCount === 1 ? "" : "s"}` : ""}</span></footer>
+        {confirmDelete && <div className="story-delete-confirm"><strong>Delete this short?</strong><p>This removes it immediately instead of waiting for it to expire.</p>{error && <span>{error}</span>}<div><button onClick={() => setConfirmDelete(false)}>Cancel</button><button onClick={removeStory} disabled={deleteBusy}>{deleteBusy ? "Deleting…" : "Delete"}</button></div></div>}
       </div>
     </div>
   );
@@ -855,9 +863,9 @@ function MemberProfileView({ member, error, posts, stories, onBack, onMessage, o
     <button className="member-back" onClick={onBack}><ChevronLeft /> Explore</button>
     <header className="profile-hero member-profile-hero">
       <div className="member-profile-banner" aria-hidden="true"><img src={heroImage} alt="" /><i /></div>
-      <div className="member-profile-hero-content"><button type="button" className={`member-profile-photo-button ${unseenStories.length ? "has-unseen-story" : ""}`} disabled={!memberStories.length} onClick={() => onOpenStory(unseenStories[0] || memberStories[0])} aria-label={memberStories.length ? `View @${member.username}'s stories` : `@${member.username} has no active stories`}><img className="member-profile-photo" src={profileImage(member)} alt={member.displayName} /></button><div className="profile-info"><div><h1>{member.username}</h1><button type="button" className="icon-button member-message-button" onClick={() => void onMessage(member.id)} aria-label={`Message @${member.username}`}><Mail /></button>{!privateAndLocked && <button type="button" className={`member-follow-button ${member.following ? "following" : ""}`} disabled={requestBusy} onClick={() => void toggleFollow()}>{requestBusy ? "Updating…" : member.following ? <><Check /> Following</> : <><UserPlus /> Follow</>}</button>}</div><div className="profile-stats"><span><strong>{member.posts}</strong> posts</span><span><strong>{member.followers}</strong> followers</span><span><strong>{member.followingCount}</strong> following</span></div><p><strong>{member.displayName}</strong><br />{member.bio || "New to VipKorner."}</p><span className="member-location"><MapPin /> {member.location || "Location not shared"}</span>{member.website && <a href={`https://${member.website.replace(/^https?:\/\//, "")}`}>{member.website}</a>}</div></div>
+      <div className="member-profile-hero-content"><button type="button" className={`member-profile-photo-button ${unseenStories.length ? "has-unseen-story" : ""}`} disabled={!memberStories.length} onClick={() => onOpenStory(unseenStories[0] || memberStories[0])} aria-label={memberStories.length ? `View @${member.username}'s shorts` : `@${member.username} has no active shorts`}><img className="member-profile-photo" src={profileImage(member)} alt={member.displayName} /></button><div className="profile-info"><div><h1>{member.username}</h1><button type="button" className="icon-button member-message-button" onClick={() => void onMessage(member.id)} aria-label={`Message @${member.username}`}><Mail /></button>{!privateAndLocked && <button type="button" className={`member-follow-button ${member.following ? "following" : ""}`} disabled={requestBusy} onClick={() => void toggleFollow()}>{requestBusy ? "Updating…" : member.following ? <><Check /> Following</> : <><UserPlus /> Follow</>}</button>}</div><div className="profile-stats"><span><strong>{member.posts}</strong> posts</span><span><strong>{member.followers}</strong> followers</span><span><strong>{member.followingCount}</strong> following</span></div><p><strong>{member.displayName}</strong><br />{member.bio || "New to VipKorner."}</p><span className="member-location"><MapPin /> {member.location || "Location not shared"}</span>{member.website && <a href={`https://${member.website.replace(/^https?:\/\//, "")}`}>{member.website}</a>}</div></div>
     </header>
-    {privateAndLocked && <div className="member-follow-request"><div><strong>Private profile</strong><span>Only approved followers can see this member’s posts and stories.</span></div><button type="button" className={requestPending ? "requested" : ""} disabled={requestBusy} onClick={() => void toggleFollow()}>{requestBusy ? "Updating…" : requestPending ? "Request sent · Cancel" : "Request to Follow"}</button>{requestError && <p role="alert">{requestError}</p>}</div>}
+    {privateAndLocked && <div className="member-follow-request"><div><strong>Private profile</strong><span>Only approved followers can see this member’s posts and shorts.</span></div><button type="button" className={requestPending ? "requested" : ""} disabled={requestBusy} onClick={() => void toggleFollow()}>{requestBusy ? "Updating…" : requestPending ? "Request sent · Cancel" : "Request to Follow"}</button>{requestError && <p role="alert">{requestError}</p>}</div>}
     {!privateAndLocked && requestError && <p className="member-follow-error" role="alert">{requestError}</p>}
     {visiblePosts.length ? <div className="profile-grid">{visiblePosts.map((post) => <button key={post.id} onClick={() => onOpenPost(post)} aria-label={`Open ${post.mediaType}: ${post.caption}`}>{post.mediaType === "video" ? <><video src={imageSource(post)} muted playsInline preload="metadata" aria-label={post.caption} /><i className="video-badge"><Video /></i></> : <img src={imageSource(post)} alt={post.caption} />}<span><Heart fill="currentColor" size={17} /> {post.likes}</span></button>)}</div> : <div className="saved-empty"><span><ImagePlus /></span><h3>No posts to show</h3><p>{member.isPublic || member.following ? "This member hasn’t shared a post yet." : "This member’s posts are private."}</p></div>}
     {followFeedback && <FollowSuccessFeedback username={followFeedback} />}
@@ -1140,8 +1148,8 @@ function SettingsModal({ profile, installPrompt, onInstallGuide, onClose, onSave
         <div className="settings-content">
           <div className="settings-intro"><span><SlidersHorizontal /></span><div><strong>Make VipKorner yours</strong><p>Choose how your profile and uploads behave.</p></div></div>
           <div className="settings-list">
-            <SettingRow title="Private account" description="Only approved followers can see your posts and stories." checked={Boolean(draft.privateAccount)} onChange={() => toggle("privateAccount")} />
-            <SettingRow title="Story replies" description="Allow quick replies while viewing stories." checked={Boolean(draft.storyReplies)} onChange={() => toggle("storyReplies")} />
+            <SettingRow title="Private account" description="Only approved followers can see your posts and shorts." checked={Boolean(draft.privateAccount)} onChange={() => toggle("privateAccount")} />
+            <SettingRow title="Short replies" description="Allow quick replies while viewing shorts." checked={Boolean(draft.storyReplies)} onChange={() => toggle("storyReplies")} />
             <SettingRow title="High-quality uploads" description="Keep original detail in photos and videos." checked={Boolean(draft.highQualityUploads)} onChange={() => toggle("highQualityUploads")} />
           </div>
           <button className="settings-install" onClick={() => installPrompt?.prompt ? installPrompt.prompt() : onInstallGuide()}><Sparkles /> Install VipKorner on this device</button>
@@ -1247,7 +1255,7 @@ function ActivityModal({ activities, posts, onRefresh, onViewProfile, onClose }:
       <section className="profile-modal activity-modal">
         <ModalHeader eyebrow="PROFILE" title="Activity" onClose={onClose} />
         {requestError && <p className="inline-error" role="alert">{requestError}</p>}
-        {activities.length ? <div className="activity-list">{activities.map((activity) => { const post = posts.find((item) => item.id === activity.postId); const actor = { username: activity.actorUsername || "Member", displayName: activity.actorDisplayName || activity.actorUsername || "VipKorner member", imageKey: activity.actorImageKey || null, imageUrl: activity.actorImageUrl || null }; const pendingRequest = activity.type === "follow_request" && activity.requestStatus === "pending"; return <article className={`activity-item ${pendingRequest ? "follow-request-item" : ""}`} key={activity.id}><button className="activity-main" disabled={!activity.actorId} onClick={() => { if (activity.actorId) { onClose(); onViewProfile(activity.actorId); } }} aria-label={activity.actorId ? `View @${actor.username}'s profile: ${activity.message}` : activity.message}><img className="activity-avatar" src={profileImage(actor)} alt="" /><span className="activity-copy"><p>{activity.message}</p><time>{relativeTime(activity.createdAt)}</time></span>{post && (post.mediaType === "video" ? <span className="activity-video"><Video /></span> : <img className="activity-media" src={imageSource(post)} alt="" />)}</button>{pendingRequest && <div className="follow-request-actions"><button type="button" disabled={requestBusy === activity.id} onClick={() => void respond(activity, "approve")}>Approve</button><button type="button" disabled={requestBusy === activity.id} onClick={() => void respond(activity, "decline")}>Decline</button></div>}{activity.type === "follow_request" && !pendingRequest && <span className="follow-request-status">{activity.requestStatus === "approved" ? "Approved" : activity.requestStatus === "declined" ? "Declined" : "Canceled"}</span>}</article>; })}</div> : <div className="activity-empty"><span><Bell /></span><h3>No activity yet</h3><p>Follows, follow requests, messages, likes, and comments will appear here.</p></div>}
+        {activities.length ? <div className="activity-list">{activities.map((activity) => { const post = posts.find((item) => item.id === activity.postId); const actor = { username: activity.actorUsername || "Member", displayName: activity.actorDisplayName || activity.actorUsername || "VipKorner member", imageKey: activity.actorImageKey || null, imageUrl: activity.actorImageUrl || null }; const pendingRequest = activity.type === "follow_request" && activity.requestStatus === "pending"; const message = productMessage(activity.message); return <article className={`activity-item ${pendingRequest ? "follow-request-item" : ""}`} key={activity.id}><button className="activity-main" disabled={!activity.actorId} onClick={() => { if (activity.actorId) { onClose(); onViewProfile(activity.actorId); } }} aria-label={activity.actorId ? `View @${actor.username}'s profile: ${message}` : message}><img className="activity-avatar" src={profileImage(actor)} alt="" /><span className="activity-copy"><p>{message}</p><time>{relativeTime(activity.createdAt)}</time></span>{post && (post.mediaType === "video" ? <span className="activity-video"><Video /></span> : <img className="activity-media" src={imageSource(post)} alt="" />)}</button>{pendingRequest && <div className="follow-request-actions"><button type="button" disabled={requestBusy === activity.id} onClick={() => void respond(activity, "approve")}>Approve</button><button type="button" disabled={requestBusy === activity.id} onClick={() => void respond(activity, "decline")}>Decline</button></div>}{activity.type === "follow_request" && !pendingRequest && <span className="follow-request-status">{activity.requestStatus === "approved" ? "Approved" : activity.requestStatus === "declined" ? "Declined" : "Canceled"}</span>}</article>; })}</div> : <div className="activity-empty"><span><Bell /></span><h3>No activity yet</h3><p>Follows, follow requests, messages, likes, and comments will appear here.</p></div>}
       </section>
     </div>
   );

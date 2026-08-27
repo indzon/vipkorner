@@ -51,17 +51,17 @@ For member-profile releases, verify Explore identity copy remains left-aligned, 
 
 1. Mark a test member private and confirm their profile remains discoverable, shows its location and hero treatment, hides the post grid, and offers **Request to Follow** instead of a profile-status badge.
 2. Send a request and confirm it appears as pending for the requester and as an actionable Activity notification for the profile owner.
-3. Approve the request and confirm a `follows` row is created, the requester receives an approval notification, and the private posts and stories become visible.
+3. Approve the request and confirm a `follows` row is created, the requester receives an approval notification, and the private posts and Shorts become visible.
 4. Repeat with a decline and confirm no `follows` row is created and the requester receives the decline notification.
 5. Cancel a pending request and block either participant; confirm pending request records cannot grant access afterward.
 
-## Messaging and story-reaction smoke test
+## Messaging and Short-reaction smoke test
 
 1. Send a text message from one member to another and confirm the recipient sees the same unread badge on desktop navigation, compact navigation, and mobile navigation without manually refreshing the page.
 2. Open the conversation and confirm the unread badge clears after the messages are marked read.
-3. Open another member’s active story, choose an emoji, and confirm it becomes selected and the reaction count updates.
+3. Open another member’s active Short, choose an emoji, and confirm it becomes selected and the reaction count updates.
 4. Choose a different emoji and confirm it replaces the first; choose the selected emoji again and confirm it is removed.
-5. Disable story replies on the story owner’s account and confirm reaction controls are no longer offered to other members.
+5. Disable Short replies on the Short owner’s account and confirm reaction controls are no longer offered to other members.
 
 ## Carousel and responsive UI smoke test
 
@@ -69,10 +69,10 @@ For member-profile releases, verify Explore identity copy remains left-aligned, 
 2. Confirm the feed card and full-screen viewer can move through every item, video playback resets between items, and the optional item caption changes with the active item.
 3. Delete the post and confirm its parent record, ordered media rows, and uploaded R2 objects are removed.
 4. On a mobile viewport, open Messages and confirm conversation summaries form a horizontally scrollable row above the active thread.
-5. View every active story from one member and confirm that member disappears from the home story tray while other members with unviewed stories remain.
+5. View every active Short from one member and confirm that member disappears from the home Shorts tray while other members with unviewed Shorts remain.
 6. Follow a new member and confirm the full-screen animated acknowledgement appears without a persistent “Profile updated” notice.
 7. Open a public member profile, follow and unfollow from the hero control, and confirm neither action blanks or reloads the application.
-8. Open a member with an unseen story, confirm the avatar has the colorful story ring, select it, and verify the viewer opens that member’s story sequence. After viewing all active stories, confirm the ring is removed.
+8. Open a member with an unseen Short, confirm the avatar has the colorful Short ring, select it, and verify the viewer opens that member’s Short sequence. After viewing all active Shorts, confirm the ring is removed.
 
 ## Profile personalization and safety-dialog smoke test
 
@@ -90,10 +90,10 @@ addresses must never be changed to deliverable addresses.
 - Source: `seed/vipkorner-community/seed.sql`
 - D1 record prefix: `seed-`
 - R2 object prefix: `seed/community/`
-- Expected totals: 6 profiles, 37 posts, 9 active stories
+- Expected totals: 6 profiles, 37 posts, 9 active Shorts
 
 Before applying the seed, query D1 for username collisions. Upload the 52
 optimized JPEG assets to the documented R2 keys, then run the SQL remotely.
 The SQL only replaces `seed-post-*`, `seed-story-*`, and follow relationships
 involving `seed-*` users; unrelated member data is not touched. Re-running it
-refreshes the 24-hour story windows.
+refreshes the 24-hour Short windows.

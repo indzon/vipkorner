@@ -31,7 +31,7 @@ re-copy, and diff the two in CI so they cannot drift apart.
 | 1 | Sticky nav | Solidifies past 24px; reading-progress bar |
 | 2 | Hero | Four parallax planes at different rates (glow 0.18 / 0.12 / 0.26, rings 0.34, copy −0.08, device −0.22) |
 | 3 | Three feature rows | Alternating, reveal from left/right, media plane at −0.10 |
-| 4 | Stories strip | Pinned for 220vh; vertical scroll drives horizontal card travel |
+| 4 | Shorts strip | Pinned for 220vh; vertical scroll drives horizontal card travel |
 | 5 | Invitations | Staggered card reveal (70ms apart, capped at 280ms) |
 | 6 | Install / PWA | Reveal + slow media plane |
 | 7 | Final CTA | Gradient plane at 0.10, scale-in reveal |
@@ -49,7 +49,7 @@ container reserves its final aspect ratio, so images load without layout shift.
 | 2 | `app-composer@2x.png` | 390 × 844 | Composer — photo selected, caption half-typed, Share active |
 | 3 | `app-explore@2x.png` | 1183 × 800 | Explore on desktop — search and member controls |
 | 4 | `app-messages@2x.png` | 390 × 844 | Direct-message exchange |
-| 5–8 | `story-1@2x.png` … `story-4@2x.png` | 390 × 844 | Story viewer, reactions, composer, and rail |
+| 5–8 | `story-1@2x.png` … `story-4@2x.png` | 390 × 844 | Short viewer, reactions, composer, and rail |
 | 9 | `app-signin@2x.png` | 1183 × 720 | Unauthenticated desktop sign-in |
 | 10 | `app-install@2x.png` | 1183 × 800 | Install guide modal |
 
@@ -87,7 +87,7 @@ Three off-switches, all verified:
   blank space where the reveals are.
 
 Below 960px the parallax and pinning switch off on their own: the phone frames
-stack, the story strip becomes a snap-scrolling rail. At 600px and below every
+stack, the Shorts strip becomes a snap-scrolling rail. At 600px and below every
 primary wrapper uses the same 20px inline margin. Both preference queries
 are watched live, so a visitor toggling reduced motion mid-session is handled
 without a reload.

@@ -36,6 +36,27 @@ test("the deployed marketing page matches its design source", async () => {
   ]);
 
   assert.equal(deployed, source);
+  assert.match(deployed, />Shorts<\/a>/);
+  assert.match(deployed, /24-hour Shorts/);
+  assert.doesNotMatch(deployed, />Stories<\/a>/);
+});
+
+test("Shorts terminology is used across every user-facing app surface", async () => {
+  const [page, login, layout, storiesRoute] = await Promise.all([
+    read("app/page.tsx"),
+    read("app/login/page.tsx"),
+    read("app/layout.tsx"),
+    read("app/api/stories/route.ts"),
+  ]);
+
+  assert.match(page, /aria-label="Shorts"/);
+  assert.match(page, />Shorts<\/span>/);
+  assert.match(page, />Add short<\/span>/);
+  assert.match(page, /aria-label="Short"/);
+  assert.match(page, /title="Short replies"/);
+  assert.match(login, /24-hour shorts/);
+  assert.match(layout, /24-hour shorts/);
+  assert.match(storiesRoute, /Short not found/);
 });
 
 test("the marketing page uses real app captures without a marquee", async () => {
@@ -142,7 +163,7 @@ test("unread navigation badges and persisted story reactions stay wired together
   assert.match(storage, /CREATE TABLE IF NOT EXISTS story_reactions/);
   assert.match(readme, /Unread totals appear/);
   assert.match(architecture, /one emoji per `\(story_id, user_id\)`/);
-  assert.match(operations, /Messaging and story-reaction smoke test/);
+  assert.match(operations, /Messaging and Short-reaction smoke test/);
 });
 
 test("carousel posts, viewed-story removal, and mobile conversation rows stay wired together", async () => {

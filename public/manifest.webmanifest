@@ -1,7 +1,7 @@
 {
   "name": "VipKorner — Your people, your moments",
   "short_name": "VipKorner",
-  "description": "Public profiles, posts, 24-hour stories, and private messages.",
+  "description": "Public profiles, posts, 24-hour Shorts, and private messages.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

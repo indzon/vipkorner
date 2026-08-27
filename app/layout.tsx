@@ -11,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") || (host.startsWith("localhost") ? "http" : "https");
   const socialImage = `${protocol}://${host}/og-vipkorner.png`;
   const title = "VipKorner — Your people, your moments";
-  const description = "An installable social app for public profiles, posts, 24-hour stories, and private messages.";
+  const description = "An installable social app for public profiles, posts, 24-hour shorts, and private messages.";
 
   return {
     title,

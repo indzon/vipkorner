@@ -61,7 +61,7 @@ export default function LoginPage() {
     <main className="login-page">
       <section className="login-story" aria-label="About VipKorner">
         <a className="login-brand" href="/login"><span className="brand-mark">V</span><span>VipKorner</span></a>
-        <div className="login-story-copy"><span className="login-kicker"><Sparkles /> REAL PEOPLE, REAL MOMENTS</span><h1>Share what feels<br />like you.</h1><p>Public profiles, photo and video posts, 24-hour stories, and private text conversations in one installable social app.</p></div>
+        <div className="login-story-copy"><span className="login-kicker"><Sparkles /> REAL PEOPLE, REAL MOMENTS</span><h1>Share what feels<br />like you.</h1><p>Public profiles, photo and video posts, 24-hour shorts, and private text conversations in one installable social app.</p></div>
         <div className="login-promise"><ShieldCheck /><div><strong>Invite-only beta</strong><span>New accounts need an invite while the community gets established.</span></div></div>
       </section>
 
@@ -87,7 +87,7 @@ export default function LoginPage() {
           <form className="login-card" onSubmit={createAccount}>
             <span className="login-lock"><UserPlus /></span><span className="eyebrow">{session.bootstrapRequired ? "ADMIN SETUP" : "CREATE YOUR PROFILE"}</span>
             <h2>{session.bootstrapRequired ? "Claim the original account" : "Join VipKorner"}</h2>
-            <p className="login-subtitle">{session.bootstrapRequired ? "You’ll become the first administrator. The existing profile name, username, posts, stories, and media will be preserved." : "Choose the public identity people will see."}</p>
+            <p className="login-subtitle">{session.bootstrapRequired ? "You’ll become the first administrator. The existing profile name, username, posts, shorts, and media will be preserved." : "Choose the public identity people will see."}</p>
             <><label className="login-field"><span>Name</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={50} required /></label><label className="login-field"><span>Username</span><div className="input-prefix"><i>@</i><input value={username} onChange={(event) => setUsername(event.target.value.replace(/\s/g, ""))} minLength={3} maxLength={30} required /></div></label></>
             {!session.bootstrapRequired && session.inviteRequired && <label className="login-field"><span>Invite code</span><input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase())} required /></label>}
             <label className="login-field"><span>Date of birth</span><input type="date" autoComplete="bday" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} required /><small>Used only to verify eligibility. Your birth date is not stored.</small></label>

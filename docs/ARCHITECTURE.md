@@ -9,7 +9,7 @@ VipKorner is a Vinext/React application deployed as a Cloudflare Worker. The sam
 | UI and API | Cloudflare Workers | React application, server routes, authorization, PWA assets |
 | Authentication | Supabase Auth | Email/password accounts, confirmation, session cookies |
 | Relational data | Cloudflare D1 | Users, invitations, posts, follows, messages, moderation |
-| Media | Cloudflare R2 | Profile photos and hero backgrounds, carousel post media, story media |
+| Media | Cloudflare R2 | Profile photos and hero backgrounds, carousel post media, Short media |
 
 ## Authentication and registration
 
@@ -33,15 +33,15 @@ The app stays invitation-only while `app_meta.registration_mode` is `invite`.
 - A follow mutation creates a direct relationship only for a public profile. Private profiles create a pending request and owner notification; the owner can approve or decline from Activity, and the requester receives the decision as a notification.
 - The client refreshes the feed, activity, counts, and conversations every 15 seconds while visible and whenever the window regains focus.
 
-Member-profile post and story visibility continues to depend exclusively on `users.is_public`, self-ownership, or an approved `follows` row. Pending requests never satisfy media queries. The profile summary includes the member location and an owner-selected hero image. If no explicit hero has been uploaded and the viewer may see posts, the latest visible post image is used as a fallback for the gradient-backed hero. Locked private profiles fall back to public avatar imagery and do not expose private post keys. Profile-hero uploads use the multipart R2 pipeline, but completion updates `users.hero_image_key` / `users.hero_image_url` and removes a replaced R2 object.
+Member-profile post and Short visibility continues to depend exclusively on `users.is_public`, self-ownership, or an approved `follows` row. Pending requests never satisfy media queries. The profile summary includes the member location and an owner-selected hero image. If no explicit hero has been uploaded and the viewer may see posts, the latest visible post image is used as a fallback for the gradient-backed hero. Locked private profiles fall back to public avatar imagery and do not expose private post keys. Profile-hero uploads use the multipart R2 pipeline, but completion updates `users.hero_image_key` / `users.hero_image_url` and removes a replaced R2 object.
 
 Connection rows, notification actors, and Explore identities all use the same member-profile navigation path. Activity payloads include the actor’s public avatar fields so the UI does not substitute a generic activity icon. From another member’s profile, the message action posts `{ action: "start", targetId }` to `/api/messages`, then opens the returned conversation in the Messages view. The client loads conversation summaries at startup, on focus, and every 15 seconds while visible so the Messages navigation can display an aggregate unread count; opening a conversation marks its messages read and refreshes that count.
 
-## Story reactions
+## Short reactions
 
-`story_reactions` stores at most one emoji per `(story_id, user_id)`. `/api/stories` validates reactions against the supported emoji set, rechecks story visibility and block rules, honors the story owner’s `story_replies` setting, and prevents self-reactions. Selecting a new emoji replaces the prior reaction; selecting the active emoji removes it. A current reaction creates one owner notification, and changing or removing the reaction replaces or removes that notification.
+`story_reactions` stores at most one emoji per `(story_id, user_id)`. `/api/stories` validates reactions against the supported emoji set, rechecks Short visibility and block rules, honors the Short owner’s internal `story_replies` setting, and prevents self-reactions. Selecting a new emoji replaces the prior reaction; selecting the active emoji removes it. A current reaction creates one owner notification, and changing or removing the reaction replaces or removes that notification.
 
-The home story tray groups active stories by member and displays only members who still have an unviewed story for the current viewer. On a member profile, the avatar uses the same unseen-story state for its ring and opens the first unseen story (or the first remaining active story). The story viewer retains the complete ordered story set for that member so manual navigation and timed autoplay continue across items.
+The home Shorts tray groups active Shorts by member and displays only members who still have an unviewed Short for the current viewer. On a member profile, the avatar uses the same unseen-Short state for its ring and opens the first unseen Short (or the first remaining active Short). The Short viewer retains the complete ordered Short set for that member so manual navigation and timed autoplay continue across items.
 
 ## Post carousels
 
@@ -53,10 +53,10 @@ The home story tray groups active stories by member and displays only members wh
 | --- | --- |
 | `/api/auth` | Supabase sign-in, invitation validation, pending registration |
 | `/auth/confirm` | Confirmation exchange and automatic profile finalization |
-| `/api/feed` | Feed, stories with viewer reaction state, comments, notifications, own profile summary |
+| `/api/feed` | Feed, Shorts with viewer reaction state, comments, notifications, own profile summary |
 | `/api/social` | Discovery, direct follows, private follow requests, blocks, reports, invitations, connection lists |
 | `/api/messages` | Text-only conversations, message requests, and unread totals |
-| `/api/stories` | Story creation, views, reactions, and owner deletion |
+| `/api/stories` | Short creation, views, reactions, and owner deletion |
 | `/api/uploads` | Validated multipart R2 uploads, including ordered post-carousel completion |
 | `/api/media` | Authorized media delivery |
 
