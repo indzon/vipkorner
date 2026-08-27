@@ -29,6 +29,15 @@ test("the visual theme preserves the proven responsive layout layer", async () =
   assert.doesNotMatch(reskin, /grid-template-columns/);
 });
 
+test("the deployed marketing page matches its design source", async () => {
+  const [source, deployed] = await Promise.all([
+    read("design/marketing/index.html"),
+    read("public/marketing.html"),
+  ]);
+
+  assert.equal(deployed, source);
+});
+
 test("connection lists remain scoped to the authenticated member", async () => {
   const socialRoute = await read("app/api/social/route.ts");
 
