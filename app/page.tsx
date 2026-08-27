@@ -831,12 +831,14 @@ function MemberProfileView({ member, error, posts, stories, onBack, onMessage, o
     : profileImage(member);
   async function toggleFollow() {
     setRequestBusy(true); setRequestError("");
+    const showFollowFeedback = Boolean(member!.isPublic) && !Boolean(member!.following);
+    if (showFollowFeedback) setFollowFeedback(member!.username);
     try {
       const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "follow", targetId: member!.id }) });
       const result = await readApiResponse<{ following?: boolean; requested?: boolean }>(response, requestPending ? "Could not cancel this follow request." : "Could not update this follow.");
       if (result.following) setFollowFeedback(member!.username);
       await onRefresh(member!.id);
-    } catch (reason) { setRequestError(reason instanceof Error ? reason.message : "Could not update this follow."); }
+    } catch (reason) { if (showFollowFeedback) setFollowFeedback(""); setRequestError(reason instanceof Error ? reason.message : "Could not update this follow."); }
     finally { setRequestBusy(false); }
   }
   return <section className="profile-page member-profile-page">
@@ -865,6 +867,8 @@ function ExploreView({ users, onRefresh, onCounts, onMessage, onViewProfile, onV
   async function action(user: DiscoveryUser, name: "follow" | "block" | "message" | "report", blockConfirmed = false) {
     if (name === "block" && !user.blocked && !blockConfirmed) { setBlockTarget(user); return; }
     setBusyId(user.id); setNotice("");
+    const showFollowFeedback = name === "follow" && Boolean(user.isPublic) && !Boolean(user.following);
+    if (showFollowFeedback) setFollowFeedback(user.username);
     try {
       if (name === "message") {
         const response = await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", targetId: user.id }) });
@@ -880,7 +884,7 @@ function ExploreView({ users, onRefresh, onCounts, onMessage, onViewProfile, onV
       else if (name === "follow" && result.following) setFollowFeedback(user.username);
       else if (name === "follow" && result.requested) setNotice(`Follow request sent to @${user.username}.`);
       await onRefresh();
-    } catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not complete this action."); }
+    } catch (reason) { if (showFollowFeedback) setFollowFeedback(null); setNotice(reason instanceof Error ? reason.message : "Could not complete this action."); }
     finally { setBusyId(null); }
   }
   return <><section className="explore-page"><div className="section-heading"><span className="eyebrow">DISCOVER</span><h1>Find your people</h1><p>Profiles from the VipKorner community.</p></div>{notice && <p className="panel-notice">{notice}</p>}{followFeedback && <FollowSuccessFeedback username={followFeedback} />}<div className="people-grid">{users.length ? users.map((user) => { const requestPending = user.followRequestStatus === "pending"; return <article className="person-card" key={user.id}><button className="person-avatar-button" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)} aria-label={`View @${user.username}'s profile`}><img src={profileImage(user)} alt="" /></button><button className="person-identity" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)}><h2>{user.displayName}</h2><strong>@{user.username}</strong><p>{user.bio || "New to VipKorner."}</p><small>{user.posts} posts · {user.followers} followers{user.isSelf ? " · This is you" : user.followsYou ? " · Follows you" : !user.isPublic ? " · Private" : ""}</small></button><div className="person-actions">{user.isSelf ? <button className="primary" onClick={onViewSelf}><UserRound /> View your profile</button> : <><button className={user.following || requestPending ? "following" : "primary"} disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "follow")}>{user.following ? "Following" : requestPending ? "Requested" : <><UserPlus /> {user.isPublic ? "Follow" : "Request"}</>}</button><button disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "message")}><Mail /> Message</button><button className={user.blocked ? "danger" : ""} disabled={busyId === user.id} onClick={() => action(user, "block")}><Ban /> {user.blocked ? "Unblock" : "Block"}</button><button disabled={busyId === user.id} onClick={() => action(user, "report")}><Flag /> Report</button></>}</div></article>; }) : <div className="empty-state"><span><Compass /></span><h2>No profiles found</h2><p>Try a different name or username.</p></div>}</div></section>{blockTarget && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="block-confirm-title" onMouseDown={(event) => event.target === event.currentTarget && setBlockTarget(null)}><section className="profile-modal block-confirm-modal"><span className="brand-mark" aria-hidden="true">V</span><h2 id="block-confirm-title">Block @{blockTarget.username}?</h2><p>Following relationships will be removed, and you won’t see or message each other.</p><div><button type="button" onClick={() => setBlockTarget(null)}>Cancel</button><button type="button" className="danger" disabled={busyId === blockTarget.id} onClick={() => { const target = blockTarget; setBlockTarget(null); void action(target, "block", true); }}>Block</button></div></section></div>}</>;
