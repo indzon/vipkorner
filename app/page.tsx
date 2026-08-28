@@ -596,6 +596,30 @@ function SharePostModal({ post, onClose }: { post: Post; onClose: () => void }) 
   return <div className="modal-backdrop share-post-backdrop" role="dialog" aria-modal="true" aria-label="Send post" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="profile-modal share-post-modal"><ModalHeader eyebrow="SHARE" title="Send post" onClose={onClose} /><div className="share-post-preview"><img src={imageSource(postMediaItems(post)[0])} alt="" /><p><strong>@{post.author.username}</strong>{post.caption}</p></div>{notice && <p className="panel-notice" role="status">{notice}</p>}{error && <p className="inline-error" role="alert">{error}</p>}<div className="share-user-list">{users.map((user) => <article key={user.id}><img src={profileImage(user)} alt="" /><div><strong>{user.displayName}</strong><span>@{user.username}</span></div><button type="button" disabled={Boolean(busyId)} onClick={() => void sendTo(user)}><Send /> {busyId === user.id ? "Sending…" : "Send"}</button></article>)}{!users.length && !error && <p>Loading people…</p>}</div></section></div>;
 }
 
+function ReportDialog({ targetType, targetId, label, onClose, onSubmitted }: { targetType: "post" | "profile"; targetId: string; label: string; onClose: () => void; onSubmitted: () => void }) {
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!reason.trim()) return;
+    setBusy(true); setError("");
+    try {
+      const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "report", targetType, targetId, reason: reason.trim() }) });
+      await readApiResponse(response, "Could not submit this report.");
+      onSubmitted();
+      onClose();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not submit this report.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Report ${label}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}><form className="profile-modal report-modal" onSubmit={submit}><ModalHeader eyebrow="SAFETY" title={`Report ${label}`} onClose={onClose} /><div className="report-modal-body"><span className="brand-mark" aria-hidden="true">V</span><div><h3>Tell us what happened</h3><p>Your report is private and will be reviewed by a VipKorner administrator.</p></div><label htmlFor={`report-reason-${targetId}`}>Reason</label><textarea id={`report-reason-${targetId}`} autoFocus required rows={5} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Describe the issue…" /><small>{reason.length}/500</small>{error && <p className="inline-error" role="alert">{error}</p>}</div><div className="report-modal-actions"><button type="button" onClick={onClose}>Cancel</button><button type="submit" className="danger" disabled={busy || !reason.trim()}><Flag /> {busy ? "Sending…" : "Submit report"}</button></div></form></div>;
+}
+
 function PostCard({ post, profile, hasUnseenShorts, onViewProfile, onFollow, onToggle, onComment, onCaptionUpdate, onDelete }: { post: Post; profile: Profile; hasUnseenShorts: boolean; onViewProfile: (userId: string) => void; onFollow: (author: PublicUser) => Promise<{ following?: boolean; requested?: boolean }>; onToggle: (id: string, action: "like" | "save", desired?: boolean) => void; onComment: (postId: string, body: string) => Promise<void>; onCaptionUpdate: (postId: string, caption: string) => Promise<void>; onDelete: (postId: string) => Promise<void> }) {
   const mediaItems = postMediaItems(post);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
@@ -611,6 +635,7 @@ function PostCard({ post, profile, hasUnseenShorts, onViewProfile, onFollow, onT
   const [videoMuted, setVideoMuted] = useState(true);
   const [likeFeedback, setLikeFeedback] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [followFeedback, setFollowFeedback] = useState(false);
   const inlineVideoRef = useRef<HTMLVideoElement>(null);
@@ -701,17 +726,9 @@ function PostCard({ post, profile, hasUnseenShorts, onViewProfile, onFollow, onT
     }
   }
 
-  async function reportPost() {
-    const reason = window.prompt("Why are you reporting this post?");
-    if (!reason) return;
-    const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "report", targetType: "post", targetId: post.id, reason }) });
-    await readApiResponse(response, "Could not submit this report.");
-    setOptionsOpen(false); setActionError("Report sent to the administrator.");
-  }
-
   return (
     <article className="post-card">
-      <header className="post-header"><div className="post-author"><button type="button" className={`post-author-avatar ${hasUnseenShorts ? "has-unseen-short" : ""}`} onClick={() => onViewProfile(post.author.id)} aria-label={`View @${post.author.username}'s profile`}><img src={profileImage(post.author)} alt="" /></button><button type="button" className="post-author-name" onClick={() => onViewProfile(post.author.id)}><strong>{post.author.username}</strong><time className="post-header-time" dateTime={new Date(post.createdAt).toISOString()}>{relativeTime(post.createdAt)}</time></button></div><div className="post-header-actions">{!post.owned && <button type="button" className={`post-follow-button ${post.author.following || post.author.followRequestStatus === "pending" ? "following" : ""}`} disabled={followBusy} onClick={() => void toggleFollow()}>{followBusy ? "…" : post.author.following ? "Following" : post.author.followRequestStatus === "pending" ? "Requested" : "Follow"}</button>}<div className="post-menu-wrap"><button className="icon-button" aria-label="Post options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><MoreHorizontal /></button>{optionsOpen && <div className="post-menu">{post.owned && <button onClick={() => { setCaptionDraft(post.caption); setEditingCaption(true); setOptionsOpen(false); }}>Edit caption</button>}<button onClick={async () => { await navigator.clipboard?.writeText(`${location.origin}/?post=${post.id}`); setOptionsOpen(false); }}>Copy post link</button>{post.owned ? <button className="post-menu-danger" onClick={async () => { if (!window.confirm("Delete this post permanently?")) return; setOptionsOpen(false); try { await onDelete(post.id); } catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not delete post."); } }}>Delete post</button> : <button className="post-menu-danger" onClick={reportPost}><Flag /> <span>Report post</span></button>}<button onClick={() => setOptionsOpen(false)}>Cancel</button></div>}</div></div></header>
+      <header className="post-header"><div className="post-author"><button type="button" className={`post-author-avatar ${hasUnseenShorts ? "has-unseen-short" : ""}`} onClick={() => onViewProfile(post.author.id)} aria-label={`View @${post.author.username}'s profile`}><img src={profileImage(post.author)} alt="" /></button><button type="button" className="post-author-name" onClick={() => onViewProfile(post.author.id)}><strong>{post.author.username}</strong><time className="post-header-time" dateTime={new Date(post.createdAt).toISOString()}>{relativeTime(post.createdAt)}</time></button></div><div className="post-header-actions">{!post.owned && <button type="button" className={`post-follow-button ${post.author.following || post.author.followRequestStatus === "pending" ? "following" : ""}`} disabled={followBusy} onClick={() => void toggleFollow()}>{followBusy ? "…" : post.author.following ? "Following" : post.author.followRequestStatus === "pending" ? "Requested" : "Follow"}</button>}<div className="post-menu-wrap"><button className="icon-button" aria-label="Post options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><MoreHorizontal /></button>{optionsOpen && <div className="post-menu">{post.owned && <button onClick={() => { setCaptionDraft(post.caption); setEditingCaption(true); setOptionsOpen(false); }}>Edit caption</button>}<button onClick={async () => { await navigator.clipboard?.writeText(`${location.origin}/?post=${post.id}`); setOptionsOpen(false); }}>Copy post link</button>{post.owned ? <button className="post-menu-danger" onClick={async () => { if (!window.confirm("Delete this post permanently?")) return; setOptionsOpen(false); try { await onDelete(post.id); } catch (reason) { setActionError(reason instanceof Error ? reason.message : "Could not delete post."); } }}>Delete post</button> : <button className="post-menu-danger" onClick={() => { setOptionsOpen(false); setReportOpen(true); }}><Flag /> <span>Report post</span></button>}<button onClick={() => setOptionsOpen(false)}>Cancel</button></div>}</div></div></header>
       <div className={`post-image-wrap ${activeMedia.mediaType === "video" ? "has-video" : ""}`} onClick={toggleVideoPlayback} onDoubleClick={(event) => { event.preventDefault(); likePost(); }} onPointerUp={handleMediaPointerUp} onKeyDown={(event) => { if (activeMedia.mediaType === "video" && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); toggleVideoPlayback(); } }} tabIndex={activeMedia.mediaType === "video" ? 0 : undefined} role={activeMedia.mediaType === "video" ? "button" : undefined} aria-label={activeMedia.mediaType === "video" ? `${videoPlaying ? "Pause" : "Play"} video: ${activeMedia.caption || post.caption}` : undefined}>
         {activeMedia.mediaType === "video" ? <><video key={activeMedia.id} ref={inlineVideoRef} className="post-image post-video" src={imageSource(activeMedia)} muted={videoMuted} playsInline preload="metadata" aria-label={activeMedia.caption || post.caption} onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />{!videoPlaying && <span className="post-play-indicator" aria-hidden="true"><Play fill="currentColor" /></span>}<button type="button" className="post-audio-toggle" onClick={toggleVideoSound} aria-label={videoMuted ? "Unmute video" : "Mute video"}>{videoMuted ? <VolumeX /> : <Volume2 />}</button></> : <img className="post-image" src={imageSource(activeMedia)} alt={activeMedia.caption || post.caption} />}
         {mediaItems.length > 1 && <><button type="button" className="carousel-arrow carousel-previous" onClick={(event) => { event.stopPropagation(); showMedia((activeMediaIndex - 1 + mediaItems.length) % mediaItems.length); }} aria-label="Previous carousel item"><ChevronLeft /></button><button type="button" className="carousel-arrow carousel-next" onClick={(event) => { event.stopPropagation(); showMedia((activeMediaIndex + 1) % mediaItems.length); }} aria-label="Next carousel item"><ChevronRight /></button><span className="carousel-count">{activeMediaIndex + 1}/{mediaItems.length}</span></>}
@@ -723,6 +740,7 @@ function PostCard({ post, profile, hasUnseenShorts, onViewProfile, onFollow, onT
       {likeFeedback && <LikeSuccessFeedback />}
       {followFeedback && <FollowSuccessFeedback username={post.author.username} />}
       {shareOpen && <SharePostModal post={post} onClose={() => setShareOpen(false)} />}
+      {reportOpen && <ReportDialog targetType="post" targetId={post.id} label="post" onClose={() => setReportOpen(false)} onSubmitted={() => setActionError("Report sent to the administrator.")} />}
     </article>
   );
 }
@@ -983,12 +1001,13 @@ function ExploreView({ users, onRefresh, onCounts, onMessage, onViewProfile, onV
   const [notice, setNotice] = useState("");
   const [followFeedback, setFollowFeedback] = useState<string | null>(null);
   const [blockTarget, setBlockTarget] = useState<DiscoveryUser | null>(null);
+  const [reportTarget, setReportTarget] = useState<DiscoveryUser | null>(null);
   useEffect(() => {
     if (!followFeedback) return;
     const timeout = window.setTimeout(() => setFollowFeedback(null), 1600);
     return () => window.clearTimeout(timeout);
   }, [followFeedback]);
-  async function action(user: DiscoveryUser, name: "follow" | "block" | "message" | "report", blockConfirmed = false) {
+  async function action(user: DiscoveryUser, name: "follow" | "block" | "message", blockConfirmed = false) {
     if (name === "block" && !user.blocked && !blockConfirmed) { setBlockTarget(user); return; }
     setBusyId(user.id); setNotice("");
     try {
@@ -997,19 +1016,16 @@ function ExploreView({ users, onRefresh, onCounts, onMessage, onViewProfile, onV
         const data = await readApiResponse<{ id: string }>(response, "Could not start a conversation.");
         onMessage(data.id); return;
       }
-      let reason = "";
-      if (name === "report") { reason = window.prompt(`Why are you reporting @${user.username}?`) || ""; if (!reason) return; }
-      const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: name, targetId: user.id, targetType: "profile", reason }) });
+      const response = await fetch("/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: name, targetId: user.id }) });
       const result = await readApiResponse<{ counts?: ConnectionCounts; following?: boolean; requested?: boolean }>(response, "Could not update this profile.");
       if (result.counts) onCounts(result.counts);
-      if (name === "report") setNotice("Report sent to the administrator.");
-      else if (name === "follow" && result.following) setFollowFeedback(user.username);
+      if (name === "follow" && result.following) setFollowFeedback(user.username);
       else if (name === "follow" && result.requested) setNotice(`Follow request sent to @${user.username}.`);
       await onRefresh();
     } catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not complete this action."); }
     finally { setBusyId(null); }
   }
-  return <><section className="explore-page"><div className="section-heading"><span className="eyebrow">DISCOVER</span><h1>Find your people</h1><p>Profiles from the VipKorner community.</p></div>{notice && <p className="panel-notice">{notice}</p>}{followFeedback && <FollowSuccessFeedback username={followFeedback} />}<div className="people-grid">{users.length ? users.map((user) => { const requestPending = user.followRequestStatus === "pending"; return <article className="person-card" key={user.id}><button className="person-avatar-button" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)} aria-label={`View @${user.username}'s profile`}><img src={profileImage(user)} alt="" /></button><button className="person-identity" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)}><h2>{user.displayName}</h2><strong>@{user.username}</strong><p>{user.bio || "New to VipKorner."}</p><small>{user.posts} posts · {user.followers} followers{user.isSelf ? " · This is you" : user.followsYou ? " · Follows you" : !user.isPublic ? " · Private" : ""}</small></button><div className="person-actions">{user.isSelf ? <button className="primary" onClick={onViewSelf}><UserRound /> View your profile</button> : <><button className={user.following || requestPending ? "following" : "primary"} disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "follow")}>{user.following ? "Following" : requestPending ? "Requested" : <><UserPlus /> {user.isPublic ? "Follow" : "Request"}</>}</button><button disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "message")}><Mail /> Message</button><button className={user.blocked ? "danger" : ""} disabled={busyId === user.id} onClick={() => action(user, "block")}><Ban /> {user.blocked ? "Unblock" : "Block"}</button><button disabled={busyId === user.id} onClick={() => action(user, "report")}><Flag /> Report</button></>}</div></article>; }) : <div className="empty-state"><span><Compass /></span><h2>No profiles found</h2><p>Try a different name or username.</p></div>}</div></section>{blockTarget && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="block-confirm-title" onMouseDown={(event) => event.target === event.currentTarget && setBlockTarget(null)}><section className="profile-modal block-confirm-modal"><span className="brand-mark" aria-hidden="true">V</span><h2 id="block-confirm-title">Block @{blockTarget.username}?</h2><p>Following relationships will be removed, and you won’t see or message each other.</p><div><button type="button" onClick={() => setBlockTarget(null)}>Cancel</button><button type="button" className="danger" disabled={busyId === blockTarget.id} onClick={() => { const target = blockTarget; setBlockTarget(null); void action(target, "block", true); }}>Block</button></div></section></div>}</>;
+  return <><section className="explore-page"><div className="section-heading"><span className="eyebrow">DISCOVER</span><h1>Find your people</h1><p>Profiles from the VipKorner community.</p></div>{notice && <p className="panel-notice">{notice}</p>}{followFeedback && <FollowSuccessFeedback username={followFeedback} />}<div className="people-grid">{users.length ? users.map((user) => { const requestPending = user.followRequestStatus === "pending"; return <article className="person-card" key={user.id}><button className="person-avatar-button" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)} aria-label={`View @${user.username}'s profile`}><img src={profileImage(user)} alt="" /></button><button className="person-identity" onClick={user.isSelf ? onViewSelf : () => onViewProfile(user.id)}><h2>{user.displayName}</h2><strong>@{user.username}</strong><p>{user.bio || "New to VipKorner."}</p><small>{user.posts} posts · {user.followers} followers{user.isSelf ? " · This is you" : user.followsYou ? " · Follows you" : !user.isPublic ? " · Private" : ""}</small></button><div className="person-actions">{user.isSelf ? <button className="primary" onClick={onViewSelf}><UserRound /> View your profile</button> : <><button className={user.following || requestPending ? "following" : "primary"} disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "follow")}>{user.following ? "Following" : requestPending ? "Requested" : <><UserPlus /> {user.isPublic ? "Follow" : "Request"}</>}</button><button disabled={busyId === user.id || Boolean(user.blocked)} onClick={() => action(user, "message")}><Mail /> Message</button><button className={user.blocked ? "danger" : ""} disabled={busyId === user.id} onClick={() => action(user, "block")}><Ban /> {user.blocked ? "Unblock" : "Block"}</button><button disabled={busyId === user.id} onClick={() => setReportTarget(user)}><Flag /> Report</button></>}</div></article>; }) : <div className="empty-state"><span><Compass /></span><h2>No profiles found</h2><p>Try a different name or username.</p></div>}</div></section>{blockTarget && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="block-confirm-title" onMouseDown={(event) => event.target === event.currentTarget && setBlockTarget(null)}><section className="profile-modal block-confirm-modal"><span className="brand-mark" aria-hidden="true">V</span><h2 id="block-confirm-title">Block @{blockTarget.username}?</h2><p>Following relationships will be removed, and you won’t see or message each other.</p><div><button type="button" onClick={() => setBlockTarget(null)}>Cancel</button><button type="button" className="danger" disabled={busyId === blockTarget.id} onClick={() => { const target = blockTarget; setBlockTarget(null); void action(target, "block", true); }}>Block</button></div></section></div>}{reportTarget && <ReportDialog targetType="profile" targetId={reportTarget.id} label={`@${reportTarget.username}`} onClose={() => setReportTarget(null)} onSubmitted={() => setNotice("Report sent to the administrator.")} />}</>;
 }
 
 function MessagesView({ profile, conversations, initialConversationId, onRefresh }: { profile: Profile; conversations: Conversation[]; initialConversationId: string | null; onRefresh: () => Promise<void> }) {
@@ -1320,7 +1336,7 @@ function AdminControls() {
       await navigator.clipboard.writeText(code);
       setNotice(`Invite ${code} copied.`);
     } catch {
-      window.prompt("Copy this invite code", code);
+      setNotice(`Copy this invite code: ${code}`);
     }
   }
 
@@ -1337,7 +1353,7 @@ function AdminControls() {
     {notice && <p className="panel-notice" aria-live="polite">{notice}</p>}
     <details open>
       <summary>Invite codes ({data.invites.length})</summary>
-      <div className="invite-toolbar" aria-label="Filter invite codes">{(["all", "available", "claimed", "revoked"] as InviteFilter[]).map((filter) => <button type="button" className={inviteFilter === filter ? "active" : ""} key={filter} onClick={() => setInviteFilter(filter)}>{filter[0].toUpperCase() + filter.slice(1)}</button>)}</div>
+      <div className="invite-toolbar" role="toolbar" aria-label="Filter invite codes">{(["all", "available", "claimed", "revoked"] as InviteFilter[]).map((filter) => <button type="button" aria-pressed={inviteFilter === filter} className={inviteFilter === filter ? "active" : ""} key={filter} onClick={() => setInviteFilter(filter)}>{filter[0].toUpperCase() + filter.slice(1)}</button>)}</div>
       <div className="invite-list">
         {visibleInvites.map((invite) => {
           const status = invite.claimedUsername ? "claimed" : invite.revoked ? "revoked" : "available";

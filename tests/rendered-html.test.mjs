@@ -289,6 +289,8 @@ test("feed identity, reactions, saves, follows, reports, and in-app sharing stay
   assert.match(page, /Shared @\$\{post\.author\.username\}'s post/);
   assert.match(page, /post-follow-button/);
   assert.match(page, /<Flag \/> <span>Report post<\/span>/);
+  assert.match(page, /function ReportDialog/);
+  assert.doesNotMatch(page, /window\.prompt/);
   assert.match(page, /Public saved collection/);
   assert.match(feedRoute, /authorFollowRequestStatus/);
   assert.match(postsRoute, /value === undefined \? !current : value/);
