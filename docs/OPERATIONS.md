@@ -73,6 +73,7 @@ For member-profile releases, verify Explore identity copy remains left-aligned, 
 6. Follow a new member and confirm the full-screen animated acknowledgement appears without a persistent “Profile updated” notice.
 7. Open a public member profile, follow and unfollow from the hero control, and confirm neither action blanks or reloads the application.
 8. Open a member with an unseen Short, confirm the avatar has the colorful Short ring, select it, and verify the viewer opens that member’s Short sequence. After viewing all active Shorts, confirm the ring is removed.
+9. On a narrow mobile viewport, open **New short** and confirm the upload heading and file-size guidance wrap within the padded media surface without touching either edge.
 
 ## Profile personalization and safety-dialog smoke test
 

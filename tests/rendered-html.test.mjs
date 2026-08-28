@@ -191,6 +191,8 @@ test("carousel posts, viewed-story removal, and mobile conversation rows stay wi
   assert.match(page, /path: "\/lottie\/follow-success\.json"/);
   assert.match(page, /animation\?\.destroy\(\)/);
   assert.match(layout, /grid-auto-flow: column/);
+  assert.match(layout, /\.upload-drop\.story \{[^}]*padding: var\(--vk-space-6\) var\(--vk-space-7\);[^}]*text-align: center;/);
+  assert.match(layout, /\.upload-drop\.story h3, \.upload-drop\.story p \{[^}]*width: 100%;[^}]*overflow-wrap: anywhere;/);
   assert.match(feedRoute, /FROM post_media/);
   assert.match(uploadRoute, /INSERT INTO post_media/);
   assert.match(uploadRoute, /position > 9/);

@@ -142,7 +142,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .file-input { display: none; }
 .upload-drop { width: calc(100% - 50px); min-height: 350px; margin: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1.5px dashed #d9cec5; border-radius: 15px; background: #fcf8f4; cursor: pointer; }
 .upload-drop.drag-active, .preview-frame.drag-active { border-color: var(--accent); background: #fff0f1; box-shadow: inset 0 0 0 2px rgba(233,80,114,.12); }
-.upload-drop.story { width: min(300px, calc(100% - 50px)); aspect-ratio: 9/14; min-height: 0; margin: 25px auto; }
+.upload-drop.story { width: min(300px, calc(100% - 50px)); aspect-ratio: 9/14; min-height: 0; margin: 25px auto; padding: var(--vk-space-6) var(--vk-space-7); text-align: center; }
+.upload-drop.story h3, .upload-drop.story p { width: 100%; max-width: 100%; overflow-wrap: anywhere; }
 .upload-drop > span { width: 62px; height: 62px; display: grid; place-items: center; border-radius: 50%; color: var(--accent); background: #fff0f1; }
 .upload-drop svg { width: 26px; }
 .upload-drop h3 { font-family: Georgia, serif; font-size: 21px; font-weight: 500; margin: 17px 0 4px; }

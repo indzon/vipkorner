@@ -37,7 +37,9 @@ specimen documentation are maintained together in
 [`design/system`](design/system). `app/globals.css` imports these layers in a
 fixed order: Tailwind, tokens, the proven responsive layout, then the visual
 reskin. The separation keeps the dark theme from changing page geometry or app
-behavior.
+behavior. Narrow Short composers use tokenized inline padding and constrained,
+balanced upload instructions so selection copy stays clear of the media-card
+edges.
 
 ## Local development
 
