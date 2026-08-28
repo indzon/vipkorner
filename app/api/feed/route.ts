@@ -28,14 +28,18 @@ export async function GET() {
         WHERE u.status = 'active' AND (u.is_public = 1 OR p.user_id = ? OR EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = p.user_id)) AND NOT EXISTS (
           SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = p.user_id)
           OR (b.blocker_id = p.user_id AND b.blocked_id = ?)
-        ) ORDER BY p.created_at DESC LIMIT 100`).bind(viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id).all(),
+        ) AND NOT EXISTS (
+          SELECT 1 FROM hidden_posts hp WHERE hp.post_id = p.id AND hp.user_id = ?
+        ) ORDER BY p.created_at DESC LIMIT 100`).bind(viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id, viewer.id).all(),
       DB.prepare(`SELECT m.id, m.post_id AS postId, m.position, m.caption,
         m.image_key AS imageKey, m.image_url AS imageUrl, m.media_type AS mediaType
         FROM post_media m JOIN posts p ON p.id = m.post_id JOIN users u ON u.id = p.user_id
         WHERE u.status = 'active' AND (u.is_public = 1 OR p.user_id = ? OR EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = p.user_id)) AND NOT EXISTS (
           SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = p.user_id)
           OR (b.blocker_id = p.user_id AND b.blocked_id = ?)
-        ) ORDER BY m.post_id, m.position`).bind(viewer.id, viewer.id, viewer.id, viewer.id).all(),
+        ) AND NOT EXISTS (
+          SELECT 1 FROM hidden_posts hp WHERE hp.post_id = p.id AND hp.user_id = ?
+        ) ORDER BY m.post_id, m.position`).bind(viewer.id, viewer.id, viewer.id, viewer.id, viewer.id).all(),
       DB.prepare(`SELECT s.id, s.caption, s.image_key AS imageKey, s.image_url AS imageUrl,
         s.media_type AS mediaType, s.created_at AS createdAt, s.expires_at AS expiresAt,
         s.caption_x AS captionX, s.caption_y AS captionY, s.user_id AS userId,

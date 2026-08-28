@@ -718,7 +718,7 @@ a {
   color: var(--vk-text-muted);
   font-size: var(--vk-size-xs);
   line-height: var(--vk-leading-tight);
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: var(--vk-tracking-wide);
 }
 .post-header-actions { display: flex; align-items: center; gap: var(--vk-space-2); }
@@ -734,7 +734,9 @@ a {
   cursor: pointer;
 }
 .post-follow-button.following { border-color: var(--vk-border); color: var(--vk-text-muted); }
+.post-menu .post-menu-hide,
 .post-menu .post-menu-danger { display: flex; align-items: center; gap: var(--vk-space-2); }
+.post-menu .post-menu-hide svg,
 .post-menu .post-menu-danger svg { width: 16px; height: 16px; flex: 0 0 16px; }
 
 /* Media viewer controls follow the same tokenized button and hover states as the app. */

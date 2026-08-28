@@ -290,6 +290,8 @@ test("feed identity, reactions, saves, follows, reports, and in-app sharing stay
   assert.match(page, /function SharePostModal/);
   assert.match(page, /Shared @\$\{post\.author\.username\}'s post/);
   assert.match(page, /post-follow-button/);
+  assert.match(page, /Hide post/);
+  assert.match(page, /!post\.author\.following/);
   assert.match(page, /<Flag \/> <span>Report post<\/span>/);
   assert.match(page, /function ReportDialog/);
   assert.doesNotMatch(page, /window\.prompt/);
@@ -299,6 +301,9 @@ test("feed identity, reactions, saves, follows, reports, and in-app sharing stay
   assert.match(profileRoute, /savedCollectionPublic/);
   assert.match(socialRoute, /savedPostIds/);
   assert.match(storage, /saved_collection_public/);
+  assert.match(storage, /CREATE TABLE IF NOT EXISTS hidden_posts/);
+  assert.match(feedRoute, /FROM hidden_posts hp WHERE hp\.post_id = p\.id AND hp\.user_id = \?/);
+  assert.match(postsRoute, /action === "hide"/);
   assert.match(theme, /post-menu \.post-menu-danger \{ display: flex; align-items: center/);
 });
 
@@ -316,6 +321,7 @@ test("feed timestamps and media viewer controls follow the current interaction d
   const viewer = page.slice(page.indexOf("function MediaViewer"), page.indexOf("function EditProfileModal"));
 
   assert.match(postCard, /className="post-header-time" dateTime=\{new Date\(post\.createdAt\)\.toISOString\(\)\}/);
+  assert.match(reskin, /\.post-header-time \{[^}]*text-transform: lowercase;/s);
   assert.doesNotMatch(postCard, /\{post\.author\.location\}/);
   assert.doesNotMatch(postCard, /<time>\{relativeTime\(post\.createdAt\)\}<\/time>/);
   assert.doesNotMatch(viewer, /viewer-media-controls|fitMode|setFitMode|setZoom/);

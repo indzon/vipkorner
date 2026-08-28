@@ -208,3 +208,9 @@ export const postSaves = sqliteTable("post_saves", {
   userId: text("user_id").notNull(),
   createdAt: integer("created_at").notNull(),
 });
+
+export const hiddenPosts = sqliteTable("hidden_posts", {
+  postId: text("post_id").notNull(),
+  userId: text("user_id").notNull(),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [primaryKey({ columns: [table.postId, table.userId] })]);

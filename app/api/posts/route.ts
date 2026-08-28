@@ -31,12 +31,18 @@ export async function PATCH(request: Request) {
   try {
     await ensureSchema();
     const user = await requireUser();
-    const { id, action, caption, value } = await request.json() as { id?: string; action?: "like" | "save" | "caption"; caption?: string; value?: boolean };
-    if (!id || !["like", "save", "caption"].includes(action || "")) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
+    const { id, action, caption, value } = await request.json() as { id?: string; action?: "like" | "save" | "caption" | "hide"; caption?: string; value?: boolean };
+    if (!id || !["like", "save", "caption", "hide"].includes(action || "")) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
     const { DB } = bindings();
     const post = await DB.prepare("SELECT user_id AS userId, caption FROM posts WHERE id = ?").bind(id).first<{ userId: string; caption: string }>();
     if (!post) return NextResponse.json({ error: "Post not found." }, { status: 404 });
     if (await blockedBetween(user.id, post.userId)) return NextResponse.json({ error: "This interaction is unavailable." }, { status: 403 });
+
+    if (action === "hide") {
+      if (post.userId === user.id) return NextResponse.json({ error: "Use delete to remove your own post." }, { status: 400 });
+      await DB.prepare("INSERT OR IGNORE INTO hidden_posts (post_id, user_id, created_at) VALUES (?, ?, ?)").bind(id, user.id, Date.now()).run();
+      return NextResponse.json({ hidden: true });
+    }
 
     if (action === "caption") {
       if (post.userId !== user.id) return NextResponse.json({ error: "Only the original poster can edit this caption." }, { status: 403 });
@@ -98,6 +104,7 @@ export async function DELETE(request: Request) {
       DB.prepare("DELETE FROM comments WHERE post_id = ?").bind(id),
       DB.prepare("DELETE FROM post_likes WHERE post_id = ?").bind(id),
       DB.prepare("DELETE FROM post_saves WHERE post_id = ?").bind(id),
+      DB.prepare("DELETE FROM hidden_posts WHERE post_id = ?").bind(id),
       DB.prepare("DELETE FROM post_media WHERE post_id = ?").bind(id),
       DB.prepare("DELETE FROM posts WHERE id = ?").bind(id),
     ]);

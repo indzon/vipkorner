@@ -130,6 +130,10 @@ export async function ensureSchema() {
       post_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at INTEGER NOT NULL,
       PRIMARY KEY (post_id, user_id)
     )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS hidden_posts (
+      post_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at INTEGER NOT NULL,
+      PRIMARY KEY (post_id, user_id)
+    )`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS story_views (
       story_id TEXT NOT NULL, user_id TEXT NOT NULL, viewed_at INTEGER NOT NULL,
       PRIMARY KEY (story_id, user_id)
@@ -144,6 +148,7 @@ export async function ensureSchema() {
     DB.prepare("CREATE INDEX IF NOT EXISTS story_reactions_story_idx ON story_reactions (story_id, created_at DESC)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status, created_at DESC)"),
     DB.prepare("CREATE INDEX IF NOT EXISTS pending_registrations_created_idx ON pending_registrations (created_at)"),
+    DB.prepare("CREATE INDEX IF NOT EXISTS hidden_posts_user_idx ON hidden_posts (user_id, created_at DESC)"),
   ]);
 
   const postColumns = await DB.prepare("PRAGMA table_info(posts)").all<{ name: string }>();

@@ -94,11 +94,13 @@ For member-profile releases, verify Explore identity copy remains left-aligned, 
 
 ## Feed timestamp and media-viewer smoke test
 
-1. Confirm every feed card shows its relative post time beneath the username and no duplicate time appears below the caption.
+1. Confirm every feed card shows its lowercase relative post time beneath the username and no duplicate time appears below the caption.
 2. Open an image in the full-screen viewer and confirm it fits the available stage without a Fit/Fill/zoom toolbar.
 3. On an owned post, confirm **Edit caption** uses the primary design-system control and **Delete post** uses the outlined danger treatment.
 4. Hover the viewer like and comment counts and confirm their surfaces, text colors, and liked state use the current design-system tokens.
 5. Follow a public member from Explore and from a member profile; each successful action must play exactly one acknowledgement animation.
+6. Confirm followed authors do not show a redundant **Following** control in the feed; unfollowed authors still show **Follow**.
+7. Choose **Hide post** from another member's post menu and confirm the post disappears immediately and stays absent after a refresh without affecting other members' feeds.
 
 ## Fictional community seed
 
