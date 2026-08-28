@@ -221,6 +221,7 @@ a {
 
 .post-copy time,
 .post-author span,
+.post-author time,
 .section-heading p,
 .person-card p,
 .person-card small,
@@ -620,6 +621,13 @@ a {
 }
 .post-author-avatar img { width: 100%; height: 100%; border: 2px solid var(--vk-surface); }
 .post-author-name { display: flex; flex-direction: column; gap: 2px; }
+.post-header-time {
+  color: var(--vk-text-muted);
+  font-size: var(--vk-size-xs);
+  line-height: var(--vk-leading-tight);
+  text-transform: uppercase;
+  letter-spacing: var(--vk-tracking-wide);
+}
 .post-header-actions { display: flex; align-items: center; gap: var(--vk-space-2); }
 .post-follow-button {
   min-height: 34px;
@@ -635,6 +643,45 @@ a {
 .post-follow-button.following { border-color: var(--vk-border); color: var(--vk-text-muted); }
 .post-menu .post-menu-danger { display: flex; align-items: center; gap: var(--vk-space-2); }
 .post-menu .post-menu-danger svg { width: 16px; height: 16px; flex: 0 0 16px; }
+
+/* Media viewer controls follow the same tokenized button and hover states as the app. */
+.viewer-stats button {
+  border-radius: var(--vk-radius-pill);
+  color: var(--vk-text-muted);
+  background: transparent;
+  transition: var(--vk-transition-control);
+}
+.viewer-stats button:hover {
+  color: var(--vk-text);
+  background: var(--vk-surface-hover);
+}
+.viewer-stats button.liked:hover {
+  color: var(--vk-accent);
+  background: var(--vk-accent-subtle);
+}
+.viewer-actions > button {
+  min-height: var(--vk-tap-compact);
+  justify-content: center;
+  border-color: var(--vk-brand);
+  border-radius: var(--vk-radius-pill);
+  color: var(--vk-text-on-brand);
+  background: var(--vk-brand);
+  transition: var(--vk-transition-control);
+}
+.viewer-actions > button:hover {
+  border-color: var(--vk-brand-hover);
+  background: var(--vk-brand-hover);
+}
+.viewer-actions > button.danger {
+  color: var(--vk-red-300);
+  border-color: var(--vk-border-danger);
+  background: transparent;
+}
+.viewer-actions > button.danger:hover {
+  color: var(--vk-red-300);
+  border-color: var(--vk-border-danger);
+  background: var(--vk-danger-subtle);
+}
 .like-feedback {
   position: fixed;
   z-index: calc(var(--vk-z-modal) + 2);

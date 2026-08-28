@@ -297,3 +297,28 @@ test("feed identity, reactions, saves, follows, reports, and in-app sharing stay
   assert.match(storage, /saved_collection_public/);
   assert.match(theme, /post-menu \.post-menu-danger \{ display: flex; align-items: center/);
 });
+
+test("feed timestamps and media viewer controls follow the current interaction design", async () => {
+  const [page, layout, reskin, operations] = await Promise.all([
+    read("app/page.tsx"),
+    read("design/system/vipkorner-layout.css"),
+    read("design/system/vipkorner-reskin.css"),
+    read("docs/OPERATIONS.md"),
+  ]);
+
+  const postCard = page.slice(page.indexOf("function PostCard"), page.indexOf("function Composer"));
+  const memberProfile = page.slice(page.indexOf("function MemberProfileView"), page.indexOf("function ExploreView"));
+  const explore = page.slice(page.indexOf("function ExploreView"), page.indexOf("function MessagesView"));
+  const viewer = page.slice(page.indexOf("function MediaViewer"), page.indexOf("function EditProfileModal"));
+
+  assert.match(postCard, /className="post-header-time" dateTime=\{new Date\(post\.createdAt\)\.toISOString\(\)\}/);
+  assert.doesNotMatch(postCard, /\{post\.author\.location\}/);
+  assert.doesNotMatch(postCard, /<time>\{relativeTime\(post\.createdAt\)\}<\/time>/);
+  assert.doesNotMatch(viewer, /viewer-media-controls|fitMode|setFitMode|setZoom/);
+  assert.match(layout, /\.image-viewer-card \.media-viewer-stage img \{[^}]*object-fit: contain;/s);
+  assert.match(reskin, /\.viewer-stats button:hover \{[^}]*background: var\(--vk-surface-hover\);/s);
+  assert.match(reskin, /\.viewer-actions > button\.danger:hover \{[^}]*background: var\(--vk-danger-subtle\);/s);
+  assert.match(operations, /## Feed timestamp and media-viewer smoke test/);
+  assert.equal((memberProfile.match(/setFollowFeedback\(member!\.username\)/g) || []).length, 1);
+  assert.equal((explore.match(/setFollowFeedback\(user\.username\)/g) || []).length, 1);
+});
