@@ -12,7 +12,7 @@ export async function GET() {
   const inviteRequired = Boolean(count?.total) && mode?.value !== "open";
   const identity = await identityEmail();
   if (!identity) return NextResponse.json({ authenticated: false, signInPath: "/login", bootstrapRequired, inviteRequired, registrationMode: mode?.value || "invite" });
-  const user = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE email = ?`).bind(identity.email).first();
+  const user = await DB.prepare(`SELECT ${publicUserFields("", true)} FROM users WHERE email = ?`).bind(identity.email).first();
   return NextResponse.json({
     authenticated: true,
     identity: { displayName: identity.displayName, inviteCode: identity.inviteCode },
@@ -67,13 +67,13 @@ export async function POST(request: Request) {
   }
   try {
     await DB.prepare(`INSERT INTO users (
-      id, email, username, display_name, bio, website, location, image_key, image_url, role, status,
+      id, email, username, display_name, bio, website, location, show_location, image_key, image_url, role, status,
       is_public, story_replies, high_quality_uploads, adult_confirmed_at, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)`)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)`)
       .bind(id, identity.email, firstUser ? String(legacy?.username || username) : username,
         firstUser ? String(legacy?.display_name || displayName) : displayName,
         firstUser ? String(legacy?.bio || "") : "", firstUser ? String(legacy?.website || "") : "",
-        firstUser ? String(legacy?.location || "") : "", firstUser ? legacy?.image_key || null : null,
+        firstUser ? String(legacy?.location || "") : "", firstUser ? 1 : 0, firstUser ? legacy?.image_key || null : null,
         firstUser ? legacy?.image_url || null : null, firstUser ? "admin" : "user",
         Number(firstUser ? legacy?.story_replies ?? 1 : 1), Number(firstUser ? legacy?.high_quality_uploads ?? 1 : 1), adultConfirmedAt, now).run();
   } catch (error) {
@@ -90,7 +90,10 @@ export async function POST(request: Request) {
       DB.prepare("UPDATE posts SET likes = MAX(0, likes - 1), liked = 0 WHERE liked = 1"),
       DB.prepare("UPDATE posts SET saved = 0 WHERE saved = 1"),
     ]);
+  } else {
+    await DB.prepare(`INSERT OR IGNORE INTO follows (follower_id, followed_id, created_at)
+      SELECT ?, id, ? FROM users WHERE role = 'admin' AND status = 'active' ORDER BY created_at ASC LIMIT 1`).bind(id, now).run();
   }
-  const user = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE id = ?`).bind(id).first();
+  const user = await DB.prepare(`SELECT ${publicUserFields("", true)} FROM users WHERE id = ?`).bind(id).first();
   return NextResponse.json({ user, bootstrap: firstUser }, { status: 201 });
 }

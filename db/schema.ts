@@ -96,6 +96,7 @@ export const users = sqliteTable("users", {
   bio: text("bio").notNull().default(""),
   website: text("website").notNull().default(""),
   location: text("location").notNull().default(""),
+  showLocation: integer("show_location", { mode: "boolean" }).notNull().default(true),
   imageKey: text("image_key"),
   imageUrl: text("image_url"),
   heroImageKey: text("hero_image_key"),

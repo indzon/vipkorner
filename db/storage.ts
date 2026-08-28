@@ -76,7 +76,8 @@ export async function ensureSchema() {
     DB.prepare(`CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, username TEXT NOT NULL UNIQUE,
       display_name TEXT NOT NULL, bio TEXT NOT NULL DEFAULT '', website TEXT NOT NULL DEFAULT '',
-      location TEXT NOT NULL DEFAULT '', image_key TEXT, image_url TEXT, hero_image_key TEXT, hero_image_url TEXT,
+      location TEXT NOT NULL DEFAULT '', show_location INTEGER NOT NULL DEFAULT 1,
+      image_key TEXT, image_url TEXT, hero_image_key TEXT, hero_image_url TEXT,
       role TEXT NOT NULL DEFAULT 'user', status TEXT NOT NULL DEFAULT 'active', is_public INTEGER NOT NULL DEFAULT 1,
       story_replies INTEGER NOT NULL DEFAULT 1, high_quality_uploads INTEGER NOT NULL DEFAULT 1,
       saved_collection_public INTEGER NOT NULL DEFAULT 0,
@@ -193,11 +194,24 @@ export async function ensureSchema() {
   if (!userColumns.results.some((column) => column.name === "saved_collection_public")) {
     await DB.prepare("ALTER TABLE users ADD COLUMN saved_collection_public INTEGER NOT NULL DEFAULT 0").run();
   }
+  if (!userColumns.results.some((column) => column.name === "show_location")) {
+    await DB.prepare("ALTER TABLE users ADD COLUMN show_location INTEGER NOT NULL DEFAULT 1").run();
+  }
 
   await DB.prepare(`INSERT OR IGNORE INTO profile (
     id, username, display_name, bio, website, location, private_account, story_replies, high_quality_uploads
   ) VALUES ('me', 'emma.wright', 'Emma Wright', 'Little moments, city light, and everything in between. ✨', 'emmawrites.co', 'New York, NY', 1, 1, 1)`).run();
   await DB.prepare("INSERT OR IGNORE INTO app_meta (key, value) VALUES ('registration_mode', 'invite')").run();
+  const adminAutofollow = await DB.prepare("SELECT value FROM app_meta WHERE key = 'admin_autofollow_v1'").first();
+  const firstAdmin = await DB.prepare("SELECT id FROM users WHERE role = 'admin' AND status = 'active' ORDER BY created_at ASC LIMIT 1").first();
+  if (!adminAutofollow && firstAdmin) {
+    await DB.prepare(`INSERT OR IGNORE INTO follows (follower_id, followed_id, created_at)
+      SELECT member.id, admin.id, CAST(strftime('%s', 'now') AS INTEGER) * 1000
+      FROM users member
+      CROSS JOIN (SELECT id FROM users WHERE role = 'admin' AND status = 'active' ORDER BY created_at ASC LIMIT 1) admin
+      WHERE member.id != admin.id AND member.status = 'active'`).run();
+    await DB.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('admin_autofollow_v1', 'complete')").run();
+  }
   await DB.prepare(`INSERT OR IGNORE INTO activities (id, type, post_id, message, created_at)
     SELECT 'like-' || id, 'like', id, 'You liked “' || substr(caption, 1, 72) || '”', CAST(strftime('%s', 'now') AS INTEGER) * 1000
     FROM posts

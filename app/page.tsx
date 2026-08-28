@@ -74,6 +74,7 @@ type Profile = {
   bio: string;
   website: string;
   location: string;
+  showLocation: number | boolean;
   imageKey: string | null;
   imageUrl: string | null;
   heroImageKey: string | null;
@@ -514,8 +515,8 @@ export default function HomePage() {
 
       {composer && <Composer type={composer} profile={profile} onClose={() => setComposer(null)} onCreated={(message) => { setComposer(null); setToast(message); loadFeed(); }} />}
       {activeStoryId && <StoryViewer key={activeStoryId} stories={activeStoryAuthorId ? stories.filter((story) => story.userId === activeStoryAuthorId) : stories} activeId={activeStoryId} onChange={setActiveStoryId} onViewed={markStoryViewed} onClose={() => { setActiveStoryId(null); setActiveStoryAuthorId(null); }} onDelete={deleteStory} onReact={reactToStory} />}
-      {profilePanel === "edit" && <EditProfileModal profile={profile} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Profile updated."); }} />}
-      {profilePanel === "settings" && <SettingsModal profile={profile} installPrompt={installPrompt} onInstallGuide={() => { setProfilePanel(null); setInstallGuideOpen(true); }} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile(next); setProfilePanel(null); setToast("Settings saved."); }} />}
+      {profilePanel === "edit" && <EditProfileModal profile={profile} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile((current) => current ? { ...current, ...next } : next); setProfilePanel(null); setToast("Profile updated."); }} />}
+      {profilePanel === "settings" && <SettingsModal profile={profile} installPrompt={installPrompt} onInstallGuide={() => { setProfilePanel(null); setInstallGuideOpen(true); }} onClose={() => setProfilePanel(null)} onSaved={(next) => { setProfile((current) => current ? { ...current, ...next } : next); setProfilePanel(null); setToast("Settings saved."); }} />}
       {profilePanel === "activity" && <ActivityModal activities={activities} posts={posts} onRefresh={loadFeed} onViewProfile={openMemberProfile} onClose={() => setProfilePanel(null)} />}
       {activePost && <MediaViewer post={activePost} profile={profile} onClose={() => setActivePostId(null)} onCaptionUpdate={updateCaption} onDelete={deletePost} onToggle={togglePost} onComment={addComment} />}
       {installGuideOpen && <InstallGuide onClose={() => setInstallGuideOpen(false)} />}
@@ -934,6 +935,7 @@ function MemberProfileView({ member, error, posts, stories, onBack, onMessage, o
   const [requestError, setRequestError] = useState("");
   const [followFeedback, setFollowFeedback] = useState("");
   const [activeTab, setActiveTab] = useState<"posts" | "saved">("posts");
+  const [confirmUnfollow, setConfirmUnfollow] = useState(false);
   useEffect(() => {
     if (!followFeedback) return;
     const timeout = window.setTimeout(() => setFollowFeedback(""), 1600);
@@ -965,13 +967,14 @@ function MemberProfileView({ member, error, posts, stories, onBack, onMessage, o
     <button className="member-back" onClick={onBack}><ChevronLeft /> Explore</button>
     <header className="profile-hero member-profile-hero">
       <div className="member-profile-banner" aria-hidden="true"><img src={heroImage} alt="" /><i /></div>
-      <div className="member-profile-hero-content"><button type="button" className={`member-profile-photo-button ${unseenStories.length ? "has-unseen-story" : ""}`} disabled={!memberStories.length} onClick={() => onOpenStory(unseenStories[0] || memberStories[0])} aria-label={memberStories.length ? `View @${member.username}'s shorts` : `@${member.username} has no active shorts`}><img className="member-profile-photo" src={profileImage(member)} alt={member.displayName} /></button><div className="profile-info"><div><h1>{member.username}</h1><button type="button" className="icon-button member-message-button" onClick={() => void onMessage(member.id)} aria-label={`Message @${member.username}`}><Mail /></button>{!privateAndLocked && <button type="button" className={`member-follow-button ${member.following ? "following" : ""}`} disabled={requestBusy} onClick={() => void toggleFollow()}>{requestBusy ? "Updating…" : member.following ? <><Check /> Following</> : <><UserPlus /> Follow</>}</button>}</div><div className="profile-stats"><span><strong>{member.posts}</strong> posts</span><span><strong>{member.followers}</strong> followers</span><span><strong>{member.followingCount}</strong> following</span></div><p><strong>{member.displayName}</strong><br />{member.bio || "New to VipKorner."}</p><span className="member-location"><MapPin /> {member.location || "Location not shared"}</span>{member.website && <a href={`https://${member.website.replace(/^https?:\/\//, "")}`}>{member.website}</a>}</div></div>
+      <div className="member-profile-hero-content"><button type="button" className={`member-profile-photo-button ${unseenStories.length ? "has-unseen-story" : ""}`} disabled={!memberStories.length} onClick={() => onOpenStory(unseenStories[0] || memberStories[0])} aria-label={memberStories.length ? `View @${member.username}'s shorts` : `@${member.username} has no active shorts`}><img className="member-profile-photo" src={profileImage(member)} alt={member.displayName} /></button><div className="profile-info"><div><h1>{member.username}</h1><button type="button" className="icon-button member-message-button" onClick={() => void onMessage(member.id)} aria-label={`Message @${member.username}`}><Mail /></button>{!privateAndLocked && <button type="button" className={`member-follow-button ${member.following ? "following" : ""}`} disabled={requestBusy} onClick={() => member.following ? setConfirmUnfollow(true) : void toggleFollow()}>{requestBusy ? "Updating…" : member.following ? <><Check /> Following</> : <><UserPlus /> Follow</>}</button>}</div><div className="profile-stats"><span><strong>{member.posts}</strong> posts</span><span><strong>{member.followers}</strong> followers</span><span><strong>{member.followingCount}</strong> following</span></div><p><strong>{member.displayName}</strong><br />{member.bio || "New to VipKorner."}</p><span className="member-location"><MapPin /> {member.location || "Location not shared"}</span>{member.website && <a href={`https://${member.website.replace(/^https?:\/\//, "")}`}>{member.website}</a>}</div></div>
     </header>
     {privateAndLocked && <div className="member-follow-request"><div><strong>Private profile</strong><span>Only approved followers can see this member’s posts and shorts.</span></div><button type="button" className={requestPending ? "requested" : ""} disabled={requestBusy} onClick={() => void toggleFollow()}>{requestBusy ? "Updating…" : requestPending ? "Request sent · Cancel" : "Request to Follow"}</button>{requestError && <p role="alert">{requestError}</p>}</div>}
     {!privateAndLocked && requestError && <p className="member-follow-error" role="alert">{requestError}</p>}
     {!privateAndLocked && Boolean(member.savedCollectionPublic) && <div className="profile-tabs member-profile-tabs"><button type="button" className={activeTab === "posts" ? "active" : ""} onClick={() => setActiveTab("posts")}><ImagePlus /> Posts</button><button type="button" className={activeTab === "saved" ? "active" : ""} onClick={() => setActiveTab("saved")}><Bookmark /> Saved</button></div>}
     {visiblePosts.length ? <div className="profile-grid">{visiblePosts.map((post) => <button key={post.id} onClick={() => onOpenPost(post)} aria-label={`Open ${post.mediaType}: ${post.caption}`}>{post.mediaType === "video" ? <><video src={imageSource(post)} muted playsInline preload="metadata" aria-label={post.caption} /><i className="video-badge"><Video /></i></> : <img src={imageSource(post)} alt={post.caption} />}<span><Heart fill="currentColor" size={17} /> {post.likes}</span></button>)}</div> : <div className="saved-empty"><span><ImagePlus /></span><h3>No posts to show</h3><p>{member.isPublic || member.following ? "This member hasn’t shared a post yet." : "This member’s posts are private."}</p></div>}
     {followFeedback && <FollowSuccessFeedback username={followFeedback} />}
+    {confirmUnfollow && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="unfollow-confirm-title" onMouseDown={(event) => event.target === event.currentTarget && setConfirmUnfollow(false)}><section className="profile-modal block-confirm-modal unfollow-confirm-modal"><span className="brand-mark" aria-hidden="true">V</span><h2 id="unfollow-confirm-title">Unfollow @{member.username}?</h2><p>Their posts will no longer appear in your feed. You can follow them again at any time.</p><div><button type="button" onClick={() => setConfirmUnfollow(false)}>Keep following</button><button type="button" className="danger" disabled={requestBusy} onClick={() => { setConfirmUnfollow(false); void toggleFollow(); }}>Unfollow</button></div></section></div>}
   </section>;
 }
 
@@ -1042,10 +1045,26 @@ function ProfileView({ posts, profile, onCounts, onViewProfile, onCreate, onEdit
   const [connections, setConnections] = useState<"followers" | "following" | null>(null);
   const ownPosts = posts.filter((post) => post.owned);
   const visiblePosts = tab === "saved" ? posts.filter((post) => Boolean(post.saved)) : ownPosts;
+  const fallbackHeroPost = ownPosts.find((post) => post.mediaType === "image");
+  const heroImage = profile.heroImageKey || profile.heroImageUrl
+    ? imageSource({ imageKey: profile.heroImageKey, imageUrl: profile.heroImageUrl })
+    : fallbackHeroPost ? imageSource(fallbackHeroPost) : profileImage(profile);
   return (
     <>
     <section className="profile-page">
-      <header className="profile-hero"><button className="profile-photo-button" onClick={onEdit} aria-label="Update profile photo"><img src={profileImage(profile)} alt={profile.displayName} /><span><ImagePlus /></span></button><div className="profile-info"><div><h1>{profile.username}</h1><button onClick={onEdit}>Edit profile</button><button className="icon-button profile-settings" onClick={onSettings} aria-label="Profile settings"><Settings /></button></div><div className="profile-stats"><span><strong>{ownPosts.length}</strong> posts</span><button onClick={() => setConnections("followers")} aria-label={`View ${profile.followers} followers`}><strong>{profile.followers}</strong> followers</button><button onClick={() => setConnections("following")} aria-label={`View ${profile.following} following`}><strong>{profile.following}</strong> following</button></div><p><strong>{profile.displayName}</strong><br />{profile.bio}<br />{profile.website && <a href={`https://${profile.website.replace(/^https?:\/\//, "")}`}>{profile.website}</a>}</p></div></header>
+      <header className="profile-hero member-profile-hero owner-profile-hero">
+        <div className="member-profile-banner" aria-hidden="true"><img src={heroImage} alt="" /><i /></div>
+        <div className="member-profile-hero-content">
+          <button className="profile-photo-button member-profile-photo-button owner-profile-photo-button" onClick={onEdit} aria-label="Update profile photo"><img className="member-profile-photo" src={profileImage(profile)} alt={profile.displayName} /><span><ImagePlus /></span></button>
+          <div className="profile-info">
+            <div><h1>{profile.username}</h1><button onClick={onEdit}>Edit profile</button><button className="icon-button profile-settings" onClick={onSettings} aria-label="Profile settings"><Settings /></button></div>
+            <div className="profile-stats"><span><strong>{ownPosts.length}</strong> posts</span><button onClick={() => setConnections("followers")} aria-label={`View ${profile.followers} followers`}><strong>{profile.followers}</strong> followers</button><button onClick={() => setConnections("following")} aria-label={`View ${profile.following} following`}><strong>{profile.following}</strong> following</button></div>
+            <p><strong>{profile.displayName}</strong><br />{profile.bio}</p>
+            <span className="member-location"><MapPin /> {profile.location}{!Boolean(profile.showLocation) && <small> · hidden from other members</small>}</span>
+            {profile.website && <a href={`https://${profile.website.replace(/^https?:\/\//, "")}`}>{profile.website}</a>}
+          </div>
+        </div>
+      </header>
       <div className="profile-actions" aria-label="Profile actions"><button onClick={onActivity}><Bell /><span><strong>Activity</strong><small>See your latest updates</small></span></button><button onClick={onCreate}><Plus /><span><strong>Create</strong><small>Share a new post</small></span></button></div>
       <div className="profile-tabs" role="tablist" aria-label="Profile posts"><button className={tab === "posts" ? "active" : ""} role="tab" aria-selected={tab === "posts"} onClick={() => setTab("posts")}><ImagePlus size={15} /> POSTS</button><button className={tab === "saved" ? "active" : ""} role="tab" aria-selected={tab === "saved"} onClick={() => setTab("saved")}><Bookmark size={15} /> SAVED</button></div>
       {visiblePosts.length ? <div className="profile-grid">{visiblePosts.map((post) => <button key={post.id} onClick={() => onOpenPost(post)} aria-label={`Open ${post.mediaType}: ${post.caption}`}>{post.mediaType === "video" ? <><video src={imageSource(post)} muted playsInline preload="metadata" aria-label={post.caption} /><i className="video-badge"><Video /></i></> : <img src={imageSource(post)} alt={post.caption} />}<span><Heart fill="currentColor" size={17} /> {post.likes}</span></button>)}{tab === "posts" && <button className="grid-add" onClick={onCreate}><Plus /><span>Add a post</span></button>}</div> : <div className="saved-empty"><span><Bookmark /></span><h3>No saved posts yet</h3><p>Tap the bookmark on a post and it will appear here.</p></div>}
@@ -1164,7 +1183,7 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
   useEffect(() => () => { if (photoFile && photoPreview) URL.revokeObjectURL(photoPreview); }, [photoFile, photoPreview]);
   useEffect(() => () => { if (heroFile && heroPreview) URL.revokeObjectURL(heroPreview); }, [heroFile, heroPreview]);
 
-  const update = (key: keyof Profile, value: string) => setDraft((current) => ({ ...current, [key]: value }));
+  const update = (key: keyof Profile, value: Profile[keyof Profile]) => setDraft((current) => ({ ...current, [key]: value }));
 
   function selectProfilePhoto(file: File | null) {
     if (!file) return;
@@ -1182,6 +1201,7 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
 
   async function save(event: FormEvent) {
     event.preventDefault();
+    if (!draft.location.trim()) { setError("Location is required."); return; }
     setBusy(true); setError("");
     try {
       if (photoFile) {
@@ -1202,7 +1222,7 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit profile" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <form className="profile-modal" onSubmit={save}>
-        <ModalHeader eyebrow="PROFILE" title="Edit profile" onClose={onClose} action={busy && uploadProgress ? `Uploading ${uploadProgress}%` : busy ? "Saving…" : "Save"} disabled={busy} />
+        <ModalHeader eyebrow="PROFILE" title="Edit profile" onClose={onClose} />
         <div className="profile-photo-row"><input ref={photoInputRef} className="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => selectProfilePhoto(event.target.files?.[0] || null)} /><img src={photoPreview} alt={draft.displayName} /><div><strong>{draft.username}</strong><span>JPG, PNG or WebP · up to 10 MB</span></div><button type="button" onClick={() => photoInputRef.current?.click()}>Change photo</button></div>
         <div className="profile-hero-row"><input ref={heroInputRef} className="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => selectHeroImage(event.target.files?.[0] || null)} /><div className="profile-hero-preview">{heroPreview ? <img src={heroPreview} alt="Profile background preview" /> : <span><ImagePlus /> Add a profile background</span>}</div><div><strong>Profile background</strong><span>Landscape JPG, PNG or WebP · up to 10 MB</span></div><button type="button" onClick={() => heroInputRef.current?.click()}>{heroPreview ? "Change background" : "Choose background"}</button></div>
         {photoFile && <section className="profile-cropper" aria-label="Adjust profile photo crop"><div><span>Adjust crop</span><small>Your saved photo will be square.</small></div><div className="profile-crop-preview"><img src={photoPreview} alt="Crop preview" style={{ objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})` }} /></div><label><span>Zoom</span><input type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} /></label><label><span>Horizontal</span><input type="range" min="0" max="100" value={cropX} onChange={(event) => setCropX(Number(event.target.value))} /></label><label><span>Vertical</span><input type="range" min="0" max="100" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} /></label></section>}
@@ -1211,9 +1231,11 @@ function EditProfileModal({ profile, onClose, onSaved }: { profile: Profile; onC
           <label><span>Username</span><div className="input-prefix"><i>@</i><input value={draft.username} onChange={(event) => update("username", event.target.value.replace(/\s/g, ""))} maxLength={30} required /></div></label>
           <label><span>Bio</span><textarea value={draft.bio} onChange={(event) => update("bio", event.target.value)} maxLength={160} rows={3} /><small>{draft.bio.length}/160</small></label>
           <label><span>Website</span><input value={draft.website} onChange={(event) => update("website", event.target.value)} maxLength={100} /></label>
-          <label><span>Location</span><input value={draft.location} onChange={(event) => update("location", event.target.value)} maxLength={80} /></label>
+          <label><span>Location</span><input value={draft.location} onChange={(event) => update("location", event.target.value)} maxLength={80} required aria-describedby="location-privacy-help" /></label>
+          <label className="location-sharing-control"><input type="checkbox" checked={Boolean(draft.showLocation)} onChange={(event) => update("showLocation", event.target.checked)} /><span className="location-sharing-copy"><strong>Show location on profile</strong><small id="location-privacy-help">Your location is required for your account, but only shared when this is checked.</small></span></label>
         </div>
         {error && <p className="form-error profile-error">{error}</p>}
+        <footer className="profile-save-actions"><button type="submit" className="profile-save-button" disabled={busy}>{busy && uploadProgress ? `Uploading ${uploadProgress}%` : busy ? "Saving…" : "Save changes"}</button></footer>
       </form>
     </div>
   );

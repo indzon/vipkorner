@@ -2,16 +2,16 @@
 -- Media must be uploaded to R2 under seed/community/ before executing.
 
 INSERT INTO users (
-  id, email, username, display_name, bio, website, location, image_key,
+  id, email, username, display_name, bio, website, location, show_location, image_key,
   image_url, role, status, is_public, story_replies,
   high_quality_uploads, adult_confirmed_at, created_at
 ) VALUES
-  ('seed-maya-chen', 'mayawanders@seed.vipkorner.invalid', 'mayawanders', 'Maya Chen', 'Street photographs, long walks, and small city details.', '', 'New York, NY', 'seed/community/mayawanders/avatar.jpg', NULL, 'user', 'active', 1, 1, 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000 - 7776000000),
-  ('seed-jordan-brooks', 'jordansunday@seed.vipkorner.invalid', 'jordansunday', 'Jordan Brooks', 'Movement, records, and making Sundays last a little longer.', '', 'Chicago, IL', 'seed/community/jordansunday/avatar.jpg', NULL, 'user', 'active', 1, 1, 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000 - 7257600000),
-  ('seed-sofia-alvarez', 'sofiasupperclub@seed.vipkorner.invalid', 'sofiasupperclub', 'Sofia Alvarez', 'Cooking for friends and setting one more place at the table.', '', 'Brooklyn, NY', 'seed/community/sofiasupperclub/avatar.jpg', NULL, 'user', 'active', 1, 1, 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000 - 6739200000),
-  ('seed-malik-thompson', 'malikmakes@seed.vipkorner.invalid', 'malikmakes', 'Malik Thompson', 'Furniture maker. Wood grain, good joints, and patient work.', '', 'Detroit, MI', 'seed/community/malikmakes/avatar.jpg', NULL, 'user', 'active', 1, 1, 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000 - 6220800000),
-  ('seed-priya-nair', 'priyascope@seed.vipkorner.invalid', 'priyascope', 'Priya Nair', 'Architecture, books, and the light between buildings.', '', 'Boston, MA', 'seed/community/priyascope/avatar.jpg', NULL, 'user', 'active', 1, 1, 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000 - 5702400000),
-  ('seed-theo-martin', 'theoonfilm@seed.vipkorner.invalid', 'theoonfilm', 'Theo Martin', 'Film editor, city cyclist, collector of quiet frames.', '', 'Philadelphia, PA', 'seed/community/theoonfilm/avatar.jpg', NULL, 'user', 'active', 1, 1, 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000 - 5184000000)
+  ('seed-maya-chen', 'mayawanders@seed.vipkorner.invalid', 'mayawanders', 'Maya Chen', 'Street photographs, long walks, and small city details.', '', 'New York, NY', 1, 'seed/community/mayawanders/avatar.jpg', NULL, 'user', 'active', 1, 1, 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000 - 7776000000),
+  ('seed-jordan-brooks', 'jordansunday@seed.vipkorner.invalid', 'jordansunday', 'Jordan Brooks', 'Movement, records, and making Sundays last a little longer.', '', 'Chicago, IL', 1, 'seed/community/jordansunday/avatar.jpg', NULL, 'user', 'active', 1, 1, 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000 - 7257600000),
+  ('seed-sofia-alvarez', 'sofiasupperclub@seed.vipkorner.invalid', 'sofiasupperclub', 'Sofia Alvarez', 'Cooking for friends and setting one more place at the table.', '', 'Brooklyn, NY', 1, 'seed/community/sofiasupperclub/avatar.jpg', NULL, 'user', 'active', 1, 1, 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000 - 6739200000),
+  ('seed-malik-thompson', 'malikmakes@seed.vipkorner.invalid', 'malikmakes', 'Malik Thompson', 'Furniture maker. Wood grain, good joints, and patient work.', '', 'Detroit, MI', 1, 'seed/community/malikmakes/avatar.jpg', NULL, 'user', 'active', 1, 1, 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000 - 6220800000),
+  ('seed-priya-nair', 'priyascope@seed.vipkorner.invalid', 'priyascope', 'Priya Nair', 'Architecture, books, and the light between buildings.', '', 'Boston, MA', 1, 'seed/community/priyascope/avatar.jpg', NULL, 'user', 'active', 1, 1, 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000 - 5702400000),
+  ('seed-theo-martin', 'theoonfilm@seed.vipkorner.invalid', 'theoonfilm', 'Theo Martin', 'Film editor, city cyclist, collector of quiet frames.', '', 'Philadelphia, PA', 1, 'seed/community/theoonfilm/avatar.jpg', NULL, 'user', 'active', 1, 1, 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000 - 5184000000)
 ON CONFLICT(id) DO UPDATE SET
   email=excluded.email,
   username=excluded.username,
@@ -19,6 +19,7 @@ ON CONFLICT(id) DO UPDATE SET
   bio=excluded.bio,
   website=excluded.website,
   location=excluded.location,
+  show_location=excluded.show_location,
   image_key=excluded.image_key,
   image_url=excluded.image_url,
   role=excluded.role,
@@ -26,6 +27,13 @@ ON CONFLICT(id) DO UPDATE SET
   is_public=excluded.is_public,
   story_replies=excluded.story_replies,
   high_quality_uploads=excluded.high_quality_uploads;
+
+-- Seeded demo members automatically follow the first active administrator.
+INSERT OR IGNORE INTO follows (follower_id, followed_id, created_at)
+SELECT seeded.id, admin.id, CAST(strftime('%s','now') AS INTEGER)*1000
+FROM users seeded
+CROSS JOIN (SELECT id FROM users WHERE role = 'admin' AND status = 'active' ORDER BY created_at ASC LIMIT 1) admin
+WHERE seeded.id LIKE 'seed-%' AND seeded.status = 'active';
 
 DELETE FROM posts WHERE id LIKE 'seed-post-%';
 

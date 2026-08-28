@@ -322,3 +322,38 @@ test("feed timestamps and media viewer controls follow the current interaction d
   assert.equal((memberProfile.match(/setFollowFeedback\(member!\.username\)/g) || []).length, 1);
   assert.equal((explore.match(/setFollowFeedback\(user\.username\)/g) || []).length, 1);
 });
+
+test("owner profile personalization and demo administrator follows remain explicit", async () => {
+  const [page, profileRoute, sessionRoute, registration, currentUser, storage, seed, layout, reskin, architecture, operations] = await Promise.all([
+    read("app/page.tsx"),
+    read("app/api/profile/route.ts"),
+    read("app/api/session/route.ts"),
+    read("lib/registration.ts"),
+    read("lib/current-user.ts"),
+    read("db/storage.ts"),
+    read("seed/vipkorner-community/seed.sql"),
+    read("design/system/vipkorner-layout.css"),
+    read("design/system/vipkorner-reskin.css"),
+    read("docs/ARCHITECTURE.md"),
+    read("docs/OPERATIONS.md"),
+  ]);
+
+  assert.match(page, /owner-profile-hero/);
+  assert.match(page, /className="member-profile-banner"/);
+  assert.match(page, /Show location on profile/);
+  assert.match(page, /Location is required/);
+  assert.match(page, /className="profile-save-actions"/);
+  assert.match(page, /Unfollow @\{member\.username\}\?/);
+  assert.match(profileRoute, /show_location = \?/);
+  assert.match(profileRoute, /Location is required/);
+  assert.match(currentUser, /show_location AS showLocation/);
+  assert.match(storage, /admin_autofollow_v1/);
+  assert.match(sessionRoute, /role = 'admin' AND status = 'active'/);
+  assert.match(registration, /role = 'admin' AND status = 'active'/);
+  assert.match(seed, /INSERT OR IGNORE INTO follows/);
+  assert.match(layout, /\.member-profile-hero \{[^}]*border-radius: 24px;/s);
+  assert.match(layout, /\.profile-stats > button:hover[^}]*text-decoration: none;/s);
+  assert.match(reskin, /\.profile-save-button/);
+  assert.match(architecture, /users\.show_location/);
+  assert.match(operations, /Demo administrator-follow smoke test/);
+});

@@ -18,7 +18,9 @@ export async function GET() {
         p.likes + (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
         EXISTS(SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.user_id = ?) AS liked,
         EXISTS(SELECT 1 FROM post_saves s WHERE s.post_id = p.id AND s.user_id = ?) AS saved,
-        u.username, u.display_name AS displayName, u.location, u.is_public AS authorIsPublic,
+        u.username, u.display_name AS displayName,
+        CASE WHEN u.show_location = 1 THEN u.location ELSE '' END AS location,
+        u.is_public AS authorIsPublic,
         EXISTS(SELECT 1 FROM follows af WHERE af.follower_id = ? AND af.followed_id = p.user_id) AS authorFollowing,
         (SELECT fr.status FROM follow_requests fr WHERE fr.requester_id = ? AND fr.target_id = p.user_id) AS authorFollowRequestStatus,
         u.image_key AS authorImageKey, u.image_url AS authorImageUrl

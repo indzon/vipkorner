@@ -453,6 +453,19 @@ a {
 .profile-modal .form-fields .input-prefix i { color: var(--vk-text-subtle); }
 .profile-modal .form-fields .input-prefix input { border: 0; outline: 0; background: transparent; }
 .profile-modal .form-fields label > small { color: var(--vk-text-subtle); }
+.profile-modal .form-fields .location-sharing-control {
+  color: var(--vk-text);
+  background: var(--vk-surface-raised);
+  border-color: var(--vk-border-strong);
+  border-radius: var(--vk-radius-lg);
+}
+.profile-modal .form-fields .location-sharing-control > input { accent-color: var(--vk-brand); }
+.profile-modal .form-fields .location-sharing-copy small { color: var(--vk-text-muted); }
+.profile-save-actions { background: var(--vk-surface); border-color: var(--vk-border); }
+.profile-save-button { color: var(--vk-text-on-brand); background: var(--vk-brand); border-radius: var(--vk-radius-md); }
+.profile-save-button:hover:not(:disabled) { background: var(--vk-brand-hover); }
+.owner-profile-hero .profile-info > a { color: var(--vk-brand); text-shadow: none; }
+.owner-profile-hero .member-location small { color: var(--vk-text-subtle); }
 
 .member-profile-photo-button.has-unseen-story { background: conic-gradient(from 210deg, var(--vk-accent), var(--vk-brand), var(--vk-ember-500), var(--vk-accent)); box-shadow: 0 0 0 2px var(--vk-bg), var(--vk-glow-brand); }
 .member-follow-button { color: var(--vk-text-on-brand); background: var(--vk-brand); border: 1px solid var(--vk-brand); }

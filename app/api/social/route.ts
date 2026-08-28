@@ -20,7 +20,8 @@ export async function GET(request: Request) {
     const profileId = params.get("profile")?.trim();
     if (profileId) {
       const profile = await DB.prepare(`SELECT u.id, u.username, u.display_name AS displayName,
-        u.bio, u.website, u.location, u.image_key AS imageKey, u.image_url AS imageUrl,
+        u.bio, u.website, CASE WHEN u.show_location = 1 THEN u.location ELSE '' END AS location,
+        u.image_key AS imageKey, u.image_url AS imageUrl,
         u.hero_image_key AS heroImageKey, u.hero_image_url AS heroImageUrl,
         u.is_public AS isPublic, u.saved_collection_public AS savedCollectionPublic,
         EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = u.id) AS following,
@@ -50,7 +51,8 @@ export async function GET(request: Request) {
       const join = list === "followers" ? "f.follower_id = u.id" : "f.followed_id = u.id";
       const owner = list === "followers" ? "f.followed_id" : "f.follower_id";
       const connections = await DB.prepare(`SELECT u.id, u.username, u.display_name AS displayName,
-        u.bio, u.location, u.image_key AS imageKey, u.image_url AS imageUrl,
+        u.bio, CASE WHEN u.show_location = 1 THEN u.location ELSE '' END AS location,
+        u.image_key AS imageKey, u.image_url AS imageUrl,
         f.created_at AS connectedAt
         FROM follows f JOIN users u ON ${join}
         WHERE ${owner} = ? AND u.status = 'active'
@@ -58,7 +60,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ connections: connections.results, counts: await connectionCounts(DB, viewer.id) });
     }
     const query = params.get("q")?.trim().slice(0, 60) || "";
-    const users = await DB.prepare(`SELECT u.id, u.username, u.display_name AS displayName, u.bio, u.location,
+    const users = await DB.prepare(`SELECT u.id, u.username, u.display_name AS displayName, u.bio,
+      CASE WHEN u.show_location = 1 THEN u.location ELSE '' END AS location,
       u.image_key AS imageKey, u.image_url AS imageUrl, u.role, u.is_public AS isPublic,
       EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = u.id) AS following,
       EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = u.id AND f.followed_id = ?) AS followsYou,

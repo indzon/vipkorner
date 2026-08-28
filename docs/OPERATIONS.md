@@ -77,9 +77,19 @@ For member-profile releases, verify Explore identity copy remains left-aligned, 
 ## Profile personalization and safety-dialog smoke test
 
 1. Open **Edit profile** and confirm every text input and textarea uses the design-system surface, border, spacing, radius, type, and focus treatment.
-2. Choose a landscape profile background, save, reopen the profile, and confirm the uploaded image is used in the member hero without exposing a raw R2 key.
-3. Replace the background and confirm the prior owned R2 object is removed.
-4. Choose **Block** from Explore, confirm the VipKorner-branded in-app dialog appears, cancel once, then confirm the action and verify both members are hidden from each other.
+2. Confirm location is required, toggle **Show location on profile** off, save from the bottom action, and verify the owner can still edit the stored location while another member cannot see it.
+3. Toggle location sharing on and confirm another member can see the location after saving without a reload.
+4. Choose a landscape profile background, save, reopen the profile, and confirm the uploaded image is used in the owner and member hero without exposing a raw R2 key.
+5. Replace the background and confirm the prior owned R2 object is removed.
+6. Choose **Block** from Explore, confirm the VipKorner-branded in-app dialog appears, cancel once, then confirm the action and verify both members are hidden from each other.
+7. Choose **Following** on a member profile, cancel the confirmation once, then confirm the unfollow and verify the relationship is removed.
+
+## Demo administrator-follow smoke test
+
+1. Apply the community seed and confirm all six `seed-*` users follow the first active administrator.
+2. Register a new non-admin member and confirm the follow relationship is created during profile finalization.
+3. On an existing database, allow runtime initialization to apply `admin_autofollow_v1` once, then confirm the marker exists in `app_meta`.
+4. Unfollow the administrator from a test profile and restart the app; confirm the one-time migration does not recreate the relationship.
 
 ## Feed timestamp and media-viewer smoke test
 

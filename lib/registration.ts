@@ -67,9 +67,9 @@ export async function finalizePendingRegistration(authUserId: string, emailInput
 
   try {
     await DB.prepare(`INSERT INTO users (
-      id, email, username, display_name, bio, website, location, image_key, image_url, role, status,
+      id, email, username, display_name, bio, website, location, show_location, image_key, image_url, role, status,
       is_public, story_replies, high_quality_uploads, adult_confirmed_at, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)`).bind(
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)`).bind(
       id,
       email,
       firstUser ? String(legacy?.username || pending.username) : pending.username,
@@ -77,6 +77,7 @@ export async function finalizePendingRegistration(authUserId: string, emailInput
       firstUser ? String(legacy?.bio || "") : "",
       firstUser ? String(legacy?.website || "") : "",
       firstUser ? String(legacy?.location || "") : "",
+      firstUser ? 1 : 0,
       firstUser ? legacy?.image_key || null : null,
       firstUser ? legacy?.image_url || null : null,
       firstUser ? "admin" : "user",
@@ -103,6 +104,9 @@ export async function finalizePendingRegistration(authUserId: string, emailInput
       DB.prepare("UPDATE posts SET likes = MAX(0, likes - 1), liked = 0 WHERE liked = 1"),
       DB.prepare("UPDATE posts SET saved = 0 WHERE saved = 1"),
     ]);
+  } else {
+    await DB.prepare(`INSERT OR IGNORE INTO follows (follower_id, followed_id, created_at)
+      SELECT ?, id, ? FROM users WHERE role = 'admin' AND status = 'active' ORDER BY created_at ASC LIMIT 1`).bind(id, now).run();
   }
   await DB.prepare("DELETE FROM pending_registrations WHERE auth_user_id = ? OR email = ?").bind(authUserId, email).run();
   return { id, created: true };

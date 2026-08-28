@@ -248,7 +248,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .profile-stats { display: flex; align-items: center; gap: 26px; margin: 25px 0 20px; }
 .profile-stats > span, .profile-stats > button { display: inline-flex; align-items: center; gap: 4px; min-height: 20px; border: 0; padding: 0; color: var(--muted); background: transparent; font: inherit; font-size: 12px; line-height: 1.25; white-space: nowrap; }
 .profile-stats > button { cursor: pointer; }
-.profile-stats > button:hover, .profile-stats > button:focus-visible { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.profile-stats > button:hover, .profile-stats > button:focus-visible { color: var(--accent); text-decoration: none; }
 .profile-stats strong { color: var(--ink); font-weight: 700; }
 .profile-info p { font-size: 12px; line-height: 1.6; margin: 0; }
 .profile-info a { color: var(--plum); font-weight: 650; }
@@ -303,6 +303,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .form-fields label > span { font-size: 10px; font-weight: 700; }
 .form-fields input, .form-fields textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: white; padding: 10px 11px; outline: none; font-size: 12px; resize: none; }
 .form-fields label > small { position: absolute; bottom: 8px; right: 9px; color: #aaa29c; font-size: 8px; }
+.form-fields .location-sharing-control { position: static; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 11px; padding: 13px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+.form-fields .location-sharing-control > input { width: 19px; min-height: 19px; height: 19px; margin: 2px 0 0; padding: 0; accent-color: var(--accent); }
+.form-fields .location-sharing-copy { display: flex; flex-direction: column; gap: 3px; }
+.form-fields .location-sharing-copy strong { font-size: 11px; }
+.form-fields .location-sharing-copy small { position: static; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.profile-save-actions { position: sticky; bottom: 0; z-index: 2; padding: 14px 25px 22px; background: var(--paper); border-top: 1px solid var(--line); }
+.profile-save-button { width: 100%; min-height: 46px; border: 0; border-radius: 11px; color: white; background: var(--accent); font-size: 12px; font-weight: 750; cursor: pointer; }
+.profile-save-button:disabled { cursor: wait; opacity: .65; }
 .input-prefix { display: grid; grid-template-columns: 31px 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: white; }
 .input-prefix i { display: grid; place-items: center; border-right: 1px solid var(--line); color: var(--muted); font-size: 11px; font-style: normal; }
 .input-prefix input { border: 0; border-radius: 0; }
@@ -591,8 +599,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .member-message-button:hover { color: var(--accent); border-color: #efb6c2; background: #fff6f7; }
 .member-message-button svg { width: 16px; height: 16px; }
 .member-profile-note { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); text-align: center; background: rgba(255,255,255,.72); font-size: 11px; }
-.member-profile-hero { position: relative; min-height: 330px; display: block; overflow: visible; margin-bottom: 72px; padding: 0; border-radius: 0; }
-.member-profile-banner { position: absolute; inset: 0; overflow: hidden; }
+.member-profile-hero { position: relative; min-height: 330px; display: block; overflow: visible; margin-bottom: 72px; padding: 0; border-radius: 24px; }
+.member-profile-banner { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
 .member-profile-banner img { width: 100%; height: 100%; display: block; object-fit: cover; }
 .member-profile-banner i { position: absolute; inset: 0; }
 .member-profile-hero-content { position: relative; z-index: 1; min-height: 330px; display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 32px; align-items: end; padding: 150px 28px 28px; }
@@ -607,6 +615,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .member-profile-hero .profile-info p { margin-bottom: 8px; }
 .member-location { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
 .member-location svg { width: 14px; height: 14px; }
+.member-location small { font-size: 9px; }
+.owner-profile-hero { margin: 0 25px 92px; }
+.owner-profile-hero .owner-profile-photo-button { width: 148px; height: 148px; }
+.owner-profile-hero .owner-profile-photo-button > img { width: 142px; height: 142px; }
+.owner-profile-hero .owner-profile-photo-button > span { right: 1px; bottom: 5px; }
+.owner-profile-hero .profile-info > a { display: block; width: fit-content; margin-top: 5px; }
 .member-follow-request { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 18px; align-items: center; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; }
 .member-follow-request > div { display: flex; flex-direction: column; gap: 4px; }
 .member-follow-request span { font-size: 11px; line-height: 1.4; }
@@ -738,9 +752,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .person-avatar-button { width: 54px; height: 54px; }
   .item-caption-field { margin-left: 73px; margin-right: 20px; }
   .member-profile-hero { min-height: 310px; margin-bottom: 52px; }
+  .owner-profile-hero { margin-inline: 0; margin-bottom: 70px; border-radius: 0; }
   .member-profile-hero-content { min-height: 310px; grid-template-columns: 86px minmax(0, 1fr); gap: 16px; padding: 128px 18px 22px; }
   .member-profile-photo { width: 86px; height: 86px; }
   .member-profile-photo-button { transform: translateY(42px); }
+  .owner-profile-hero .owner-profile-photo-button { width: 86px; height: 86px; }
+  .owner-profile-hero .owner-profile-photo-button > img { width: 80px; height: 80px; }
   .profile-hero-row { grid-template-columns: 82px minmax(0, 1fr); margin-inline: 18px; }
   .profile-hero-row > button { grid-column: 1 / -1; width: 100%; }
 }

@@ -65,14 +65,14 @@ export async function POST(request: Request) {
         const current = await DB.prepare("SELECT image_key AS imageKey FROM users WHERE id = ?").bind(user.id).first<{ imageKey: string | null }>();
         await DB.prepare("UPDATE users SET image_key = ?, image_url = NULL WHERE id = ?").bind(payload.key, user.id).run();
         if (current?.imageKey && current.imageKey !== payload.key) await MEDIA.delete(current.imageKey);
-        const profile = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE id = ?`).bind(user.id).first<Record<string, unknown>>();
+        const profile = await DB.prepare(`SELECT ${publicUserFields("", true)} FROM users WHERE id = ?`).bind(user.id).first<Record<string, unknown>>();
         return NextResponse.json({ ...profile, privateAccount: !Boolean(profile?.isPublic) }, { status: 201 });
       }
       if (payload.contentKind === "profile-hero") {
         const current = await DB.prepare("SELECT hero_image_key AS heroImageKey FROM users WHERE id = ?").bind(user.id).first<{ heroImageKey: string | null }>();
         await DB.prepare("UPDATE users SET hero_image_key = ?, hero_image_url = NULL WHERE id = ?").bind(payload.key, user.id).run();
         if (current?.heroImageKey && current.heroImageKey !== payload.key) await MEDIA.delete(current.heroImageKey);
-        const profile = await DB.prepare(`SELECT ${publicUserFields()} FROM users WHERE id = ?`).bind(user.id).first<Record<string, unknown>>();
+        const profile = await DB.prepare(`SELECT ${publicUserFields("", true)} FROM users WHERE id = ?`).bind(user.id).first<Record<string, unknown>>();
         return NextResponse.json({ ...profile, privateAccount: !Boolean(profile?.isPublic) }, { status: 201 });
       }
       if (payload.contentKind === "story") {
