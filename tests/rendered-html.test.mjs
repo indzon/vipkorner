@@ -287,6 +287,10 @@ test("feed identity, reactions, saves, follows, reports, and in-app sharing stay
   assert.match(page, /hasUnseenShorts/);
   assert.match(page, /onPointerUp=\{handleMediaPointerUp\}/);
   assert.match(page, /like-success\.json/);
+  assert.match(page, /pendingPostActionsRef/);
+  assert.match(page, /postActionEpochRef/);
+  assert.match(page, /pendingPostActionsRef\.current\.has\(actionKey\)/);
+  assert.match(page, /typeof result\.likes === "number" \? result\.likes : post\.likes/);
   assert.match(page, /function SharePostModal/);
   assert.match(page, /Shared @\$\{post\.author\.username\}'s post/);
   assert.match(page, /post-follow-button/);

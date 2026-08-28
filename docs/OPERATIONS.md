@@ -101,6 +101,7 @@ For member-profile releases, verify Explore identity copy remains left-aligned, 
 5. Follow a public member from Explore and from a member profile; each successful action must play exactly one acknowledgement animation.
 6. Confirm followed authors do not show a redundant **Following** control in the feed; unfollowed authors still show **Follow**.
 7. Choose **Hide post** from another member's post menu and confirm the post disappears immediately and stays absent after a refresh without affecting other members' feeds.
+8. Like and unlike a post with the heart, then double-tap unliked media; confirm each action changes the count once and the count never flashes back while the request or a background feed refresh is in flight.
 
 ## Fictional community seed
 

@@ -239,16 +239,36 @@ export default function HomePage() {
   const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
   const [memberProfileError, setMemberProfileError] = useState("");
   const discoveryRequestRef = useRef(0);
+  const postActionEpochRef = useRef(0);
+  const postActionTokenRef = useRef(0);
+  const pendingPostActionsRef = useRef(new Map<string, { value: boolean; token: number }>());
 
   const activePost = posts.find((post) => post.id === activePostId) || null;
 
   const loadFeed = useCallback(async () => {
+    const requestEpoch = postActionEpochRef.current;
     try {
       const response = await fetch("/api/feed");
       if (response.status === 401 || response.status === 403) { location.replace("/login"); return; }
       if (!response.ok) throw new Error("Could not load feed");
       const data = await response.json() as { posts: Post[]; stories: Story[]; profile: Profile | null; activities: Activity[] };
-      setPosts(data.posts);
+      if (requestEpoch === postActionEpochRef.current) {
+        setPosts(data.posts.map((post) => {
+          const pendingLike = pendingPostActionsRef.current.get(`${post.id}:like`);
+          const pendingSave = pendingPostActionsRef.current.get(`${post.id}:save`);
+          let nextPost = post;
+          if (pendingLike) {
+            const serverLiked = Boolean(post.liked);
+            nextPost = {
+              ...nextPost,
+              liked: pendingLike.value,
+              likes: Math.max(0, post.likes + (pendingLike.value === serverLiked ? 0 : pendingLike.value ? 1 : -1)),
+            };
+          }
+          if (pendingSave) nextPost = { ...nextPost, saved: pendingSave.value };
+          return nextPost;
+        }));
+      }
       setStories(data.stories);
       if (!data.profile) { location.replace("/login"); return; }
       setProfile(data.profile);
@@ -371,24 +391,39 @@ export default function HomePage() {
   );
 
   async function togglePost(id: string, action: "like" | "save", desired?: boolean) {
+    const actionKey = `${id}:${action}`;
+    if (pendingPostActionsRef.current.has(actionKey)) return;
     const currentPost = posts.find((post) => post.id === id);
     if (!currentPost) return;
     const currentValue = action === "like" ? Boolean(currentPost.liked) : Boolean(currentPost.saved);
     const nextValue = desired ?? !currentValue;
     if (currentValue === nextValue) return;
+    const token = ++postActionTokenRef.current;
+    pendingPostActionsRef.current.set(actionKey, { value: nextValue, token });
+    postActionEpochRef.current += 1;
     setPosts((current) => current.map((post) => {
       if (post.id !== id) return post;
       if (action === "like") {
-        const liked = Boolean(post.liked);
         return { ...post, liked: nextValue, likes: Math.max(0, post.likes + (nextValue ? 1 : -1)) };
       }
       return { ...post, saved: nextValue };
     }));
     try {
       const response = await fetch("/api/posts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action, value: nextValue }) });
-      await readApiResponse(response, `Could not ${action === "like" ? "update this like" : "save this post"}.`);
-      if (action === "like") await loadFeed();
+      const result = await readApiResponse<{ likes?: number; liked?: number | boolean; saved?: number | boolean }>(response, `Could not ${action === "like" ? "update this like" : "save this post"}.`);
+      if (pendingPostActionsRef.current.get(actionKey)?.token !== token) return;
+      pendingPostActionsRef.current.delete(actionKey);
+      postActionEpochRef.current += 1;
+      setPosts((current) => current.map((post) => post.id === id ? {
+        ...post,
+        likes: typeof result.likes === "number" ? result.likes : post.likes,
+        liked: result.liked === undefined ? post.liked : Boolean(result.liked),
+        saved: result.saved === undefined ? post.saved : Boolean(result.saved),
+      } : post));
     } catch {
+      if (pendingPostActionsRef.current.get(actionKey)?.token !== token) return;
+      pendingPostActionsRef.current.delete(actionKey);
+      postActionEpochRef.current += 1;
       void loadFeed();
     }
   }
